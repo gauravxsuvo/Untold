@@ -157,4 +157,3 @@ proxy.ts                Per-request CSP nonce
 - [`docs/release-checklist.md`](docs/release-checklist.md): what has and hasn't been verified
 - [`docs/phase-6-e2ee-architecture.md`](docs/phase-6-e2ee-architecture.md): encryption decision record
 - [`plan.md`](plan.md): project plan and phase history
-- [Portways hosting guide](<portways-hosting-guide (3).md>): the platform's deployment contract

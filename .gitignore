@@ -24,3 +24,6 @@ yarn-debug.log*
 pnpm-debug.log*
 *.tsbuildinfo
 /next-env.d.ts
+
+# private Portways platform docs
+portways-hosting-guide*.md

@@ -48,7 +48,6 @@ With the bridge running, a local Next.js server, and the migrations applied, `np
 
 ## References
 
-- [Portways hosting guide in this repository](<portways-hosting-guide (3).md>)
 - [Portways database and storage guide](https://db.portways.app/docs.md)
 - [Better Auth PostgreSQL adapter](https://better-auth.com/docs/adapters/postgresql)
 - [Better Auth Drizzle adapter](https://better-auth.com/docs/adapters/drizzle)
