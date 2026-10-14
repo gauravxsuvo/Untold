@@ -6,6 +6,7 @@
 
 - [x] `npm run lint`, `npx tsc --noEmit`, and `npm test` (19 tests) pass; `npm run build` succeeds.
 - [x] The production build starts with dev dependencies pruned, binds to `PORT`, and serves pages with the CSP nonce and security headers.
+- [x] `npm start` migrates an empty database before serving; two processes starting at once apply each migration exactly once; re-runs are no-ops; a missing `DATABASE_URL` skips migration without crashing.
 - [x] Against a local PostgreSQL-compatible server and the production build: migrations apply and re-run cleanly; sign-up, sign-in, wrong-password rejection, and sign-out work; signed-out visitors are redirected away from `/app`; a conversation is found or created by email from either side; both people send and read messages; retried sends are de-duplicated; outsiders get 404 and signed-out callers 401; cross-origin writes get 403; invalid and over-long messages get 400; start-conversation is rate limited (429).
 - [x] Sign-in rate limits are tracked per visitor via `cf-connecting-ip`, so one visitor hitting the limit does not block another.
 - [x] In a browser: sign-up through the form, starting a conversation, sending with Enter, and receiving the other person's reply without reloading. No console errors.
@@ -14,7 +15,7 @@
 
 ## Deploying on Portways
 
-1. Create a Postgres add-on, connect through the Portways database bridge, and run `npm run db:migrate`.
+1. Create a Postgres add-on. Migrations run automatically when the app starts.
 2. Create one Portways project from the repository root and link the add-on.
 3. Set `BETTER_AUTH_SECRET` (32+ random characters) and `BETTER_AUTH_URL` (the exact public HTTPS origin). Optionally set `ABLY_API_KEY` for instant delivery.
 4. Deploy, start with one replica, and confirm the Postgres connection limit before scaling.

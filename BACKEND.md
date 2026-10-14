@@ -20,7 +20,7 @@ The database pool is capped at three connections per app replica. Keep the initi
 
 For local development, use the Portways database bridge on loopback and put its PostgreSQL URL in `.env.local` as `DATABASE_URL`. `.env.example` shows the format. The app uses the same `DATABASE_URL` setting locally and in Portways; the hosted project receives it from the linked add-on.
 
-Run `npm run db:migrate` from a controlled machine connected through the local bridge, and again whenever a new file appears in `scripts/migrations/`. The migration runner rejects non-loopback URLs, applies ordered SQL migrations transactionally, and records immutable checksums. Do not run migrations automatically when the web process starts.
+The hosted project migrates itself: `npm start` runs `scripts/migrate-on-start.mjs` before `next start`. It applies ordered SQL migrations, each in its own transaction that takes a transaction-scoped Postgres advisory lock and re-checks `untold_migrations.applied`, so concurrent replicas apply each file exactly once (and the lock also works through PgBouncer's transaction pooling). Checksums are immutable: editing an applied migration fails the start, so add a new numbered file instead. A failed migration exits non-zero so the deploy fails visibly. Locally, `npm run db:migrate` runs the same code but only accepts a loopback (bridge) URL. Decision recorded 2026-10-15: the user chose automatic migration on deploy over manual bridge runs.
 
 With the bridge running, a local Next.js server, and the migrations applied, `npm run test:backend` checks the database tables/indexes, Better Auth session routing, and unauthenticated realtime-token rejection. This command only accepts loopback database and app URLs.
 

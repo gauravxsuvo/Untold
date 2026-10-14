@@ -55,7 +55,7 @@ You need Node.js 20.9 or newer and a PostgreSQL database. With Portways, run the
 
 5. Optional: with the dev server running, `npm run test:backend` checks the database tables and the auth routes.
 
-The migration runner and the backend smoke test refuse to run against anything that is not a loopback address. If the database or auth settings are missing, pages still render and the API returns `503 service_not_configured` instead of crashing.
+`npm start` also applies pending migrations before serving. The manual `npm run db:migrate` command and the backend smoke test refuse to run against anything that is not a loopback address. If the database or auth settings are missing, pages still render and the API returns `503 service_not_configured` instead of crashing.
 
 ### Environment variables
 
@@ -76,12 +76,12 @@ All of these are server-only. Never give any of them a `NEXT_PUBLIC_` prefix.
 | --- | --- |
 | `npm run dev` | Start the development server. |
 | `npm run build` | Production build. Portways runs this. |
-| `npm start` | Serve the production build on `0.0.0.0`, on `PORT` when it is set. |
+| `npm start` | Apply pending database migrations, then serve the production build on `0.0.0.0` (on `PORT` when set). |
 | `npm run lint` | Lint with Biome. |
 | `npm test` | Type-check and run the app tests. |
 | `npm run build:encryption` / `npm run test:encryption` | Build and test the standalone encryption helper. |
 | `npm run build:all` / `npm run test:all` | App plus encryption helper. |
-| `npm run db:migrate` | Apply new SQL migrations from `scripts/migrations/` (safe to re-run). |
+| `npm run db:migrate` | Manually apply migrations through a loopback database URL (safe to re-run). |
 | `npm run test:backend` | Local backend smoke checks. |
 
 ## Deploying on Portways
@@ -92,9 +92,8 @@ Do not split it into separate frontend and backend projects: the session cookies
 
 ### 1. Database
 
-1. In Portways, create a **Postgres add-on**.
-2. Turn on remote access for the add-on, issue a token, and run the Portways database bridge on your machine as the panel shows. Put the bridge's `127.0.0.1` URL in `.env.local` as `DATABASE_URL`.
-3. Run `npm run db:migrate`. Re-run it after pulling any change that adds a file under `scripts/migrations/`. Migrations never run automatically on deploy.
+1. In Portways, create a **Postgres add-on** and link it to the project (below).
+2. That's all. On every deploy, `npm start` applies any pending SQL migrations from `scripts/migrations/` before the server starts accepting requests. Each migration runs once, in a transaction guarded by a Postgres advisory lock, so several replicas starting together are safe. If a migration fails, the container exits and the deploy shows as failed instead of serving a half-migrated database.
 
 ### 2. Project
 
@@ -144,7 +143,7 @@ components/             UI (app shell, auth, brand, landing, messaging)
 lib/auth/               Better Auth client/server setup, server session helper, form validation
 lib/messaging/          Shared message envelope format, conversation helpers, browser API client
 lib/server/             Database pool, schema, conversations, rate limits, Ably, HTTP helpers
-scripts/                migrate.mjs, backend-smoke.mjs, and ordered SQL migrations
+scripts/                Migration runner (on start and manual), backend smoke test, ordered SQL migrations
 tests/                  Unit tests (compiled with tsconfig.tests.json)
 encryption/             Standalone Web Crypto helper with its own package and tests
 crypto/                 Placeholder for a future messaging-protocol integration

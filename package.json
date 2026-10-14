@@ -10,7 +10,7 @@
     "build": "next build",
     "build:encryption": "npm --prefix encryption run build",
     "build:all": "npm run build && npm run build:encryption",
-    "start": "next start --hostname 0.0.0.0",
+    "start": "node scripts/migrate-on-start.mjs && next start --hostname 0.0.0.0",
     "test": "tsc -p tsconfig.tests.json && node --test .test-build/tests/*.test.js",
     "test:encryption": "npm --prefix encryption test",
     "test:all": "npm test && npm run test:encryption",
