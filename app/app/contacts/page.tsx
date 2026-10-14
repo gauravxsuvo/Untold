@@ -1,15 +1,15 @@
 import { PageHeading } from "@/components/app/page-heading";
-import { MockContactDirectory } from "@/components/messaging/mock-contact-directory";
+import { ContactDirectory } from "@/components/messaging/contact-directory";
 
 export default function ContactsPage() {
   return (
     <div className="app-page">
       <PageHeading
-        description="A few fictional people make this messaging preview easier to explore."
+        description="The people you have conversations with. Add someone by their account email."
         eyebrow="People"
         title="Contacts"
       />
-      <MockContactDirectory />
+      <ContactDirectory />
     </div>
   );
 }

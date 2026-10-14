@@ -27,10 +27,6 @@ export function ApplicationShell({ children }: { children: React.ReactNode }) {
             <Wordmark />
           </Link>
           <div className="app-mobile-header__actions">
-            <span className="app-preview-pill">
-              <i aria-hidden="true" />
-              Preview
-            </span>
             <SessionControl placement="mobile" />
           </div>
         </header>
@@ -40,13 +36,13 @@ export function ApplicationShell({ children }: { children: React.ReactNode }) {
             <span>Private by intention</span>
             <span className="app-preview-pill">
               <i aria-hidden="true" />
-              Interface preview
+              Not end-to-end encrypted
             </span>
           </div>
           {children}
           <footer className="app-main__footer">
             <span>Some things are just between us.</span>
-            <span>Conversation screens use mock data. Encryption is not implemented.</span>
+            <span>Messages are sent over HTTPS and stored on the server. End-to-end encryption is not implemented yet.</span>
           </footer>
         </main>
       </div>

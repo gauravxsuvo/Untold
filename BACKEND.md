@@ -9,7 +9,7 @@ The Portways guide says to create separate projects when the frontend and backen
 1. Create a Portways project from this repository with the repository root as its root directory.
 2. Link a Portways Postgres add-on to the project. Portways injects its project-scoped PostgreSQL connection as `DATABASE_URL`.
 3. Set `BETTER_AUTH_SECRET` to a random secret of at least 32 characters and `BETTER_AUTH_URL` to the project's public HTTPS origin, such as `https://untold.portways.app`.
-4. Set `ABLY_API_KEY` as a server-only environment variable. Ably remains the realtime notification provider; it receives only conversation/message IDs, while API and UI hosting plus the database are on Portways.
+4. Optionally set `ABLY_API_KEY` as a server-only environment variable for instant delivery. Ably receives only conversation and message IDs. Without it, the browser polls the API every few seconds.
 5. Deploy. Portways sees the root `package.json`, installs dependencies, runs `npm run build`, then runs `npm start`. The start command binds Next.js to `0.0.0.0`; Next.js uses the `PORT` value supplied by Portways.
 
 Use the guide's Env tab for variables. Never expose database credentials, `BETTER_AUTH_SECRET`, or the Ably API key through a `NEXT_PUBLIC_` variable. Portways passes recognized public prefixes to the build, so only values intended for browser code should use those prefixes.
@@ -20,30 +20,30 @@ The database pool is capped at three connections per app replica. Keep the initi
 
 For local development, use the Portways database bridge on loopback and put its PostgreSQL URL in `.env.local` as `DATABASE_URL`. `.env.example` shows the format. The app uses the same `DATABASE_URL` setting locally and in Portways; the hosted project receives it from the linked add-on.
 
-Run `npm run db:migrate` once from a controlled machine connected through the local bridge. The migration runner rejects non-loopback URLs, applies ordered SQL migrations transactionally, and records immutable checksums. Do not run migrations automatically when the web process starts.
+Run `npm run db:migrate` from a controlled machine connected through the local bridge, and again whenever a new file appears in `scripts/migrations/`. The migration runner rejects non-loopback URLs, applies ordered SQL migrations transactionally, and records immutable checksums. Do not run migrations automatically when the web process starts.
 
 With the bridge running, a local Next.js server, and the migrations applied, `npm run test:backend` checks the database tables/indexes, Better Auth session routing, and unauthenticated realtime-token rejection. This command only accepts loopback database and app URLs.
 
 ## Current application boundary
 
-- Better Auth stores email/password accounts and sessions in the `untold_auth` schema. Passwords are hashed by Better Auth. Email verification and password reset mail are not configured.
-- Drizzle stores conversation membership and opaque message envelopes in `untold_app`. The app API checks sessions and membership before reads, writes, and realtime-token issuance.
-- Message-envelope bytes are not currently known to be encrypted. The UI still uses mock messages and must not send real message text through these endpoints.
+- Better Auth stores email/password accounts and sessions in the `untold_auth` schema. Passwords are hashed by Better Auth. Email verification and password reset mail are not configured. Behind Portways, Better Auth reads the client IP from Cloudflare's `cf-connecting-ip` header; `X-Forwarded-For` carries several proxy hops there and would put every visitor in one shared rate-limit bucket.
+- Drizzle stores conversations, membership, and message envelopes in `untold_app`. `GET/POST /api/conversations` lists conversations and finds or creates a one-to-one conversation by account email (one per pair, enforced by `direct_key`). The API checks sessions and membership before reads, writes, and realtime-token issuance, and applies per-user limits from `untold_app.rate_limit`.
+- Message envelopes are plaintext JSON (`{"v":1,"type":"text","text":…}`, base64 on the wire, up to 2,000 characters). They are protected in transit by HTTPS but are **not end-to-end encrypted**: the server and database operator can read them. The UI states this wherever messages appear.
 - Ably receives only message-available identifiers and issues short-lived, conversation-scoped subscribe tokens. Conversation and message IDs, timing, and connection metadata remain visible to Ably.
-- Contact discovery, conversation creation/invitations, device management, message encryption, attachments, delivery guarantees, and push notifications remain unimplemented.
+- Group conversations, device management, end-to-end encryption, attachments, push notifications, and email delivery remain unimplemented.
 
 ## Security headers and release boundary
 
 - The Next.js app applies a nonce-based Content Security Policy to page responses and standard browser security headers to all routes. Authenticated message writes and realtime-token requests also require the configured `BETTER_AUTH_URL` origin.
 - TLS termination and HSTS are deployment responsibilities. Serve the project only over HTTPS and set `BETTER_AUTH_URL` to the exact public origin.
-- The helper in `encryption/` is built separately with `npm run build:encryption`. It uses browser Web Crypto and is not called by the chat UI. Do not host it as an API that receives plaintext or keys; its code belongs on the client.
-- Read [`docs/release-checklist.md`](docs/release-checklist.md) before creating the Portways project. A successful local build is not evidence of a live backend or production-ready end-to-end encryption.
+- The helper in `encryption/` is built separately with `npm run build:encryption`. It uses browser Web Crypto and is not called by the chat UI. The CSP allows `connect-src` to Ably's `ably.net`, `ably-realtime.com`, and `ably.io` hosts for realtime delivery. Do not host it as an API that receives plaintext or keys; its code belongs on the client.
+- Read [`docs/release-checklist.md`](docs/release-checklist.md) before creating the Portways project.
 
 ## Limits and operations
 
 - Do not store sessions, uploads, cache state, or other durable data in the container filesystem. Portways recreates containers on deploy/restart and scaled projects have no shared local disk.
-- Better Auth sessions and rate-limit state use PostgreSQL, so they are shared across replicas. Future shared realtime fanout can use a linked Portways Redis add-on after its transport requirements are selected.
-- No live Portways database, sign-up/sign-in, or Ably delivery has been exercised in this workspace because no Portways connection or Ably secret is configured.
+- Better Auth sessions and all rate-limit state use PostgreSQL, so they are shared across replicas.
+- The full flow (migrations, sign-up, sign-in, starting a conversation, messaging both ways, membership isolation, rate limits) was verified on 2026-10-15 against a local PostgreSQL-compatible server and the production build. A live Portways database and Ably delivery have not been exercised from this workspace.
 - Portways project creation, database linking, environment entry, custom domains, and live deployment happen in the Portways dashboard; this repository change prepares the app but does not create dashboard resources.
 
 ## References

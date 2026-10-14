@@ -1,11 +1,15 @@
 import type { Metadata } from "next";
+import { redirect } from "next/navigation";
 import { AuthScreen } from "@/components/auth/auth-screen";
+import { getServerSession } from "@/lib/auth/session";
 
 export const metadata: Metadata = {
-  title: "Account setup preview — Untold",
-  description: "Explore the Untold sign-up interface. No account is created or saved.",
+  title: "Create an account — Untold",
+  description: "Create an Untold account.",
 };
 
-export default function SignUpPage() {
+export default async function SignUpPage() {
+  if ((await getServerSession()).status === "signed-in") redirect("/app/inbox");
+
   return <AuthScreen mode="sign-up" />;
 }

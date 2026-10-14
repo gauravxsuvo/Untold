@@ -7,7 +7,7 @@ const principles = [
     number: "01",
     title: "Private conversations",
     text: "A focused home for the people and conversations that matter, without a public feed competing for your attention.",
-    status: "Product direction",
+    status: "Available now",
   },
   {
     number: "02",
@@ -35,7 +35,7 @@ export function LandingPage() {
             <a href="#privacy">Our approach</a>
             <a href="#building">What we’re building</a>
             <Link className="site-nav__cta" href="/auth/sign-in">
-              Sign in preview <span aria-hidden="true">↗</span>
+              Sign in <span aria-hidden="true">↗</span>
             </Link>
           </nav>
         </div>
@@ -44,25 +44,25 @@ export function LandingPage() {
       <section className="hero page-width" aria-labelledby="hero-title">
         <div className="hero__copy">
           <p className="eyebrow">
-            <span aria-hidden="true" /> A product concept for private messaging
+            <span aria-hidden="true" /> Private messaging, in early access
           </p>
           <h1 id="hero-title">
             Some things are just <em>between us.</em>
           </h1>
           <p className="hero__description">
-            Untold is being built as a quieter home for the conversations that matter—thoughtful by
+            Untold is a quieter home for the conversations that matter—thoughtful by
             design, and honest about what is and isn’t ready.
           </p>
           <div className="hero__actions">
             <Link className="button button--primary" href="/auth/sign-up">
-              Explore sign-up preview <span aria-hidden="true">↗</span>
+              Create an account <span aria-hidden="true">↗</span>
             </Link>
             <a className="text-link" href="#building">
               What we’re making <span aria-hidden="true">↓</span>
             </a>
           </div>
           <p className="hero__note">
-            <span aria-hidden="true">✳</span> Early concept · No real accounts or messaging yet
+            <span aria-hidden="true">✳</span> Early access · Not end-to-end encrypted yet
           </p>
         </div>
         <div className="hero__visual">
@@ -93,8 +93,8 @@ export function LandingPage() {
               <div>
                 <h3>Thoughtful by default</h3>
                 <p>
-                  A calm, uncluttered experience is the direction. No public feed is part of this
-                  concept.
+                  A calm, uncluttered experience for the people you choose. There is no public
+                  feed.
                 </p>
               </div>
             </article>
@@ -105,8 +105,8 @@ export function LandingPage() {
               <div>
                 <h3>Clear about today</h3>
                 <p>
-                  Untold is in development. There is no working messaging service or implemented
-                  encryption yet.
+                  Messaging works today. End-to-end encryption does not exist yet, so messages are
+                  stored on Untold’s server and protected in transit by HTTPS.
                 </p>
               </div>
             </article>
@@ -184,7 +184,7 @@ export function LandingPage() {
           <Wordmark />
         </a>
         <p>Some things are just between us.</p>
-        <span>Untold is in development. Messaging and encryption are not yet available.</span>
+        <span>Untold is in early access. Messages are not end-to-end encrypted yet.</span>
       </footer>
     </main>
   );

@@ -3070,8 +3070,8 @@ button {
 .inbox-overview__header,
 .inbox-conversation__body,
 .inbox-conversation__topline,
-.mock-contact-directory li,
-.mock-contact-directory__identity {
+.contact-directory li,
+.contact-directory__identity {
   display: flex;
 }
 
@@ -3640,7 +3640,7 @@ button {
 }
 
 .inbox-overview__list,
-.mock-contact-directory ul {
+.contact-directory ul {
   margin: 0;
   padding: 0;
   list-style: none;
@@ -3695,17 +3695,17 @@ button {
   line-height: 1.6;
 }
 
-.mock-contact-directory {
+.contact-directory {
   border: 1px solid var(--app-line);
   background: #fff;
 }
 
-.mock-contact-directory > .messaging-kicker {
+.contact-directory > .messaging-kicker {
   padding: 17px 20px;
   border-bottom: 1px solid var(--app-line);
 }
 
-.mock-contact-directory li {
+.contact-directory li {
   min-height: 76px;
   align-items: center;
   gap: 12px;
@@ -3713,35 +3713,35 @@ button {
   border-bottom: 1px solid rgba(38, 49, 43, 0.07);
 }
 
-.mock-contact-directory li:last-child {
+.contact-directory li:last-child {
   border-bottom: 0;
 }
 
-.mock-contact-directory__identity {
+.contact-directory__identity {
   min-width: 0;
   flex: 1;
   flex-direction: column;
   gap: 4px;
 }
 
-.mock-contact-directory__identity strong {
+.contact-directory__identity strong {
   font-size: 12px;
   font-weight: 630;
 }
 
-.mock-contact-directory__identity > span {
+.contact-directory__identity > span {
   color: #859088;
   font-size: 10px;
 }
 
-.mock-contact-directory li > a {
+.contact-directory li > a {
   flex: 0 0 auto;
   color: var(--app-accent);
   font-size: 10px;
   font-weight: 620;
 }
 
-.mock-contact-directory li > a span {
+.contact-directory li > a span {
   margin-left: 5px;
 }
 
@@ -3902,12 +3902,12 @@ button {
     padding-inline: 14px;
   }
 
-  .mock-contact-directory li {
+  .contact-directory li {
     gap: 9px;
     padding-inline: 12px;
   }
 
-  .mock-contact-directory li > a {
+  .contact-directory li > a {
     max-width: 96px;
     line-height: 1.45;
     text-align: right;
@@ -3920,4 +3920,82 @@ button {
   .message-composer__footer button {
     transition: none;
   }
+}
+
+/* Live messaging */
+.start-conversation {
+  display: grid;
+  gap: 6px;
+}
+
+.start-conversation__row {
+  display: flex;
+  gap: 6px;
+}
+
+.start-conversation__row .conversation-search {
+  flex: 1;
+  min-width: 0;
+}
+
+.start-conversation button {
+  min-height: 39px;
+  flex: 0 0 auto;
+  padding: 0 12px;
+  border: 1px solid var(--app-accent);
+  border-radius: 4px;
+  background: var(--app-accent);
+  color: #fff;
+  cursor: pointer;
+  font-size: 10px;
+  font-weight: 620;
+}
+
+.start-conversation button:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
+}
+
+.start-conversation__feedback {
+  min-height: 14px;
+  margin: 0;
+  color: #587761;
+  font-size: 10px;
+  line-height: 1.4;
+}
+
+.start-conversation__feedback--error,
+.message-bubble__status--failed,
+.messaging-error {
+  color: #a5432f;
+}
+
+.message-bubble__status--failed button {
+  margin-left: 6px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  font: inherit;
+  text-decoration: underline;
+}
+
+.messaging-error {
+  margin: 0;
+  padding: 8px 15px;
+  font-size: 10px;
+}
+
+.contact-directory__start {
+  padding: 17px 20px;
+  border-bottom: 1px solid var(--app-line);
+}
+
+.contact-directory__empty {
+  margin: 0;
+  padding: 20px;
+  color: #818c84;
+  font-size: 11px;
+  line-height: 1.6;
 }

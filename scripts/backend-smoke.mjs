@@ -26,6 +26,7 @@ const expectedTables = [
   ["untold_app", "conversation"],
   ["untold_app", "conversation_member"],
   ["untold_app", "message_envelope"],
+  ["untold_app", "rate_limit"],
 ];
 
 const pool = new Pool({ connectionString: databaseUrl, max: 1 });

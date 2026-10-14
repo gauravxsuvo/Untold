@@ -12,7 +12,8 @@
     "rootDir": "."
   },
   "include": [
-    "lib/messaging/mock-data.ts",
+    "lib/messaging/text-envelope.ts",
+    "lib/messaging/people.ts",
     "lib/auth/validation.ts",
     "lib/server/portways-config.ts",
     "lib/server/message-envelope.ts",

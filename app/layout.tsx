@@ -1,12 +1,12 @@
 import type { Metadata } from "next";
 import { connection } from "next/server";
-import { PreviewAuthProvider } from "@/components/auth/preview-auth-provider";
+import { AccountSessionProvider } from "@/components/auth/account-session-provider";
 import "./globals.css";
 
 export const metadata: Metadata = {
   title: "Untold — Some things are just between us.",
   description:
-    "Untold is an early product concept for thoughtful, private messaging. See what we are building and how we approach privacy.",
+    "Untold is a calm home for the conversations that matter. Sign up, add a friend by email, and start talking.",
   applicationName: "Untold",
   icons: {
     icon: "/brand/untold-mark.svg",
@@ -23,7 +23,7 @@ export default async function RootLayout({
   return (
     <html lang="en">
       <body className="min-h-screen antialiased">
-        <PreviewAuthProvider>{children}</PreviewAuthProvider>
+        <AccountSessionProvider>{children}</AccountSessionProvider>
       </body>
     </html>
   );

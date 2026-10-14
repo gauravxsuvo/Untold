@@ -101,12 +101,23 @@ export const authRateLimit = authSchema.table(
   (table) => [uniqueIndex("untold_auth_rate_limit_key_unique").on(table.key)],
 );
 
-export const conversations = appSchema.table("conversation", {
-  id: uuid("id").primaryKey(),
-  createdBy: text("created_by")
-    .notNull()
-    .references(() => authUser.id, { onDelete: "cascade" }),
-  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+export const conversations = appSchema.table(
+  "conversation",
+  {
+    id: uuid("id").primaryKey(),
+    createdBy: text("created_by")
+      .notNull()
+      .references(() => authUser.id, { onDelete: "cascade" }),
+    directKey: text("direct_key"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [uniqueIndex("untold_conversation_direct_key_unique").on(table.directKey)],
+);
+
+export const appRateLimits = appSchema.table("rate_limit", {
+  key: text("key").primaryKey(),
+  count: integer("count").notNull(),
+  windowStartedAt: bigint("window_started_at", { mode: "number" }).notNull(),
 });
 
 export const conversationMembers = appSchema.table(

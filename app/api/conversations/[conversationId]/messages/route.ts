@@ -9,8 +9,11 @@ import {
 } from "@/lib/server/http";
 import { getDatabase } from "@/lib/server/database";
 import { publishMessageAvailable } from "@/lib/server/ably";
+import { isConversationMember } from "@/lib/server/conversations";
 import { decodeMessageEnvelope } from "@/lib/server/message-envelope";
-import { conversationMembers, messageEnvelopes } from "@/lib/server/schema";
+import { consumeRateLimit, rateLimitedResponse, rateLimitRules } from "@/lib/server/rate-limit";
+import { messageEnvelopes } from "@/lib/server/schema";
+import { decodeTextEnvelope } from "@/lib/messaging/text-envelope";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -18,6 +21,19 @@ export const dynamic = "force-dynamic";
 type RouteContext = { params: Promise<{ conversationId: string }> };
 const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const maxRequestBytes = 90 * 1024;
+
+function notFoundResponse(): Response {
+  return Response.json({ message: "Conversation not found." }, { status: 404 });
+}
+
+async function notifyMessageAvailable(conversationId: string, messageId: string) {
+  try {
+    return await publishMessageAvailable(conversationId, messageId);
+  } catch {
+    console.error("Untold message notification could not be published");
+    return false;
+  }
+}
 
 export async function GET(request: Request, context: RouteContext): Promise<Response> {
   try {
@@ -30,20 +46,7 @@ export async function GET(request: Request, context: RouteContext): Promise<Resp
     if (!user) return unauthorizedResponse();
 
     const { db } = getDatabase();
-    const membership = await db
-      .select({ userId: conversationMembers.userId })
-      .from(conversationMembers)
-      .where(
-        and(
-          eq(conversationMembers.conversationId, conversationId),
-          eq(conversationMembers.userId, user.id),
-        ),
-      )
-      .limit(1);
-
-    if (membership.length === 0) {
-      return Response.json({ message: "Conversation not found." }, { status: 404 });
-    }
+    if (!(await isConversationMember(db, conversationId, user.id))) return notFoundResponse();
 
     const messages = await db
       .select({
@@ -56,13 +59,15 @@ export async function GET(request: Request, context: RouteContext): Promise<Resp
       .from(messageEnvelopes)
       .where(eq(messageEnvelopes.conversationId, conversationId))
       .orderBy(desc(messageEnvelopes.createdAt), desc(messageEnvelopes.id))
-      .limit(50);
+      .limit(100);
 
     return Response.json(
       {
-        messages: messages
-          .reverse()
-          .map(({ envelope, ...message }) => ({ ...message, envelope: envelope.toString("base64") })),
+        messages: messages.reverse().map(({ envelope, createdAt, ...message }) => ({
+          ...message,
+          text: decodeTextEnvelope(new Uint8Array(envelope)),
+          createdAt: createdAt.toISOString(),
+        })),
       },
       { headers: { "Cache-Control": "no-store" } },
     );
@@ -109,27 +114,24 @@ export async function POST(request: Request, context: RouteContext): Promise<Res
         { status: decoded.error === "too-large" ? 413 : 400 },
       );
     }
-
-    const { db } = getDatabase();
-    const membership = await db
-      .select({ userId: conversationMembers.userId })
-      .from(conversationMembers)
-      .where(
-        and(
-          eq(conversationMembers.conversationId, conversationId),
-          eq(conversationMembers.userId, user.id),
-        ),
-      )
-      .limit(1);
-    if (membership.length === 0) {
-      return Response.json({ message: "Conversation not found." }, { status: 404 });
+    const text = decodeTextEnvelope(new Uint8Array(decoded.bytes));
+    if (text === null) {
+      return Response.json(
+        { message: "Messages must contain 1 to 2,000 characters of text." },
+        { status: 400 },
+      );
     }
 
-    const messageId = crypto.randomUUID();
+    const { db } = getDatabase();
+    if (!(await isConversationMember(db, conversationId, user.id))) return notFoundResponse();
+
+    const limit = await consumeRateLimit(db, `send-message:${user.id}`, rateLimitRules.sendMessage);
+    if (!limit.allowed) return rateLimitedResponse(limit.retryAfterSeconds);
+
     const inserted = await db
       .insert(messageEnvelopes)
       .values({
-        id: messageId,
+        id: crypto.randomUUID(),
         conversationId,
         senderId: user.id,
         clientMessageId: input.clientMessageId,
@@ -160,38 +162,32 @@ export async function POST(request: Request, context: RouteContext): Promise<Res
         return Response.json({ message: "This client message ID has already been used." }, { status: 409 });
       }
 
-      let realtimePublished = false;
-      try {
-        realtimePublished = await publishMessageAvailable(conversationId, existing.id);
-      } catch {
-        console.error("Untold message notification could not be published");
-      }
-
       return Response.json(
         {
-          id: existing.id,
-          clientMessageId: input.clientMessageId,
-          createdAt: existing.createdAt,
+          message: {
+            id: existing.id,
+            senderId: user.id,
+            clientMessageId: input.clientMessageId,
+            text,
+            createdAt: existing.createdAt.toISOString(),
+          },
           duplicate: true,
-          realtimePublished,
+          realtimePublished: await notifyMessageAvailable(conversationId, existing.id),
         },
         { headers: { "Cache-Control": "no-store" } },
       );
     }
 
-    let realtimePublished = false;
-    try {
-      realtimePublished = await publishMessageAvailable(conversationId, inserted[0].id);
-    } catch {
-      console.error("Untold message notification could not be published");
-    }
-
     return Response.json(
       {
-        id: inserted[0].id,
-        clientMessageId: input.clientMessageId,
-        createdAt: inserted[0].createdAt,
-        realtimePublished,
+        message: {
+          id: inserted[0].id,
+          senderId: user.id,
+          clientMessageId: input.clientMessageId,
+          text,
+          createdAt: inserted[0].createdAt.toISOString(),
+        },
+        realtimePublished: await notifyMessageAvailable(conversationId, inserted[0].id),
       },
       { status: 201, headers: { "Cache-Control": "no-store" } },
     );

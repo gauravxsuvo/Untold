@@ -10,12 +10,13 @@
 - Phase 5 (backend and real-time messaging): approved; hosting target was changed from Vercel to Portways on 2026-10-15. The user started Phase 6 on 2026-10-14.
 - Phase 6 (end-to-end encryption): the separate browser-native AES-GCM helper in [`encryption/`](encryption/README.md) is implemented and tested, with no third-party crypto dependency. It uses a manually shared symmetric key and is not complete secure messaging or connected to chat. OpenMLS 0.9.1 remains the preferred MLS engine candidate after an SRLabs audit, but its official JS/WASM wrapper is an unpublished experiment and is not covered by the core WASM test job. Real-message integration remains stopped at the security gates. See [the Phase 6 decision](docs/phase-6-e2ee-architecture.md).
 - Phase 7 (hardening and release preparation): local hardening and build preparation complete. Production release remains gated on the checklist in [`docs/release-checklist.md`](docs/release-checklist.md), including live Portways/Ably verification, custom API rate limits, and a dependency audit.
+- Production messaging (2026-10-15): the user asked for Untold "in production with everything working" so they and a friend can use it. Real one-to-one messaging replaced the mock workspace: start a conversation by account email, plaintext text envelopes stored in Postgres, Ably notifications with polling fallback, per-user API rate limits, server-side `/app` protection, and Cloudflare client-IP handling for Better Auth. Messages are explicitly **not end-to-end encrypted** and the UI says so. Verified end to end against a local PostgreSQL-compatible server and in a browser; live Portways deployment is pending.
 
 ## Durable project rules
 
 - The user explicitly authorized continuing the remaining phases through a final build on 2026-10-15. Do not stop for an intermediate approval prompt.
-- Keep security claims accurate. Until a reviewed cryptographic implementation exists, describe the app as a prototype and do not claim messages are encrypted, delivered, or secure.
-- Phase 3 uses isolated mock conversations and contacts. Message composition may update local in-memory UI only; no backend, real delivery, authentication, or cryptography.
+- Keep security claims accurate. Until a reviewed cryptographic implementation exists, never claim messages are encrypted end to end or secure; state that they are stored readable on the server.
+- Superseded on 2026-10-15: the Phase 3 mock conversations and demo session were removed when real messaging shipped (see the production messaging status above).
 - Keep the established calm, premium, accessible visual direction and responsive behavior.
 - Update this file with phase status and decisions at each approval boundary. The original master prompt is preserved verbatim below.
 

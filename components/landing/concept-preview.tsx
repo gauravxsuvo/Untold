@@ -85,7 +85,7 @@ export function ConceptPreview() {
       </div>
 
       <figcaption className="concept__disclaimer">
-        An illustrative interface only. Messaging is not available; nothing here is sent or stored.
+        An illustration of the conversation space. The people and messages shown are examples.
       </figcaption>
     </figure>
   );

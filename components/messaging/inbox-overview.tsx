@@ -1,34 +1,48 @@
+"use client";
+
 import Link from "next/link";
-import { initialConversations, type MockConversation } from "@/lib/messaging/mock-data";
+import { useRouter } from "next/navigation";
+import { useAccountSession } from "@/components/auth/account-session-provider";
+import { StartConversationForm } from "@/components/messaging/start-conversation-form";
+import { useConversationList } from "@/components/messaging/use-messaging";
+import {
+  conversationActivityAt,
+  conversationTitle,
+  formatMessageTime,
+  initialsFor,
+  otherMembers,
+  toneFor,
+  type ConversationSummary,
+} from "@/lib/messaging/people";
 
-function formatUpdatedTime(value: string) {
-  return new Intl.DateTimeFormat(undefined, {
-    hour: "numeric",
-    minute: "2-digit",
-  }).format(new Date(value));
-}
-
-function RecentConversation({ conversation }: { conversation: MockConversation }) {
-  const preview =
-    conversation.lastSender === "you"
-      ? `You: ${conversation.lastMessage}`
-      : conversation.lastMessage;
+function RecentConversation({
+  conversation,
+  viewerId,
+}: {
+  conversation: ConversationSummary;
+  viewerId: string;
+}) {
+  const [person] = otherMembers(conversation, viewerId);
+  const last = conversation.lastMessage;
+  const preview = last
+    ? `${last.senderId === viewerId ? "You: " : ""}${last.text ?? "Unsupported message"}`
+    : "No messages yet";
+  const title = conversationTitle(conversation, viewerId);
+  const activityAt = conversationActivityAt(conversation);
 
   return (
     <li>
       <Link
-        className={`inbox-conversation inbox-conversation--${conversation.contact.tone}`}
+        className={`inbox-conversation inbox-conversation--${toneFor(person?.id ?? conversation.id)}`}
         href={`/app/conversations?conversation=${encodeURIComponent(conversation.id)}`}
       >
         <span aria-hidden="true" className="inbox-conversation__avatar">
-          {conversation.contact.initials}
+          {initialsFor(title)}
         </span>
         <span className="inbox-conversation__body">
           <span className="inbox-conversation__topline">
-            <strong>{conversation.contact.name}</strong>
-            <time dateTime={conversation.updatedAt}>
-              {formatUpdatedTime(conversation.updatedAt)}
-            </time>
+            <strong>{title}</strong>
+            <time dateTime={activityAt}>{formatMessageTime(activityAt)}</time>
           </span>
           <span className="inbox-conversation__preview">{preview}</span>
         </span>
@@ -41,25 +55,53 @@ function RecentConversation({ conversation }: { conversation: MockConversation }
 }
 
 export function InboxOverview() {
+  const router = useRouter();
+  const { session } = useAccountSession();
+  const viewerId = session?.id ?? "";
+  const { conversations, state, error } = useConversationList();
+  const recent = conversations.slice(0, 6);
+
   return (
     <section aria-labelledby="recent-conversations-title" className="inbox-overview">
       <header className="inbox-overview__header">
         <div>
-          <p className="messaging-kicker">Demo data · examples only</p>
+          <p className="messaging-kicker">
+            {session ? `Signed in as ${session.displayName}` : "Your space"}
+          </p>
           <h2 id="recent-conversations-title">Recent conversations</h2>
         </div>
         <Link className="inbox-overview__all" href="/app/conversations">
           All conversations <span aria-hidden="true">↗</span>
         </Link>
       </header>
-      <ul className="inbox-overview__list">
-        {initialConversations.map((conversation) => (
-          <RecentConversation conversation={conversation} key={conversation.id} />
-        ))}
-      </ul>
+
+      {state === "loading" ? (
+        <p className="inbox-overview__note" role="status">
+          Loading conversations…
+        </p>
+      ) : state === "error" ? (
+        <p className="inbox-overview__note messaging-error" role="alert">
+          {error}
+        </p>
+      ) : recent.length > 0 ? (
+        <ul className="inbox-overview__list">
+          {recent.map((conversation) => (
+            <RecentConversation conversation={conversation} key={conversation.id} viewerId={viewerId} />
+          ))}
+        </ul>
+      ) : (
+        <div className="contact-directory__start">
+          <StartConversationForm
+            onStarted={(conversation) =>
+              router.push(`/app/conversations?conversation=${encodeURIComponent(conversation.id)}`)
+            }
+          />
+        </div>
+      )}
+
       <p className="inbox-overview__note">
-        These sample conversations are only here to show the interface. Nothing is sent or
-        encrypted.
+        Messages are sent over HTTPS and stored on Untold’s server. They are not end-to-end
+        encrypted yet.
       </p>
     </section>
   );

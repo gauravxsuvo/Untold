@@ -4,11 +4,9 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState, type FormEvent } from "react";
 import { Wordmark } from "@/components/brand/wordmark";
-import { usePreviewAuth } from "@/components/auth/preview-auth-provider";
+import { useAccountSession } from "@/components/auth/account-session-provider";
 import { authClient } from "@/lib/auth/client";
 import { validateAuthForm, type AuthFieldErrors, type AuthFormMode } from "@/lib/auth/validation";
-
-const emptyValues = { name: "", email: "", password: "", confirmation: "" };
 
 export function AuthScreen({
   mode,
@@ -25,7 +23,7 @@ export function AuthScreen({
   const [feedback, setFeedback] = useState("");
   const [isPasswordVisible, setIsPasswordVisible] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const { beginDemoSession, session, isSessionPending, isAccountServiceUnavailable } = usePreviewAuth();
+  const { isSessionPending, isAccountServiceUnavailable } = useAccountSession();
   const router = useRouter();
   const isSignUp = mode === "sign-up";
 
@@ -57,6 +55,7 @@ export function AuthScreen({
       setName("");
       setEmail("");
       router.push(isSignUp ? "/app/onboarding" : "/app/inbox");
+      router.refresh();
     } catch {
       setFeedback("We could not reach the account service. Your password has been cleared; please try again.");
     } finally {
@@ -64,15 +63,6 @@ export function AuthScreen({
       setConfirmation("");
       setIsSubmitting(false);
     }
-  }
-
-  function handleDemoSession() {
-    setName(emptyValues.name);
-    setEmail(emptyValues.email);
-    setPassword(emptyValues.password);
-    setConfirmation(emptyValues.confirmation);
-    beginDemoSession();
-    router.push("/app/onboarding");
   }
 
   function clearFieldError(field: keyof AuthFieldErrors) {
@@ -87,7 +77,7 @@ export function AuthScreen({
           <Wordmark />
         </Link>
         <span className="auth-preview-badge">
-              <i aria-hidden="true" /> Account access
+          <i aria-hidden="true" /> Account access
         </span>
       </header>
 
@@ -97,8 +87,8 @@ export function AuthScreen({
           <h1 id="auth-title">{isSignUp ? "Make room for what matters." : "Welcome back."}</h1>
           <p className="auth-card__intro">
             {isSignUp
-              ? "Create an account to explore Untold. Email verification and account recovery are not configured yet."
-              : "Sign in to your Untold account, or explore the workspace with a temporary demo profile."}
+              ? "Create an account, then add a friend by their email. Password reset by email is not set up yet, so keep your password safe."
+              : "Sign in to your Untold account to pick up your conversations."}
           </p>
 
           {signedOut ? (
@@ -108,8 +98,7 @@ export function AuthScreen({
           ) : null}
           {isAccountServiceUnavailable ? (
             <p className="auth-notice" role="status">
-              Account access is not configured in this environment yet. The sample profile is still
-              available to explore.
+              Account access is not configured on this server yet. Please try again later.
             </p>
           ) : null}
 
@@ -195,8 +184,8 @@ export function AuthScreen({
               ) : (
                 <span className="auth-field__hint" id="auth-password-hint">
                   {isSignUp
-                    ? "Use a sample password only. 15+ characters; passphrases are fine."
-                    : "Use a sample value only. This preview does not check credentials."}
+                    ? "At least 15 characters. A passphrase of a few words works well."
+                    : "Enter the password you chose when you signed up."}
                 </span>
               )}
             </div>
@@ -226,7 +215,7 @@ export function AuthScreen({
               </div>
             ) : (
               <div className="auth-form__utility">
-                <span>Account recovery is not configured yet.</span>
+                <span>Password reset is not set up yet.</span>
                 <Link href="/auth/recovery">Need help signing in?</Link>
               </div>
             )}
@@ -252,21 +241,6 @@ export function AuthScreen({
             </p>
           </form>
 
-          <div className="auth-divider">
-            <span>or</span>
-          </div>
-          {session?.source !== "account" ? (
-            <>
-              <button className="auth-demo-button" onClick={handleDemoSession} type="button">
-                Explore the workspace with a sample profile <span aria-hidden="true">→</span>
-              </button>
-              <p className="auth-demo-note">
-                The sample profile is fictional and stays in memory. Account credentials are sent
-                only when you submit the account form and are cleared after the request.
-              </p>
-            </>
-          ) : null}
-
           <p className="auth-switch">
             {isSignUp ? "Already have an account?" : "New to Untold?"}{" "}
             <Link href={isSignUp ? "/auth/sign-in" : "/auth/sign-up"}>
@@ -275,7 +249,7 @@ export function AuthScreen({
           </p>
         </section>
 
-        <aside aria-label="How this preview handles your information" className="auth-side-note">
+        <aside aria-label="How Untold handles your information" className="auth-side-note">
           <span aria-hidden="true" className="auth-side-note__mark">
             ✳
           </span>
@@ -283,12 +257,12 @@ export function AuthScreen({
           <h2>
             {isAccountServiceUnavailable
               ? "Account access is being configured."
-              : "Account access is connected; messaging is still a preview."}
+              : "Plain about what is and isn’t private."}
           </h2>
           <ul>
-            <li>Submitted account credentials go to the configured Untold account service.</li>
-            <li>Email verification and password recovery are not configured.</li>
-            <li>The message workspace still uses mock conversations; encryption is not implemented.</li>
+            <li>Your password is hashed and never stored in plain text.</li>
+            <li>Messages are sent over HTTPS and stored on Untold’s server. They are not end-to-end encrypted yet.</li>
+            <li>Email verification and password reset are not configured.</li>
           </ul>
           <Link href="/auth/recovery">
             How recovery could work <span aria-hidden="true">↗</span>

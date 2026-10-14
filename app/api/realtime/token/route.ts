@@ -9,6 +9,7 @@ import {
 } from "@/lib/server/http";
 import { getDatabase } from "@/lib/server/database";
 import { createConversationSubscribeToken } from "@/lib/server/ably";
+import { consumeRateLimit, rateLimitedResponse, rateLimitRules } from "@/lib/server/rate-limit";
 import { conversationMembers } from "@/lib/server/schema";
 
 export const runtime = "nodejs";
@@ -47,6 +48,9 @@ export async function POST(request: Request): Promise<Response> {
 
     const uniqueIds = [...new Set(conversationIds)];
     const { db } = getDatabase();
+    const limit = await consumeRateLimit(db, `realtime-token:${user.id}`, rateLimitRules.realtimeToken);
+    if (!limit.allowed) return rateLimitedResponse(limit.retryAfterSeconds);
+
     const memberships = await db
       .select({ conversationId: conversationMembers.conversationId })
       .from(conversationMembers)

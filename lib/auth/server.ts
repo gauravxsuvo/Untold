@@ -28,6 +28,13 @@ function createUntoldAuth() {
     baseURL,
     secret,
     trustedOrigins: [baseURL],
+    advanced: {
+      ipAddress: {
+        // Portways serves through Cloudflare and Traefik, so X-Forwarded-For carries several
+        // hops and Better Auth rejects it. Cloudflare's single-value header is the client IP.
+        ipAddressHeaders: ["cf-connecting-ip", "x-forwarded-for"],
+      },
+    },
     database: drizzleAdapter(db, {
       provider: "pg",
       schema: {

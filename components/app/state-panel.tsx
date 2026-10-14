@@ -10,7 +10,7 @@ type StatePanelProps = {
 
 const stateLabels = {
   empty: "Nothing here yet",
-  unavailable: "Not available in this preview",
+  unavailable: "Not available right now",
   error: "This section could not load",
 } as const;
 

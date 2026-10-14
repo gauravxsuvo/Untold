@@ -2,21 +2,22 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { usePreviewAuth } from "@/components/auth/preview-auth-provider";
+import { useAccountSession } from "@/components/auth/account-session-provider";
 
 export function SessionControl({ placement }: { placement: "sidebar" | "mobile" }) {
-  const { session, isSessionPending, signOut } = usePreviewAuth();
+  const { session, isSessionPending, signOut } = useAccountSession();
   const router = useRouter();
 
   async function handleSignOut() {
     await signOut();
     router.replace("/auth/sign-in?status=signed-out");
+    router.refresh();
   }
 
   if (placement === "mobile") {
     return session ? (
       <button className="app-preview-pill app-preview-pill--action" onClick={handleSignOut} type="button">
-        {session.source === "demo" ? "End demo session" : "Sign out"}
+        Sign out
       </button>
     ) : isSessionPending ? (
       <span className="app-preview-pill" aria-live="polite">Checking account…</span>
@@ -33,10 +34,10 @@ export function SessionControl({ placement }: { placement: "sidebar" | "mobile" 
       <div className="app-sidebar__session-copy">
         {session ? (
           <>
-            <strong>{session.source === "demo" ? "Temporary demo session" : "Signed-in account"}</strong>
-            <small>{session.displayName}{session.source === "demo" ? " · held in memory" : ""}</small>
+            <strong>{session.displayName}</strong>
+            <small>{session.email}</small>
             <button className="app-sidebar__session-action" onClick={handleSignOut} type="button">
-              {session.source === "demo" ? "End demo session" : "Sign out"}
+              Sign out
             </button>
           </>
         ) : isSessionPending ? (
@@ -46,10 +47,10 @@ export function SessionControl({ placement }: { placement: "sidebar" | "mobile" 
           </>
         ) : (
           <>
-            <strong>Workspace preview</strong>
+            <strong>Signed out</strong>
             <small>No account session</small>
             <Link className="app-sidebar__session-action" href="/auth/sign-in">
-              Sign in preview <span aria-hidden="true">↗</span>
+              Sign in <span aria-hidden="true">↗</span>
             </Link>
           </>
         )}

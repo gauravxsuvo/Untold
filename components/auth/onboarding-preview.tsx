@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { usePreviewAuth } from "@/components/auth/preview-auth-provider";
+import { useAccountSession } from "@/components/auth/account-session-provider";
 import { PageHeading } from "@/components/app/page-heading";
 
 const onboardingSteps = [
@@ -13,55 +13,50 @@ const onboardingSteps = [
   {
     number: "02",
     title: "Know what privacy means here",
-    text: "Account identity, message contents, and connection metadata are separate design questions. The eventual service should explain each one before asking you to continue.",
+    text: "Messages are sent over HTTPS and stored on Untold’s server. They are not end-to-end encrypted yet, so the server operator can read them. Share accordingly.",
   },
   {
     number: "03",
-    title: "Check a contact’s identity",
-    text: "A future conversation could let both people compare a safety code or QR in person. That would check a device key, not a person’s legal identity. Nothing is verified in this prototype.",
+    title: "Start a conversation",
+    text: "Ask a friend to sign up, then enter their account email under Conversations or Contacts. They will see your display name and email.",
   },
 ];
 
 export function OnboardingPreview() {
-  const { session } = usePreviewAuth();
+  const { session } = useAccountSession();
 
   return (
     <div className="app-page app-page--onboarding">
       <PageHeading
-        description="A calm first look at the choices a real account flow will need to make."
-        eyebrow="Getting started · preview"
+        description="A few things worth knowing before your first conversation."
+        eyebrow="Getting started"
         title="Start with clarity."
       />
 
-      <section aria-label="Current preview session" className="onboarding-session-card">
+      <section aria-label="Current session" className="onboarding-session-card">
         <span aria-hidden="true" className="onboarding-session-card__icon">
           ✳
         </span>
         <div>
           <p className="messaging-kicker">
-            {session?.source === "account" ? "Account session" : "Temporary demo session"}
+            {session ? "Account session" : "Checking account"}
           </p>
           {session ? (
             <>
               <h2>Welcome, {session.displayName}.</h2>
               <p>
-                {session.email} · {session.source === "demo"
-                  ? "sample identity · held in memory only"
-                  : session.emailVerified ? "email verified" : "email not verified"}
+                {session.email} · {session.emailVerified ? "email verified" : "email not verified"}
               </p>
             </>
           ) : (
             <>
-              <h2>Explore without signing in.</h2>
-              <p>
-                Sign in or use the sample profile to explore the workspace. Conversations on these
-                screens still use local mock data.
-              </p>
+              <h2>Loading your account…</h2>
+              <p>This only takes a moment.</p>
             </>
           )}
         </div>
         <span className="onboarding-session-card__status">
-          {session?.source === "account" ? "Account created" : "Preview session"}
+          {session ? "Account ready" : "Loading"}
         </span>
       </section>
 
@@ -96,14 +91,14 @@ export function OnboardingPreview() {
 
       <div className="onboarding-actions">
         <Link className="onboarding-actions__primary" href="/app/inbox">
-          Continue to the preview workspace <span aria-hidden="true">↗</span>
+          Go to your inbox <span aria-hidden="true">↗</span>
         </Link>
         <Link href="/app/profile">View profile</Link>
       </div>
 
       <p className="onboarding-disclaimer">
-        This onboarding does not verify a person or turn on encryption. Message screens still use
-        mock data.
+        Display names are self-chosen and are not proof of identity. End-to-end encryption is not
+        implemented yet.
       </p>
     </div>
   );

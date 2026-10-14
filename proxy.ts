@@ -10,7 +10,8 @@ export function proxy(request: NextRequest) {
     `style-src 'self' 'nonce-${nonce}'`,
     "img-src 'self' data: blob:",
     "font-src 'self' data:",
-    "connect-src 'self'",
+    // Ably realtime: primary endpoints on ably.net, fallbacks on ably-realtime.com.
+    "connect-src 'self' https://*.ably.net wss://*.ably.net https://*.ably-realtime.com wss://*.ably-realtime.com https://*.ably.io wss://*.ably.io",
     "object-src 'none'",
     "base-uri 'self'",
     "form-action 'self'",
