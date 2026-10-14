@@ -1,0 +1,45 @@
+{
+  "name": "untold",
+  "version": "0.1.0",
+  "private": true,
+  "engines": {
+    "node": ">=20.9.0"
+  },
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "build:encryption": "npm --prefix encryption run build",
+    "build:all": "npm run build && npm run build:encryption",
+    "start": "next start --hostname 0.0.0.0",
+    "test": "tsc -p tsconfig.tests.json && node --test .test-build/tests/*.test.js",
+    "test:encryption": "npm --prefix encryption test",
+    "test:all": "npm test && npm run test:encryption",
+    "lint": "biome lint",
+    "db:migrate": "node --env-file=.env.local scripts/migrate.mjs",
+    "test:backend": "node --env-file=.env.local scripts/backend-smoke.mjs"
+  },
+  "dependencies": {
+    "@better-auth/drizzle-adapter": "^1.7.8",
+    "ably": "^2.29.0",
+    "better-auth": "^1.7.8",
+    "drizzle-orm": "^0.45.4",
+    "next": "16.4.0",
+    "pg": "^8.23.1",
+    "react": "19.3.0",
+    "react-dom": "19.3.0",
+    "server-only": "^0.0.1",
+    "ws": "^8.22.0"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "2.5.15",
+    "@tailwindcss/postcss": "4.3.3",
+    "@types/node": "26.6.5",
+    "@types/pg": "^8.23.1",
+    "@types/react": "19.3.0",
+    "@types/react-dom": "19.3.0",
+    "@types/ws": "^8.18.2",
+    "postcss": "8.5.30",
+    "tailwindcss": "4.3.3",
+    "typescript": "7.0.2"
+  }
+}

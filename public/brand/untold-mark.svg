@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 36 36" fill="none">
+  <title>Untold</title>
+  <rect width="36" height="36" rx="9" fill="#F6F6F2"/>
+  <path d="M10.25 7.75h12.5a5.5 5.5 0 0 1 5.5 5.5v6a5.5 5.5 0 0 1-5.5 5.5h-2.5l-5.5 4v-4h-4.5a5.5 5.5 0 0 1-5.5-5.5v-6a5.5 5.5 0 0 1 5.5-5.5Z" stroke="#315C4E" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8"/>
+  <path d="M12 14.5h9m-9 4h5.5" stroke="#315C4E" stroke-linecap="round" stroke-width="1.8"/>
+</svg>

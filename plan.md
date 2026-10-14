@@ -1,0 +1,460 @@
+# Untold — Project Plan and Working Prompt
+
+## Current status
+
+- Phase 0 (repository inspection and planning): approved.
+- Phase 1 (brand foundation and visual prototype): approved.
+- Phase 2 (application shell and navigation): approved.
+- Phase 3 (messaging interface): approved by the user on 2026-10-14.
+- Phase 4 (authentication and onboarding): preview approved by the user on 2026-10-14. Provider selection was deferred to the backend discussion below.
+- Phase 5 (backend and real-time messaging): approved; hosting target was changed from Vercel to Portways on 2026-10-15. The user started Phase 6 on 2026-10-14.
+- Phase 6 (end-to-end encryption): the separate browser-native AES-GCM helper in [`encryption/`](encryption/README.md) is implemented and tested, with no third-party crypto dependency. It uses a manually shared symmetric key and is not complete secure messaging or connected to chat. OpenMLS 0.9.1 remains the preferred MLS engine candidate after an SRLabs audit, but its official JS/WASM wrapper is an unpublished experiment and is not covered by the core WASM test job. Real-message integration remains stopped at the security gates. See [the Phase 6 decision](docs/phase-6-e2ee-architecture.md).
+- Phase 7 (hardening and release preparation): local hardening and build preparation complete. Production release remains gated on the checklist in [`docs/release-checklist.md`](docs/release-checklist.md), including live Portways/Ably verification, custom API rate limits, and a dependency audit.
+
+## Durable project rules
+
+- The user explicitly authorized continuing the remaining phases through a final build on 2026-10-15. Do not stop for an intermediate approval prompt.
+- Keep security claims accurate. Until a reviewed cryptographic implementation exists, describe the app as a prototype and do not claim messages are encrypted, delivered, or secure.
+- Phase 3 uses isolated mock conversations and contacts. Message composition may update local in-memory UI only; no backend, real delivery, authentication, or cryptography.
+- Keep the established calm, premium, accessible visual direction and responsive behavior.
+- Update this file with phase status and decisions at each approval boundary. The original master prompt is preserved verbatim below.
+
+## Current implementation snapshot
+
+- Stack: Next.js App Router, React, strict TypeScript, Tailwind CSS 4; npm.
+- Hosting target: one Portways full-stack Next.js project (UI plus API route handlers) linked to a Portways Postgres add-on.
+- Preview: http://localhost:3000
+- Phase 1 landing page and brand foundation are in place.
+- Phase 2 routes: `/app/inbox`, `/app/conversations`, `/app/contacts`, `/app/settings`, `/app/profile`; shared shell, navigation, status, loading, and error components are in place.
+- Phase 3 adds a mock conversation workspace with search, message history, local-only composition, timestamps, details, contact directory, empty states, and mobile layouts. No real delivery, account contacts, identity verification, encryption, or persistence are implemented.
+- Phase 5 adds Better Auth email/password sessions, Portways Postgres/Drizzle schemas and migrations, membership-checked opaque message-envelope endpoints, and scoped Ably token issuance. The existing messaging UI remains mock; end-to-end messaging cryptography, conversation creation, contact discovery, and verified email are not implemented. A separate experimental AES-GCM helper is documented under Phase 6.
+- The app test suite has 17 focused tests; the standalone encryption package has 5 additional Web Crypto boundary tests. Use `npm run test:all` to run both.
+
+## Phase 4 decision context (provider decision recorded below)
+
+- Do not connect a real identity provider, persist credentials, create an account data model, or implement password/account recovery before explaining the available approaches and their security and operational consequences.
+- Phase 4 can demonstrate form validation, onboarding, and a clearly labeled temporary in-memory demo session. Password fields must never leave the browser and must be cleared after a valid preview submission or when leaving the form.
+- Keep account-access recovery distinct from recovery of future end-to-end encryption keys. Account recovery may restore login without recovering old message keys.
+- Provider approaches compared before integration: a managed identity service such as Clerk (quick hosted flows and session/user management, with an external processor and vendor dependency); auth bundled with a chosen backend such as Supabase Auth (convenient with its Postgres/RLS stack, while tying identity and session behavior to that platform); or a self-managed framework such as Better Auth (more control over where account data lives, with greater responsibility for storage, session security, email delivery, abuse controls, and updates). The choice also depends on pricing, data residency, sign-in methods, and keeping future encryption keys separate from provider-held account data. At the end of Phase 4, no option had been selected; Better Auth was selected for Phase 5 below.
+- Recovery concepts presented for review: verified email reset, a user-held single-use recovery code, or approval from an existing trusted device. These have different availability and compromise risks. No recovery mechanism is wired up; recovery of account access does not by itself recover future message keys.
+- References: [Next.js authentication guidance](https://nextjs.org/docs/app/guides/authentication), [Clerk user management](https://clerk.com/docs/guides/users/managing), [Supabase Auth](https://supabase.com/docs/guides/auth), [Better Auth](https://better-auth.com/docs/introduction), [OWASP password recovery guidance](https://cheatsheetseries.owasp.org/cheatsheets/Forgot_Password_Cheat_Sheet.html), and [NIST SP 800-63B-4](https://pages.nist.gov/800-63-4/sp800-63b.html).
+
+## Phase 4 review record (2026-10-14)
+
+- Added sign-up and sign-in screens with local validation, useful field errors, password visibility, and explicit feedback that credentials are not sent or saved.
+- Added a fictional in-memory demo session, onboarding and identity-verification education, a profile preview, and sign-out controls. Reload clears the session; there is no real authentication or account persistence.
+- Added an account-recovery concept page comparing email reset, a saved recovery code, and a trusted device. No recovery mechanism is connected; account recovery is distinguished from recovering future message keys.
+- Provider directions and consequences are summarized above; no provider or account data model has been selected.
+- `npm run lint`, `npx tsc --noEmit`, `npm test` (9 passing tests), and `npm run build` all pass.
+- Browser review covered validation, password clearing, sign-in feedback, sample profile, onboarding, logout, recovery concepts, route HTTP status, and 390/768/1024/1440-pixel layouts. No horizontal overflow was found.
+- Review captures: `untold-phase4-signup-desktop.png`, `untold-phase4-signup-mobile.png`, `untold-phase4-onboarding-desktop.png`, `untold-phase4-onboarding-mobile.png`, and `untold-phase4-recovery-desktop.png` in the Codex visualization output folder.
+- Preview: http://localhost:3000
+- User approved the preview direction on 2026-10-14. At that point no authentication provider was selected; the later Phase 5 architecture discussion records the decision.
+
+## Backend hosting discussion (2026-10-14)
+
+- The user asked us to use [Portways database docs](https://db.portways.app/docs) to guide the database choice and asked whether the rest can be hosted on Vercel.
+- The sandboxed browser and fetch tools could not resolve the host, but the user supplied `/docs.md` and authorized another attempt. An escalated direct HTTPS read then returned HTTP 200; the full guide was reviewed. Source: [Portways database and storage guide](https://db.portways.app/docs.md).
+- Portways provides Postgres, Redis, and S3-compatible object storage. Postgres is reached through an encrypted WebSocket gateway at `wss://db.portways.app/v1`; for serverless hosts including Vercel, the guide recommends `@neondatabase/serverless` with `wsProxy = () => "db.portways.app/v1"`, secure WebSockets enabled, `pipelineConnect = false`, and the token passed as a WebSocket subprotocol. The guide says the HTTP query helper is unsupported; use the `Pool`/`Client` API. A bridge process is for conventional hosts and cannot be kept beside serverless functions.
+- Keep the Portways token, Postgres username/password/database, and any storage credentials in server-side environment variables only. The guide documents token-specific rate, connection, data, query, and storage limits. Example common limits include 3 queries/second and 10 concurrent Postgres connections; pools need to be small (`max: 1`–`3` on serverless), reused, and recycled before 10 minutes idle / 12 hours lifetime. Actual token tier and quotas must be confirmed before production capacity is assumed. Databases above 5 GB become read-only by default. Run schema migrations from one controlled location, not at every function start.
+- Vercel is a suitable host for this Next.js App Router application and its server-side routes/functions. Its current documentation supports Next.js full-stack deployment and WebSockets in Functions as public beta. Vercel documents a need for shared state for durable coordination across socket/function instances. Portways documents Redis through its bridge, but does not provide a serverless Redis WebSocket path in this guide; do not assume Portways Redis can be used directly from Vercel Functions.
+- Phase 5 architecture (approved by the user's "start with next phase" response): (1) deploy the Next.js app and server-side API on Vercel; (2) use Portways Postgres through the documented Neon serverless WebSocket driver for account, conversation, membership, and opaque message-envelope persistence; (3) use Better Auth with its PostgreSQL/Drizzle adapter in app-specific schemas; (4) use Ably Pub/Sub as the managed realtime broker, with Vercel issuing short-lived channel-scoped tokens after checking session and conversation membership; publish only message-available IDs over Ably and fetch opaque payloads through the authenticated app API; (5) reserve Portways S3-compatible private storage for a later attachment design, after Phase 6 defines encryption. Keep cryptographic keys and plaintext message content out of the server architecture.
+- Ably is recommended over Vercel's public-beta WebSocket runtime for the initial realtime transport because its managed Pub/Sub connection layer avoids building multi-instance socket fanout into Vercel Functions. Ably adds a separate provider dependency and can still observe conversation/channel identifiers, event timing, and connection metadata; do not send message text or ciphertext through Ably when IDs plus authenticated fetches suffice. Issue narrow capabilities for only the specific conversation channels a user can access; keep presence/typing signals out of scope until their metadata value is justified.
+- Better Auth was selected because its official docs support PostgreSQL and Drizzle, allowing identity/session records to live with Portways instead of adding an identity database. Trade-off: Untold owns more auth integration and operational work. The integration uses the documented Neon serverless Pool and a controlled SQL migration runner; it still needs a live Portways smoke check. Clerk remains the lower-operations managed alternative with an external identity processor; Supabase Auth is less cohesive with Portways as the chosen primary database.
+- Important scale/operations caveat: Portways quotas are per token and each Vercel instance can open its own pool. Even a small per-instance pool can hit the token connection/query ceilings as instances multiply. Keep pools at one connection initially, batch database work, monitor 429/slowdown limits, and confirm the issued token tier plus regional latency before treating this as production capacity.
+- References: [Portways docs](https://db.portways.app/docs.md), [Next.js on Vercel](https://vercel.com/docs/frameworks/full-stack/nextjs), [Vercel WebSocket support announcement](https://vercel.com/changelog/websocket-support-is-now-in-public-beta), [Vercel environment variables](https://vercel.com/docs/environment-variables), [Better Auth PostgreSQL adapter](https://better-auth.com/docs/adapters/postgresql), [Better Auth Drizzle adapter](https://better-auth.com/docs/adapters/drizzle), [Ably token authentication](https://ably.com/docs/auth/token?lang=javascript), and [Ably channel capabilities](https://ably.com/docs/auth/capabilities).
+- User said "start with next phase" on 2026-10-14 after reviewing the proposed architecture; treated as approval to implement Phase 5 with Vercel, Portways Postgres, Better Auth, and Ably. Secrets are not available and must not be placed in source control or chat.
+- Hosting decision changed on 2026-10-15 after the user provided `portways-hosting-guide (3).md`: run the Next.js UI and API routes on Portways and use a linked Portways Postgres add-on. This supersedes Vercel as the application host and removes the serverless Neon WebSocket gateway from the hosted runtime. The existing Next.js app is one integrated full-stack service, so it is deployed from the repository root as one Portways project; if frontend and API become separate app directories later, they must be separate Portways projects with distinct root directories. Keep Ably for the currently approved ID-only realtime notifications unless its transport is separately redesigned.
+- At the start of Phase 5, no backend implementation, provider setup, database schema, or secrets had been added.
+
+## Phase 5 implementation record (2026-10-14)
+
+- Added Better Auth server and client setup for email/password sign-up, sign-in, persisted sessions, and sign-out. Password rules are 15–128 characters. Auth rate limits use the database with five sign-in and sign-up attempts per minute per detected client IP. Email verification is not required because no mail service is configured; recovery remains unimplemented.
+- Added a Portways Neon serverless WebSocket Pool with the documented WSS proxy, secure WebSockets, disabled pipeline connect, and the token subprotocol. The pool max is one per warm function instance, idle timeout five minutes, and maximum lifetime one hour.
+- Added `untold_auth` and `untold_app` schemas. Fixed the membership index to allow users in multiple conversations and the message pagination index to allow equal timestamps. Stored message envelopes use PostgreSQL `bytea` and a 64 KiB decoded payload cap.
+- Added checksummed SQL migrations for the auth and messaging tables. `npm run db:migrate` uses the Portways bridge through `DATABASE_URL` and refuses non-loopback hosts. `.env.example` documents required server-only variables.
+- Added authenticated message envelope GET/POST handlers with membership checks and sender/client-message idempotency. Added Ably channel token issuance that verifies every requested membership and grants only `subscribe` on those conversation channels for 15 minutes. Publish events contain only conversation and message IDs. Ably publish failure does not discard the saved envelope; delivery retry/outbox behavior remains future work.
+- Rewired the account UI to the real auth client when configured, preserving the fictional in-memory sample profile. Passwords are cleared after each request. Profile and settings distinguish an account session from the demo session. Messaging screens explicitly remain mock-only.
+- Added pure unit coverage for configuration checks, password limits, and opaque envelope validation, plus a conditional local backend smoke-check command that checks migrated schemas, Better Auth session routing, and unauthenticated realtime rejection.
+- Local checks: `npm test` passes 17 tests; `npm run lint`, `npx tsc --noEmit`, and `npm run build` pass; `npm audit` reports zero vulnerabilities. The built home, sign-up, and inbox routes returned HTTP 200. With no backend environment configured, auth and realtime API routes returned the designed 503 configuration response.
+- Live integration has not been run because no Portways credentials, local bridge, or Ably key are present. Follow `BACKEND.md` to configure local or Vercel environment variables and run `npm run test:backend` when those services are available. Do not claim live database or realtime delivery has been verified.
+- Important limits: no conversation creation/contact discovery, no email verification or password recovery mail, no client encryption, no UI message delivery, no attachments, and no push notifications. The server cannot prove that accepted opaque bytes are encrypted.
+- Documentation: [BACKEND.md](BACKEND.md); source guide: [Portways docs](https://db.portways.app/docs.md).
+
+## Portways application hosting update (2026-10-15)
+
+- The user's current hosting decision is to host the frontend, server API, and database on Portways. This supersedes the earlier Vercel hosting direction recorded above.
+- The repository is one integrated Next.js full-stack app: its pages and `/api/*` routes run in the same Node process. Deploy the root project on Portways; `npm run build` produces the Next build, and `npm start` binds to `0.0.0.0` while Next reads Portways's `PORT`. Link a Portways Postgres add-on, which injects `DATABASE_URL` with a project-scoped login. Do not split the app into separate origins just to match a generic frontend/API example; if the code is later split into separate directories, create a Portways project for each root.
+- Switched the hosted runtime database driver from Neon-over-WebSocket to the standard `pg` driver and Drizzle's Node Postgres adapter. The runtime pool is capped at three connections per replica, within the hosting guide's five-connection recommendation. Migrations continue to run once from a controlled machine through the local Portways bridge; never run them at app startup.
+- `BACKEND.md` now documents Portways project creation, add-on linking, environment variables, local bridge migrations, replica limits, and the still-external Ably notification dependency. Dashboard resources and live deployment cannot be created from this repository alone.
+- After the switch, `npx tsc --noEmit` and `npm run build` pass. The automated test suite was not run for this hosting update. No Portways project or live database is configured here, so deployment connectivity remains unverified.
+
+## Phase 6 security decision and candidate review (2026-10-15)
+
+The detailed proposal is in [`docs/phase-6-e2ee-architecture.md`](docs/phase-6-e2ee-architecture.md). It keeps Untold's own Next.js app, Portways Postgres/API, and Ably ID notifications; it does not adopt Matrix or Megolm and does not invent a protocol.
+
+### Current feasibility decision
+
+- OpenMLS 0.9.1 is the strongest protocol-engine candidate on license and audit evidence. SRLabs performed an external audit. Its core has a WASM CI test job, while the separate browser binding crate remains an unpublished experiment and is not covered by that job.
+- `@vanishing.page/webcrypto-mls` provides a browser-native TypeScript surface, but its package metadata selects the Big Time Public License and no independent audit of its MLS core was found. Its in-repository audit covers the random-access attachment branch, not the MLS core.
+- CoreCrypto provides a custom MLS transport API, but its GPL-3.0 license needs review and its documented WASM keystore is unaudited. `mls-rs` marks its browser Web Crypto provider experimental and reports no full third-party audit. None provides a complete, supported browser integration path for Untold.
+- The experimental OpenMLS wrapper is incomplete for browser persistence and has panic/unimplemented paths. No Rust toolchain is installed in this workspace, so the route cannot currently be built or validated here. Do not write an unreviewed custom crypto binding or store private keys on the server to work around this.
+- No external encryption dependency has been added and no UI/API message flow has changed. The standalone helper in [`encryption/`](encryption/README.md) uses the browser Web Crypto API, but chat remains mock-only and messages are not end-to-end encrypted. Phase 6 remains stopped at the documented integration security gates.
+- Created [`crypto/`](crypto/README.md) as a private, dependency-free package boundary for Untold's browser integration. It is not a protocol implementation or separate hosted service.
+- Before resuming, establish a supported browser API, reviewed local-state and recovery design, reproducible browser build, backend device/key-package directory, and ordered paginated message history. Complete two-device adversarial tests and independent review before enabling real messages or making a production E2EE claim.
+- References: [OpenMLS 0.9.1](https://docs.rs/crate/openmls/0.9.1), [OpenMLS SRLabs audit summary](https://blog.phnx.im/openmls-independent-security-audit/), [OpenMLS WASM experiment](https://github.com/openmls/openmls/tree/main/openmls-wasm), [OpenMLS WASM CI job](https://github.com/openmls/openmls/blob/main/.github/workflows/tests.yml), [OpenMLS JavaScript API request](https://github.com/openmls/openmls/issues/487), [`webcrypto-mls` manifest](https://github.com/vanishing-page/webcrypto-mls/blob/main/package.json), [`webcrypto-mls` attachment audit](https://github.com/vanishing-page/webcrypto-mls/blob/main/AUDIT-ra.md), [Wire CoreCrypto](https://github.com/wireapp/core-crypto), [`mls-rs`](https://github.com/awslabs/mls-rs), [IETF MLS RFC 9420](https://www.rfc-editor.org/rfc/rfc9420.html), and [OpenE2EE assurance statement](https://github.com/open-e2ee/signal-protocol-js/blob/main/docs/ASSURANCE.md).
+
+## Phase 7 hardening and build record (2026-10-15)
+
+- Added nonce-based CSP through the Next.js 16 `proxy.ts` convention, standard browser security headers, and exact-origin checks for authenticated message writes and realtime-token requests. Added `connection()` at the root layout so every page renders dynamically and Next.js can attach the request nonce to its scripts.
+- Reduced backend failure logging to an error type and removed raw realtime publish errors. No request body or message content is logged by these paths.
+- Added `encryption/tests/` boundary checks for random secret shape, Unicode round trips, wrong keys/context, tampering, invalid envelope/version, and 64 KiB limits. `npm run test:all` runs both suites.
+- Added `npm run build:encryption` and `npm run build:all`; the separate package emits browser JavaScript and TypeScript declarations under ignored `encryption/dist/`.
+- Checks: `npm run lint`, `npx tsc --noEmit`, and `npm run test:all` pass (22 tests). `npm run build:all` passes. The sandboxed first build hit a Windows SWC path permission failure; the same build succeeded with elevated workspace access.
+- Production HTTP smoke check on the local built app: `/` and `/auth/sign-in` returned 200; all 12 script tags included their request's CSP nonce; `X-Content-Type-Options`, `X-Frame-Options`, `Referrer-Policy`, and `Permissions-Policy` were present.
+- `npm audit` could not reach `registry.npmjs.org` because DNS/network access is restricted; dependency advisory status is unverified. No Portways instance, live database, or Ably credentials are configured. Custom message/realtime API rate limits, live authorization checks, live HTTPS/HSTS inspection, email verification/recovery, and independent crypto review remain outstanding.
+- Release checklist: [`docs/release-checklist.md`](docs/release-checklist.md). The final artifact is a local production build, not a deployed release. The chat remains a local mock preview; the AES-GCM helper is not a full E2EE protocol.
+
+## Phase 3 review record (2026-10-14)
+
+- `npm run lint`, `npx tsc --noEmit`, `npm test` (5 passing tests), and `npm run build` all pass.
+- Browser review confirmed search, conversation selection, no-results feedback, local message composition feedback, and the unverified/not-encrypted details disclosure.
+- Browser viewports checked at 390, 768, 1024, and 1440 pixels; the 390-pixel list and conversation thread were reviewed visually.
+- Existing application routes returned HTTP 200 in the local preview.
+- Review captures: `untold-phase3-desktop.png`, `untold-phase3-mobile-list.png`, and `untold-phase3-mobile-thread.png` in the Codex visualization output folder.
+- Preview: http://localhost:3000
+- User approved Phase 3 on 2026-10-14; Phase 4 began after approval.
+
+---
+
+## Original master prompt (preserved verbatim)
+# Codex Master Prompt: Untold
+
+You are the lead product designer, senior frontend engineer, and software architect responsible for building **Untold**, a premium end-to-end encrypted messaging platform.
+
+Your task is to build a polished, modern, privacy-first messaging web application with the simplicity, refinement, and attention to detail associated with Apple's design philosophy.
+
+**You MUST work in strictly controlled phases. Implement one phase at a time, show me the actual result, and wait for my explicit approval before proceeding. This is a mandatory requirement.**
+
+Do not attempt to build the entire application in one go.
+
+---
+
+## 1. Product Vision
+
+**Product:** Untold  
+**Category:** Private, end-to-end encrypted messaging  
+**Brand personality:** Premium, minimalist, calm, trustworthy, modern  
+**Brand tagline:** "Some things are just between us."
+
+Untold should feel like a thoughtfully designed consumer technology product, not a generic messaging clone or a cybersecurity dashboard.
+
+The experience should communicate privacy through its design rather than relying on excessive locks, shields, gradients, or technical jargon.
+
+### Core principles
+
+- Privacy by design.
+- Beautiful, intuitive interfaces.
+- Fast and responsive interactions.
+- Minimal visual clutter.
+- Clear and honest security communication.
+- Accessibility and responsive design.
+- Maintainable, production-quality code.
+
+Never claim that a feature is encrypted, secure, or production-ready unless its implementation genuinely supports that claim.
+
+## 2. Technology Stack
+
+Use modern, stable, production-ready technologies and their latest mutually compatible stable versions available when implementation begins.
+
+Preferred stack:
+
+- **Next.js:** App Router.
+- **React:** Current stable release compatible with Next.js.
+- **TypeScript:** Strict mode enabled.
+- **Tailwind CSS:** Current stable version.
+- **shadcn/ui:** Only where useful; customise components to match the product.
+- **Lucide React:** Consistent, restrained iconography.
+- **Motion:** Optional, for subtle and purposeful transitions.
+- **Zod:** Runtime validation for untrusted input and form data.
+- **React Hook Form:** Where complex forms justify it.
+
+Use Server Components by default and Client Components only where interactivity requires them.
+
+Use the package manager already present in the repository. If the project is empty, choose a suitable package manager and remain consistent.
+
+Do not introduce unnecessary dependencies or outdated APIs. Check official documentation when needed rather than guessing.
+
+The backend, database, authentication provider, and cryptographic implementation must be selected deliberately in the appropriate phases. Do not make irreversible architectural decisions without explaining their trade-offs.
+
+## 3. Visual Direction
+
+The interface should resemble a premium, carefully art-directed product.
+
+### Brand identity
+
+- Wordmark: `untold`, preferably lowercase.
+- Typography: A refined sans-serif with excellent readability.
+- Logo: A simple, distinctive symbol that can work independently as an app icon.
+- Colours: Restrained neutrals with one subtle signature accent.
+- Surfaces: Clean, precise, and uncluttered.
+- Borders and shadows: Subtle, purposeful, and consistent.
+- Spacing: Generous whitespace and a coherent spacing system.
+
+Prefer an elegant light theme initially, with a carefully designed dark theme introduced where appropriate.
+
+Avoid:
+- Generic AI-generated landing-page aesthetics.
+- Excessive glassmorphism.
+- Neon gradients and glowing borders.
+- Oversized collections of rounded cards.
+- Unnecessary animations and decorative elements.
+- Stock imagery that does not contribute to the product.
+- Copying Apple's actual branding, proprietary assets, or interface designs.
+
+The result should have its own recognisable identity while retaining the refinement of premium consumer software.
+
+## 4. Mandatory Phase-Gated Workflow
+
+Work sequentially through the phases below.
+
+**After completing each phase, stop and wait for my approval.**
+
+Do not start the next phase merely because the current phase appears complete. Only an explicit instruction from me, such as "Approved, proceed to Phase 2", authorises you to continue.
+
+If I request changes, revise the current phase and present it again for approval.
+
+### Phase 0: Repository inspection and planning
+
+Before changing any files:
+
+1. Inspect the existing repository, directory structure, dependencies, scripts, and configuration.
+2. Identify whether this is an existing application or a new project.
+3. Preserve existing functionality and avoid overwriting useful work.
+4. Establish the proposed architecture, routes, design system, and phase plan.
+5. Identify important technical risks, especially those associated with end-to-end encryption.
+
+If the repository is empty, prepare the project structure and tooling plan.
+
+Do not implement the entire application.
+
+Present a concise plan, the proposed stack, the anticipated directory structure, and the deliverables for Phase 1.
+
+**Stop and wait for approval before beginning Phase 1.**
+
+### Phase 1: Brand foundation and visual prototype
+
+Build the initial visual foundation of Untold.
+
+Deliverables:
+
+- A refined wordmark and simple original logo.
+- Typography, colour tokens, spacing, borders, and design primitives.
+- A responsive landing page introducing Untold.
+- A compelling hero section and clear product positioning.
+- A concise explanation of the privacy-first philosophy.
+- Feature sections covering private messaging, encrypted conversations, and future capabilities.
+- A clear call to action.
+- A polished footer and responsive navigation.
+- Responsive layouts for desktop, tablet, and mobile.
+
+Use accurate wording. Do not advertise encryption features that have not yet been implemented.
+
+The landing page must feel like a real product, even when the backend does not yet exist.
+
+Run the development server, verify the page, and present the actual rendered result using available preview or screenshot capabilities. If a visual preview tool is unavailable, provide the local URL and precise instructions for viewing it.
+
+Do not begin authentication or messaging functionality during this phase unless I explicitly approve expanding its scope.
+
+**Stop and wait for approval.**
+
+### Phase 2: Application shell and navigation
+
+Once Phase 1 is approved:
+
+- Establish the authenticated application layout.
+- Implement navigation, responsive layouts, and reusable interface components.
+- Create the primary routes for the inbox, conversations, contacts, settings, and profile.
+- Design loading, empty, error, and unavailable states.
+- Establish consistent keyboard navigation and accessibility behaviour.
+
+Use mock data where necessary. Clearly distinguish mock functionality from real functionality.
+
+Do not implement cryptography or a production backend yet.
+
+Present the working application shell and wait for approval.
+
+### Phase 3: Messaging interface
+
+Build the core messaging experience using mock conversations and mock contacts.
+
+Include:
+
+- Conversation list and search.
+- Message history.
+- Message composition and sending interactions.
+- Message timestamps and delivery-state presentation.
+- Contact and conversation details.
+- Responsive layouts for smaller screens.
+- Empty states and sensible interaction feedback.
+- Clear visual distinctions between the current user and other participants.
+
+The interface must be coherent and usable, not merely a collection of static screenshots.
+
+Do not fabricate encryption status, verified identities, or real message delivery.
+
+Present the working prototype and wait for approval.
+
+### Phase 4: Authentication and onboarding
+
+Design and implement the authentication experience.
+
+Include:
+
+- Sign-up and sign-in interfaces.
+- Session and logout flows.
+- Form validation and useful error messages.
+- Account recovery design, with security implications explained before implementation.
+- Onboarding and privacy education.
+- Identity verification concepts where appropriate.
+
+Before selecting an authentication provider or changing the data model, explain the available options and their consequences.
+
+Never store plaintext passwords or implement authentication using insecure shortcuts.
+
+Present the implemented flows and wait for approval.
+
+### Phase 5: Backend and real-time messaging
+
+Propose and agree upon the backend architecture before implementation.
+
+Evaluate appropriate technologies for:
+
+- User identity and account management.
+- Contact discovery.
+- Conversation membership.
+- Real-time message transport.
+- Persistent message storage.
+- Device management.
+- Rate limiting and abuse prevention.
+- Push notifications, if required.
+
+Design the system so that the server does not need access to plaintext message content.
+
+Treat push notifications, message previews, logs, backups, metadata, and file uploads as potential privacy risks.
+
+Implement the agreed architecture incrementally. Add integration tests and document required environment variables.
+
+Do not proceed without my approval of the proposed backend design.
+
+### Phase 6: End-to-end encryption
+
+Treat this phase as a security-critical engineering task, not a visual feature.
+
+Before implementation, provide a written security architecture covering:
+
+- The threat model and security assumptions.
+- Device identity and public/private key management.
+- Session establishment and key agreement.
+- Message encryption and authentication.
+- Forward secrecy and post-compromise security.
+- Multi-device support and device revocation.
+- Key verification and identity-change warnings.
+- Secure handling of attachments.
+- Key backup and account recovery trade-offs.
+- Server-visible metadata and its limitations.
+
+Prefer a mature, independently reviewed messaging protocol and maintained cryptographic implementations. Investigate established approaches such as the Signal Protocol and determine whether a supported implementation is suitable for this platform.
+
+Do not invent a cryptographic protocol or design your own encryption primitives.
+
+Do not assume that HTTPS, database encryption, or encrypting messages with one permanent key constitutes complete end-to-end encryption.
+
+Never place private keys in plaintext server storage, expose secrets to client bundles, or log decrypted messages.
+
+If a reliable protocol integration cannot be implemented safely with the available libraries and infrastructure, stop and explain the limitation instead of improvising.
+
+Create tests for cryptographic boundaries, authentication failures, replay handling, and key changes as appropriate to the selected protocol. Arrange independent security review before representing the system as production-secure.
+
+Present the implementation, limitations, and verification evidence. Wait for approval.
+
+### Phase 7: Hardening and release preparation
+
+Once the preceding phases are approved:
+
+- Test mobile, tablet, and desktop behaviour.
+- Audit accessibility and keyboard interactions.
+- Review loading performance and bundle sizes.
+- Add appropriate rate limits and input validation.
+- Review authentication, session handling, and permissions.
+- Check dependency vulnerabilities and security headers.
+- Review error handling and privacy-safe logging.
+- Add automated tests and a repeatable build process.
+- Configure deployment requirements and environment variables.
+- Document known limitations and outstanding security risks.
+
+Do not declare the application production-ready merely because the build succeeds.
+
+Provide a release checklist and a clear distinction between verified functionality, untested assumptions, and remaining work.
+
+---
+
+## 5. Approval Protocol
+
+At the end of every phase, provide the following report:
+
+**Phase completed:** Phase number and name.
+
+**What changed:** The important files, components, routes, and behaviours implemented.
+
+**How to preview:** The local URL and any steps needed to inspect the work.
+
+**What works:** Verified functionality.
+
+**What remains mocked or incomplete:** Any limitations that matter to evaluating the result.
+
+**Checks performed:** Build, lint, type-check, tests, and visual checks actually completed. Never claim a check passed unless you ran it successfully.
+
+**Next phase:** A brief description of the proposed next phase.
+
+Then ask:
+
+"Would you like to approve this phase, request changes, or discuss anything before proceeding?"
+
+After asking, STOP.
+
+Do not silently begin another phase, run ahead with additional implementation, or interpret silence as approval.
+
+## 6. Engineering Standards
+
+Throughout the project:
+
+- Use clear, reusable, strongly typed components.
+- Keep components focused and avoid unnecessarily large files.
+- Follow the conventions of the existing repository.
+- Separate UI, application logic, data access, and security-sensitive operations.
+- Avoid `any` unless genuinely unavoidable and documented.
+- Handle failures explicitly.
+- Never hardcode credentials or commit `.env` files containing secrets.
+- Keep environment variables documented in `.env.example` without real secrets.
+- Use realistic mock data, clearly isolated from production services.
+- Add tests for important behaviours as functionality is introduced.
+- Do not suppress errors simply to make a build pass.
+- Do not make unrelated changes outside the approved phase.
+- Keep documentation updated when architecture changes.
+
+If a dependency or technical decision has a meaningful security, performance, maintenance, or cost trade-off, explain it before proceeding.
+
+## 7. How You Should Work With Me
+
+I will review each phase and provide feedback.
+
+You are responsible for implementing the approved scope, running the appropriate checks, and presenting the actual result.
+
+If I request a revision, make the necessary changes within the current phase, verify them, and present the updated result. The phase remains incomplete until I approve it.
+
+If you encounter a blocking decision, ask a concise question rather than making a risky assumption.
+
+Do not ask me to make trivial design decisions that you can reasonably handle using the established visual direction.
+
+**Your immediate task is Phase 0 only. Inspect the repository and present the implementation plan. Do not implement Phase 1 or any subsequent phase until I approve the plan.**

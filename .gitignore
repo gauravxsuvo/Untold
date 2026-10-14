@@ -1,0 +1,26 @@
+# dependencies
+/node_modules
+/.pnp
+.pnp.*
+
+# Next.js
+/.next/
+/out/
+
+# production
+/build
+/.test-build/
+/encryption/dist/
+
+# local files
+.DS_Store
+*.pem
+.env*
+!.env.example
+
+# logs and tooling
+npm-debug.log*
+yarn-debug.log*
+pnpm-debug.log*
+*.tsbuildinfo
+/next-env.d.ts
