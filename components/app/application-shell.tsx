@@ -1,7 +1,9 @@
 import Link from "next/link";
+import { Shield } from "lucide-react";
 import { Wordmark } from "@/components/brand/wordmark";
 import { SessionControl } from "@/components/auth/session-control";
 import { ApplicationNavigation } from "@/components/app/application-navigation";
+import { InstallAppButton } from "@/components/pwa/install-app-button";
 
 export function ApplicationShell({ children }: { children: React.ReactNode }) {
   return (
@@ -27,22 +29,26 @@ export function ApplicationShell({ children }: { children: React.ReactNode }) {
             <Wordmark />
           </Link>
           <div className="app-mobile-header__actions">
+            <InstallAppButton placement="mobile" />
             <SessionControl placement="mobile" />
           </div>
         </header>
 
         <main className="app-main" id="app-content" tabIndex={-1}>
           <div className="app-topbar">
-            <span>Private by intention</span>
-            <span className="app-preview-pill">
-              <i aria-hidden="true" />
-              E2EE prototype · verify devices
-            </span>
+            <span className="app-topbar__title">Your workspace</span>
+            <div className="app-topbar__actions">
+              <InstallAppButton />
+              <span className="app-preview-pill">
+                <Shield aria-hidden="true" size={14} strokeWidth={1.8} />
+                Prototype encryption
+              </span>
+            </div>
           </div>
           {children}
           <footer className="app-main__footer">
             <span>Some things are just between us.</span>
-            <span>Messages and shared files are encrypted on devices. Legacy history is removed from the live database; verify safety codes before sending.</span>
+            <span>New messages and files use prototype device encryption. Verify safety codes before trusting a device.</span>
           </footer>
         </main>
       </div>

@@ -5,7 +5,7 @@ export default function ContactsPage() {
   return (
     <div className="app-page">
       <PageHeading
-        description="The people you have conversations with. Add someone by their account email."
+        description="People you’ve connected with on Untold."
         eyebrow="People"
         title="Contacts"
       />

@@ -14,7 +14,7 @@ export default async function ConversationsPage({ searchParams }: ConversationsP
   return (
     <div className="app-page app-page--messaging">
       <PageHeading
-        description="Start a conversation with someone by their account email, or pick up where you left off."
+        description="Find someone or pick up where you left off."
         eyebrow="Your conversations"
         title="Conversations"
       />

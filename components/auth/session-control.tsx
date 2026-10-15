@@ -2,7 +2,9 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { ArrowUpRight, LogOut, UserRound } from "lucide-react";
 import { useAccountSession } from "@/components/auth/account-session-provider";
+import { initialsFor } from "@/lib/messaging/people";
 
 export function SessionControl({ placement }: { placement: "sidebar" | "mobile" }) {
   const { session, isSessionPending, signOut } = useAccountSession();
@@ -17,6 +19,7 @@ export function SessionControl({ placement }: { placement: "sidebar" | "mobile" 
   if (placement === "mobile") {
     return session ? (
       <button className="app-preview-pill app-preview-pill--action" onClick={handleSignOut} type="button">
+        <LogOut aria-hidden="true" size={14} strokeWidth={1.8} />
         Sign out
       </button>
     ) : isSessionPending ? (
@@ -30,13 +33,16 @@ export function SessionControl({ placement }: { placement: "sidebar" | "mobile" 
 
   return (
     <div className="app-sidebar__foot">
-      <span aria-hidden="true" className="app-status-dot" />
+      <span aria-hidden="true" className="app-sidebar__avatar">
+        {session ? initialsFor(session.displayName) : <UserRound size={17} strokeWidth={1.8} />}
+      </span>
       <div className="app-sidebar__session-copy">
         {session ? (
           <>
             <strong>{session.displayName}</strong>
             <small>{session.email}</small>
             <button className="app-sidebar__session-action" onClick={handleSignOut} type="button">
+              <LogOut aria-hidden="true" size={14} strokeWidth={1.8} />
               Sign out
             </button>
           </>
@@ -50,7 +56,7 @@ export function SessionControl({ placement }: { placement: "sidebar" | "mobile" 
             <strong>Signed out</strong>
             <small>No account session</small>
             <Link className="app-sidebar__session-action" href="/auth/sign-in">
-              Sign in <span aria-hidden="true">↗</span>
+              Sign in <ArrowUpRight aria-hidden="true" size={14} strokeWidth={1.8} />
             </Link>
           </>
         )}

@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { ArrowUpRight, CircleDashed, CircleX, TriangleAlert } from "lucide-react";
 
 type StatePanelProps = {
   kind: "empty" | "unavailable" | "error";
@@ -14,6 +15,12 @@ const stateLabels = {
   error: "This section could not load",
 } as const;
 
+const stateIcons = {
+  empty: CircleDashed,
+  unavailable: TriangleAlert,
+  error: CircleX,
+} as const;
+
 export function StatePanel({
   kind,
   title,
@@ -21,12 +28,12 @@ export function StatePanel({
   actionLabel,
   actionHref,
 }: StatePanelProps) {
+  const StateIcon = stateIcons[kind];
+
   return (
     <section aria-labelledby="state-panel-title" className={`state-panel state-panel--${kind}`}>
       <div aria-hidden="true" className="state-panel__mark">
-        <i />
-        <i />
-        <i />
+        <StateIcon size={23} strokeWidth={1.7} />
       </div>
       <p className="state-panel__label">{stateLabels[kind]}</p>
       <h2 id="state-panel-title">{title}</h2>
@@ -34,7 +41,7 @@ export function StatePanel({
       {actionLabel && actionHref ? (
         <Link className="state-panel__link" href={actionHref}>
           {actionLabel}
-          <span aria-hidden="true">↗</span>
+          <ArrowUpRight aria-hidden="true" size={15} strokeWidth={1.8} />
         </Link>
       ) : null}
     </section>

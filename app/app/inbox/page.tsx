@@ -5,7 +5,7 @@ export default function InboxPage() {
   return (
     <div className="app-page">
       <PageHeading
-        description="A gentle overview of the conversations in your workspace."
+        description="The conversations you’ve shared, all in one place."
         eyebrow="Your space"
         title="Inbox"
       />
