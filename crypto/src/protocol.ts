@@ -2,7 +2,7 @@ import type { AccountIdentity, DeviceApproval } from "./account-types";
 
 const protocolName = "untold-e2ee";
 const protocolVersion = 1;
-const maxDevicesPerConversation = 32;
+const maxDevicesPerConversation = 64;
 const maxEnvelopeBytes = 64 * 1024;
 const maxPlaintextBytes = 8 * 1024;
 export const maxAttachmentBytes = 20 * 1024 * 1024;
@@ -21,6 +21,7 @@ export type PublicDevice = Readonly<{
   accountIdentity?: AccountIdentity;
   approval?: DeviceApproval | null;
   approved?: boolean;
+  conversationMember?: boolean;
   linkHash?: string | null;
   linkExpiresAt?: string | null;
 }>;

@@ -1,4 +1,4 @@
-const maxDevicesPerConversation = 32;
+const maxDevicesPerConversation = 64;
 
 export type E2eeEnvelopeHeader = {
   protocol: "untold-e2ee";

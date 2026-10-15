@@ -39,7 +39,7 @@ function RecentConversation({
         className={`inbox-conversation inbox-conversation--${toneFor(person?.id ?? conversation.id)}`}
         href={`/app/conversations?conversation=${encodeURIComponent(conversation.id)}`}
       >
-        <Avatar className="inbox-conversation__avatar" id={person?.id ?? conversation.id} image={person?.image} name={title} />
+        <Avatar className="inbox-conversation__avatar" id={conversation.groupName ? conversation.id : person?.id ?? conversation.id} image={conversation.groupName ? conversation.groupImage : person?.image} group={Boolean(conversation.groupName)} name={title} />
         <span className="inbox-conversation__body">
           <span className="inbox-conversation__topline">
             <strong>{title}</strong>

@@ -14,7 +14,7 @@ import {
 import { getDatabase } from "@/lib/server/database";
 import { accountDeviceDirectory } from "@/lib/server/device-trust";
 import { publishMessageAvailable } from "@/lib/server/ably";
-import { isConversationMember } from "@/lib/server/conversations";
+import { isConversationMember, messageAudience } from "@/lib/server/conversations";
 import { decodeMessageEnvelope } from "@/lib/server/message-envelope";
 import { consumeRateLimit, rateLimitedResponse, rateLimitRules } from "@/lib/server/rate-limit";
 import {
@@ -23,6 +23,9 @@ import {
   devices,
   messageAttachments,
   messageEnvelopes,
+  memberships,
+  conversations,
+  messageRecipients,
 } from "@/lib/server/schema";
 import { parseE2eeEnvelope } from "@/lib/server/e2ee-envelope";
 import { outgoingMessageReceipts } from "@/lib/server/message-receipts";
@@ -86,7 +89,7 @@ export async function GET(request: Request, context: RouteContext): Promise<Resp
         createdAt: messageEnvelopes.createdAt,
       })
       .from(messageEnvelopes)
-      .where(eq(messageEnvelopes.conversationId, conversationId))
+      .where(and(eq(messageEnvelopes.conversationId, conversationId), messageAudience(db, user.id)))
       .orderBy(desc(messageEnvelopes.createdAt), desc(messageEnvelopes.id))
       .limit(100);
 
@@ -229,7 +232,7 @@ export async function POST(request: Request, context: RouteContext): Promise<Res
     const members = await db
       .select({ userId: conversationMembers.userId })
       .from(conversationMembers)
-      .where(eq(conversationMembers.conversationId, conversationId));
+      .where(and(eq(conversationMembers.conversationId, conversationId), isNull(conversationMembers.leftAt)));
     const directory = await accountDeviceDirectory(members.map((member) => member.userId));
     const expectedDeviceIds = new Set(
       directory
@@ -274,6 +277,11 @@ export async function POST(request: Request, context: RouteContext): Promise<Res
 
     const clientMessageId = input.clientMessageId;
     const inserted = await db.transaction(async (tx) => {
+      await tx.select({ id: conversations.id }).from(conversations).where(eq(conversations.id, conversationId)).for("update");
+      const currentMembers = await tx.select({ userId: conversationMembers.userId }).from(conversationMembers).where(and(eq(conversationMembers.conversationId, conversationId), isNull(conversationMembers.leftAt)));
+      if (!currentMembers.some(member => member.userId === user.id)) return "access-changed" as const;
+      if (currentMembers.length !== members.length || currentMembers.some(member => !members.some(previous => previous.userId === member.userId))) return "devices-changed" as const;
+
       await tx
         .select({ id: authUser.id })
         .from(authUser)
@@ -285,6 +293,19 @@ export async function POST(request: Request, context: RouteContext): Promise<Res
         )
         .orderBy(authUser.id)
         .for("no key update");
+      const approvedMembers = await tx
+        .select({ id: memberships.userId })
+        .from(memberships)
+        .where(
+          and(
+            inArray(
+              memberships.userId,
+              members.map((member) => member.userId),
+            ),
+            eq(memberships.status, "approved"),
+          ),
+        );
+      if (approvedMembers.length !== members.length) return "access-changed" as const;
       const currentDirectory = await accountDeviceDirectory(
         members.map((member) => member.userId),
         tx,
@@ -327,11 +348,19 @@ export async function POST(request: Request, context: RouteContext): Promise<Res
         })
         .onConflictDoNothing()
         .returning({ id: messageEnvelopes.id, createdAt: messageEnvelopes.createdAt });
-      if (created.length)
+      if (created.length) {
+        const recipients = members.filter(member => member.userId !== user.id).map(member => ({ messageId: created[0].id, userId: member.userId }));
+        if (recipients.length) await tx.insert(messageRecipients).values(recipients).onConflictDoNothing();
         await tx.insert(pushOutbox).values({ messageId: created[0].id }).onConflictDoNothing();
+      }
       return created;
     });
 
+    if (inserted === "access-changed")
+      return Response.json(
+        { message: "This conversation isn’t available right now." },
+        { status: 403 },
+      );
     if (inserted === "devices-changed")
       return Response.json(
         { message: "Someone’s approved devices changed. Refresh the conversation and try again." },

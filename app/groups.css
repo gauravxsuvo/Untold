@@ -1,0 +1,200 @@
+.new-group-button {
+  align-self: flex-start;
+  margin: 0 20px 12px;
+  min-height: 36px;
+  font-size: calc(12px * var(--text-scale, 1));
+}
+.group-dialog {
+  width: min(480px, calc(100vw - 24px));
+  max-height: calc(100dvh - 24px);
+  overflow-y: auto;
+  border: 1px solid var(--ui-border);
+  border-radius: 22px;
+  padding: 24px;
+  background: var(--ui-surface);
+  color: var(--ui-text);
+  box-shadow: 0 24px 80px var(--ui-shadow);
+}
+.group-dialog::backdrop {
+  background: rgb(0 0 0 / 0.65);
+  backdrop-filter: blur(6px);
+}
+.group-dialog > header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 20px;
+}
+.group-dialog h2 {
+  margin: 4px 0;
+  font-size: 26px;
+  letter-spacing: -0.03em;
+}
+.group-dialog form,
+.group-settings form {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+}
+.group-dialog label,
+.group-settings label {
+  color: var(--ui-text);
+  font-size: calc(13px * var(--text-scale, 1));
+  font-weight: 600;
+}
+.group-dialog input,
+.group-dialog textarea,
+.group-settings input {
+  width: 100%;
+  min-width: 0;
+  border: 1px solid var(--ui-border);
+  border-radius: 10px;
+  padding: 11px 12px;
+  background: var(--ui-subtle);
+  color: var(--ui-text);
+  font: inherit;
+  font-size: max(16px, calc(14px * var(--text-scale, 1)));
+}
+.group-dialog textarea {
+  resize: vertical;
+  min-height: 92px;
+}
+.group-dialog form > p {
+  font-size: calc(13px * var(--text-scale, 1));
+  color: var(--ui-muted);
+  line-height: 1.6;
+  margin: 0 0 8px;
+}
+.group-dialog form > button {
+  justify-self: end;
+}
+.group-settings {
+  display: grid;
+  gap: 18px;
+  min-width: 0;
+  padding: 16px 0;
+  border-block: 1px solid var(--ui-border);
+  margin-bottom: 16px;
+}
+.group-settings__owner {
+  border: 0;
+  padding: 0;
+  margin: 0;
+  min-inline-size: 0;
+  display: grid;
+  gap: 20px;
+}
+.group-settings__owner > legend {
+  margin-bottom: 12px;
+  font-weight: 600;
+  color: var(--ui-text);
+}
+.group-settings h4 {
+  margin: 0;
+  font-size: calc(13px * var(--text-scale, 1));
+  color: var(--ui-text);
+}
+.group-settings__input-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.group-settings__input-row input {
+  flex: 1 1 170px;
+}
+.group-settings .profile-photo-editor {
+  margin: 0;
+}
+.group-settings .profile-photo-crop {
+  padding: 10px;
+}
+.group-members {
+  display: grid;
+  gap: 12px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.group-members > li {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 9px;
+  align-items: center;
+  min-width: 0;
+}
+.group-members > li > span:not(.person-avatar) {
+  flex: 1 1 100px;
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+.group-members strong {
+  font-size: calc(13px * var(--text-scale, 1));
+  color: var(--ui-text);
+  overflow-wrap: anywhere;
+}
+.group-members small {
+  font-size: calc(11px * var(--text-scale, 1));
+  color: var(--ui-muted);
+  overflow-wrap: anywhere;
+}
+.group-member-actions {
+  font-size: calc(12px * var(--text-scale, 1));
+}
+.group-member-actions > summary {
+  cursor: pointer;
+  color: var(--ui-accent);
+  min-height: 40px;
+  display: flex;
+  align-items: center;
+  padding: 6px;
+}
+.group-member-actions > div {
+  display: grid;
+  gap: 6px;
+  padding: 6px 0;
+}
+.group-safety {
+  padding: 12px 0;
+  border-bottom: 1px solid var(--ui-border);
+}
+.group-safety > summary {
+  cursor: pointer;
+  font-size: calc(13px * var(--text-scale, 1));
+  font-weight: 600;
+  color: var(--ui-text);
+  padding: 8px 0;
+}
+.group-safety .account-safety {
+  margin-top: 14px;
+}
+.message-bubble__sender {
+  display: block;
+  margin: 0 0 6px;
+  color: var(--ui-accent);
+  font-size: calc(12px * var(--text-scale, 1));
+  font-weight: 600;
+}
+.conversation-details__popover:has(.group-settings) {
+  width: min(440px, calc(100vw - 32px));
+  max-height: min(76dvh, 800px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+@media (max-width: 600px) {
+  .app-shell--messaging .conversation-header--group .conversation-header__person .person-avatar {
+    display: inline-flex;
+  }
+  .app-shell--messaging .conversation-header--group .conversation-header__person .messaging-kicker {
+    display: block;
+  }
+  .group-dialog {
+    padding: 18px;
+  }
+  .app-shell--messaging .conversation-details__popover:has(.group-settings) {
+    width: min(440px, calc(100vw / var(--conversation-interface-scale, 1) - 24px));
+    max-height: 72dvh;
+  }
+}

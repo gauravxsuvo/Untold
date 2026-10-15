@@ -50,8 +50,8 @@ export async function GET(request: Request) {
         SELECT 1 FROM untold_app.conversation_member own
         JOIN untold_app.conversation_member peer ON peer.conversation_id = own.conversation_id
         JOIN untold_app.conversation c ON c.id = own.conversation_id
-        WHERE own.user_id = ${userId} AND peer.user_id = ai.user_id
-          AND (c.created_by = ${userId} OR own.initiated_at IS NOT NULL OR EXISTS (
+        WHERE own.user_id = ${userId} AND peer.user_id = ai.user_id AND own.left_at IS NULL AND peer.left_at IS NULL
+          AND (c.group_name IS NOT NULL OR c.created_by = ${userId} OR own.initiated_at IS NOT NULL OR EXISTS (
             SELECT 1 FROM untold_app.message_envelope m WHERE m.conversation_id = c.id
           ))
       )

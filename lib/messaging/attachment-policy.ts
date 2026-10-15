@@ -31,7 +31,7 @@ export function sniffAttachmentType(bytes: Uint8Array, claimed = ""): string | n
   if (ascii(bytes, 4, 4) === "ftyp") {
     const brand = ascii(bytes, 8, 4);
     if (["avif", "avis"].includes(brand)) return "image/avif";
-    if (["isom", "iso2", "mp41", "mp42", "avc1", "M4V ", "M4A ", "dash"].includes(brand)) {
+    if (["isom", "iso2", "iso5", "iso6", "mp41", "mp42", "avc1", "M4V ", "M4A ", "dash"].includes(brand)) {
       return claimed === "audio/mp4" || brand === "M4A " ? "audio/mp4" : "video/mp4";
     }
   }

@@ -1,28 +1,23 @@
 import "server-only";
 
-import { and, eq, inArray, ne } from "drizzle-orm";
+import { and, inArray } from "drizzle-orm";
 import type { getDatabase } from "@/lib/server/database";
-import { conversationMembers, messageReceipts } from "@/lib/server/schema";
+import { messageRecipients, messageReceipts } from "@/lib/server/schema";
 
 type Database = ReturnType<typeof getDatabase>["db"];
 
 export async function outgoingMessageReceipts(
   db: Database,
-  conversationId: string,
-  senderId: string,
+  _conversationId: string,
+  _senderId: string,
   messageIds: string[],
 ): Promise<Map<string, { receivedAt: string | null; readAt: string | null }>> {
   const result = new Map<string, { receivedAt: string | null; readAt: string | null }>();
   if (messageIds.length === 0) return result;
   const recipients = await db
-    .select({ userId: conversationMembers.userId })
-    .from(conversationMembers)
-    .where(
-      and(
-        eq(conversationMembers.conversationId, conversationId),
-        ne(conversationMembers.userId, senderId),
-      ),
-    );
+    .select({ userId: messageRecipients.userId, messageId: messageRecipients.messageId })
+    .from(messageRecipients)
+    .where(inArray(messageRecipients.messageId, messageIds));
   if (recipients.length === 0) return result;
   const receipts = await db
     .select()
@@ -37,8 +32,14 @@ export async function outgoingMessageReceipts(
       ),
     );
   for (const id of messageIds) {
-    const rows = receipts.filter((row) => row.messageId === id);
-    const allReceived = rows.length === recipients.length;
+    const expected = recipients.filter((recipient) => recipient.messageId === id);
+    const rows = receipts.filter(
+      (row) =>
+        row.messageId === id && expected.some((recipient) => recipient.userId === row.userId),
+    );
+    const allReceived =
+      expected.length > 0 &&
+      expected.every((recipient) => rows.some((row) => row.userId === recipient.userId));
     const allRead = allReceived && rows.every((row) => row.readAt !== null);
     result.set(id, {
       receivedAt: allReceived

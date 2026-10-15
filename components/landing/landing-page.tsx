@@ -61,7 +61,7 @@ export function LandingPage() {
           </p>
           <div className="hero__actions">
             <Link className="button button--primary" href="/auth/sign-up">
-              Create an account <ArrowUpRight aria-hidden="true" size={16} />
+              Request access <ArrowUpRight aria-hidden="true" size={16} />
             </Link>
             <a className="text-link" href="#building">
               Take a look <ArrowDown aria-hidden="true" size={16} />
@@ -175,7 +175,7 @@ export function LandingPage() {
           </h2>
           <p>Make a little room for someone you’ve been meaning to catch up with.</p>
           <Link className="button button--light" href="/auth/sign-up">
-            Create an account <ArrowUpRight aria-hidden="true" size={16} />
+            Request access <ArrowUpRight aria-hidden="true" size={16} />
           </Link>
           <span className="closing__detail closing__detail--left" aria-hidden="true" />
           <span className="closing__detail closing__detail--right" aria-hidden="true" />

@@ -1,5 +1,9 @@
 # Untold
 
+Group chats support names, compressed photos, owner/member controls, and existing account safety checks. Desktop typing focuses the open chat's composer. See [groups and desktop typing](docs/groups-and-desktop-typing.md) for migration 016 and rollout details.
+
+Private membership approval, attachment viewers, voice recordings, voice/video calls, and direct photo cropping are described in [the setup guide](docs/private-membership-and-calls.md). Set `ADMIN_EMAIL` before deployment. Calls use Portways' server-only `TURN_API_URL`/`TURN_TOKEN` integration. The guide covers relay checks, normal connection privacy, outage fallback and the 55-minute call limit.
+
 Untold is a calm messaging app for the conversations that matter. You sign up with email and password, add a friend by their account email, and talk. It is one full-stack Next.js application: the interface and the server API deploy together as a single Node.js service on [Portways](#deploying-on-portways).
 
 > **Encryption status:** Text and attachment files are encrypted in the browser before the API or Portways object storage receives them. Migration 006 removes pre-encryption message rows when the app next starts, so that old history disappears; database backups may retain copies. Compare the shared account safety code once per contact, then approve additional devices from an existing device. Protocol v1 has no forward secrecy and has not had an independent security review. Someone who gains access to an unlocked device may be able to read its messages; do not treat this as production-secure.
@@ -28,13 +32,13 @@ Untold is a calm messaging app for the conversations that matter. You sign up wi
 - The browser's built-in Web Crypto API for the first-party encryption protocol in [`crypto/`](crypto/README.md)
 - [Ably](https://ably.com) for optional realtime notifications
 - Biome for linting, and the Node.js test runner for tests
-- npm, with Node.js 20.9 or newer
+- npm, with Node.js 22.13 or newer
 
 > This project uses a newer Next.js than most documentation and training data cover. Check `node_modules/next/dist/docs/` before changing framework-level code (see [`AGENTS.md`](AGENTS.md)).
 
 ## Running locally
 
-You need Node.js 20.9 or newer and a PostgreSQL database. With Portways, run the Portways database bridge so the database is reachable on `127.0.0.1` (see [`BACKEND.md`](BACKEND.md)).
+You need Node.js 22.13 or newer and a PostgreSQL database. With Portways, run the Portways database bridge so the database is reachable on `127.0.0.1` (see [`BACKEND.md`](BACKEND.md)).
 
 1. Install dependencies and create your local environment file:
 

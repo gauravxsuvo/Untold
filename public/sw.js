@@ -22,12 +22,14 @@ self.addEventListener("push", (event) => {
         typeof data.conversationId === "string" && idPattern.test(data.conversationId)
           ? data.conversationId
           : null;
+      const incomingCall = data.type === "incoming-call" && typeof data.callId === "string" && idPattern.test(data.callId);
+      if (incomingCall && (!Number.isFinite(Date.parse(data.expiresAt)) || Date.parse(data.expiresAt) <= Date.now())) return;
       // Always display a visible notification for Web Push, including on iOS.
       await self.registration.showNotification("Untold", {
-        body: "You have a new message. Open Untold to read it.",
+        body: incomingCall ? "You have an incoming call. Open Untold to answer." : "You have a new message. Open Untold to read it.",
         icon: "/icons/untold-192.png?v=2",
         badge: "/icons/untold-192.png?v=2",
-        tag: conversationId ? `untold-${conversationId}` : "untold-new-message",
+        tag: incomingCall ? `untold-call-${data.callId}` : conversationId ? `untold-${conversationId}` : "untold-new-message",
         data: {
           path: conversationId
             ? `/app/conversations?conversation=${encodeURIComponent(conversationId)}`
@@ -36,7 +38,8 @@ self.addEventListener("push", (event) => {
       });
       const windows = await self.clients.matchAll({ type: "window", includeUncontrolled: true });
       for (const client of windows)
-        client.postMessage({ type: "untold-message-available", conversationId });
+        client.postMessage({ type: incomingCall ? "untold-call-available" : "untold-message-available", conversationId });
+      if (incomingCall) return;
       // Receiving ciphertext acknowledges delivery, never reading. Session and membership
       // are checked by both endpoints; a stale subscription cannot acknowledge another account.
       if (typeof data.viewerId !== "string") return;

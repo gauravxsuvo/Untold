@@ -283,7 +283,9 @@ export function useConversationDeviceDirectory(
   const activeConversationRef = useRef(conversationId);
   activeConversationRef.current = conversationId;
 
+  const requestVersion = useRef(0);
   const refresh = useCallback(async () => {
+    const version = ++requestVersion.current;
     if (!conversationId || !localDevice) {
       setDevices(null);
       setState(conversationId ? "loading" : "ready");
@@ -322,12 +324,14 @@ export function useConversationDeviceDirectory(
         }
       }
       const classified = await classifyDeviceTrust(accountId, publicDevices);
-      if (activeConversationRef.current !== requestedId) return;
+      if (activeConversationRef.current !== requestedId || version !== requestVersion.current)
+        return;
       setDevices(classified);
       setState("ready");
       setError("");
     } catch (caught) {
-      if (activeConversationRef.current !== requestedId) return;
+      if (activeConversationRef.current !== requestedId || version !== requestVersion.current)
+        return;
       setError(userFacingError(caught, "We couldn’t load the safety codes. Please try again."));
       setState("error");
     }
@@ -409,6 +413,8 @@ export function useConversationThread(
             device.signingKey,
             device.trust,
             device.revoked,
+            device.approved,
+            device.conversationMember,
           ])
           .sort((first, second) => String(first[1]).localeCompare(String(second[1]))),
       )
@@ -710,7 +716,8 @@ export function useConversationThread(
         return;
       }
       const activeDevices = deviceDirectory.filter(
-        ({ revoked, approved }) => !revoked && approved !== false,
+        ({ revoked, approved, conversationMember }) =>
+          !revoked && approved !== false && conversationMember !== false,
       );
       const unverified = activeDevices.find(({ trust }) => trust !== "verified");
       if (unverified) {
@@ -801,7 +808,8 @@ export function useConversationThread(
         return false;
       }
       const activeDevices = deviceDirectory.filter(
-        ({ revoked, approved }) => !revoked && approved !== false,
+        ({ revoked, approved, conversationMember }) =>
+          !revoked && approved !== false && conversationMember !== false,
       );
       const unverified = activeDevices.find(({ trust }) => trust !== "verified");
       if (unverified) {
@@ -966,7 +974,8 @@ export function useConversationThread(
     }
 
     const activeDevices = directory.filter(
-      ({ revoked, approved }) => !revoked && approved !== false,
+      ({ revoked, approved, conversationMember }) =>
+        !revoked && approved !== false && conversationMember !== false,
     );
     if (
       memberUserIds.some(
@@ -1057,7 +1066,8 @@ export function useConversationThread(
       if (!failed) return;
       const currentDevices = deviceDirectoryRef.current;
       const activeDevices = currentDevices.filter(
-        ({ revoked, approved }) => !revoked && approved !== false,
+        ({ revoked, approved, conversationMember }) =>
+          !revoked && approved !== false && conversationMember !== false,
       );
       if (
         memberUserIds.some(

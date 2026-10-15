@@ -328,6 +328,10 @@ export async function validateAttachmentPreview(
   type: string,
   signal?: AbortSignal,
 ): Promise<void> {
+  const detected = inspectAttachmentBytes(bytes, "attachment", type);
+  if (detected !== type) throw new Error("The file contents do not match its media type.");
+  if (type === "application/pdf" && new TextDecoder().decode(bytes.subarray(0, 5)) !== "%PDF-")
+    throw new Error("The file contents do not match its media type.");
   const dimensions = readImageDimensions(bytes, type);
   if (type.startsWith("image/")) {
     if (!dimensions || dimensions.animated)

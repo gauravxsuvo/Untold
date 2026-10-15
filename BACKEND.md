@@ -61,3 +61,6 @@ With the bridge running, a local Next.js server, and the migrations applied, `np
 - [Better Auth Drizzle adapter](https://better-auth.com/docs/adapters/drizzle)
 - [Ably token authentication](https://ably.com/docs/auth/token?lang=javascript)
 - [Ably channel capabilities](https://ably.com/docs/auth/capabilities)
+# Private membership and call setup
+
+See [private membership and calls](docs/private-membership-and-calls.md) for migration 015, `ADMIN_EMAIL`, optional admin account pinning, Node.js 22.13+, and Portways managed TURN. New accounts require approval. Existing accounts remain approved. Portways injects `TURN_API_URL` and `TURN_TOKEN` on the server; `/api/ice` exchanges them for temporary credentials. `TURN_RELAY_ONLY=true` supports connectivity checks or relay-only privacy. Calls last up to 55 minutes with the one-hour credential contract. No secret belongs in a browser environment variable.

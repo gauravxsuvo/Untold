@@ -1,4 +1,5 @@
 import { and, asc, eq, inArray, isNull, ne } from "drizzle-orm";
+import { messageAudience } from "@/lib/server/conversations";
 import { getDatabase } from "@/lib/server/database";
 import { conversationMembers, messageEnvelopes, messageReceipts } from "@/lib/server/schema";
 import { publishReceiptsUpdated } from "@/lib/server/ably";
@@ -47,6 +48,8 @@ export async function GET(request: Request) {
       .where(
         and(
           eq(conversationMembers.userId, user.id),
+          isNull(conversationMembers.leftAt),
+          messageAudience(db, user.id),
           ne(messageEnvelopes.senderId, user.id),
           isNull(messageReceipts.messageId),
         ),
@@ -103,6 +106,8 @@ export async function POST(request: Request) {
       .where(
         and(
           eq(conversationMembers.userId, user.id),
+          isNull(conversationMembers.leftAt),
+          messageAudience(db, user.id),
           ne(messageEnvelopes.senderId, user.id),
           inArray(messageEnvelopes.id, ids),
         ),

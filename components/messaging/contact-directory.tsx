@@ -17,7 +17,7 @@ export function ContactDirectory() {
   const viewerId = session?.id ?? "";
   const { conversations, state, error } = useConversationList();
 
-  const contacts = conversations.flatMap((conversation) =>
+  const contacts = conversations.filter(conversation => !conversation.groupName).flatMap((conversation) =>
     otherMembers(conversation, viewerId)
       .filter((member) => member.id !== viewerId)
       .map((member) => ({ member, conversationId: conversation.id })),

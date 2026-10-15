@@ -65,7 +65,7 @@ export function AuthScreen({
 
       setName("");
       setEmail("");
-      router.push(isSignUp ? "/app/onboarding" : "/app/inbox");
+      router.push(isSignUp ? "/access" : "/app/inbox");
       router.refresh();
     } catch {
       setFeedback("We couldn’t connect to Untold. Check your connection and try again.");
@@ -96,7 +96,7 @@ export function AuthScreen({
           <h1 id="auth-title">{isSignUp ? "Make room for what matters." : "Welcome back."}</h1>
           <p className="auth-card__intro">
             {isSignUp
-              ? "Create an account, then add a friend by email. Set up two-factor authentication in Settings to protect your account and get recovery codes."
+              ? "Untold is a private space. Create an account to request access. The owner will review your request before you can start chatting."
               : "Sign in to your Untold account to pick up your conversations."}
           </p>
 

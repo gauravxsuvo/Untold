@@ -3,6 +3,11 @@ export type Person = { id: string; name: string; email: string; image?: string |
 export type ConversationSummary = {
   id: string;
   createdAt: string;
+  joinedAt?: string;
+  groupName?: string | null;
+  groupOwnerId?: string | null;
+  groupImage?: string | null;
+  formerMembers?: Person[];
   members: Person[];
   lastMessage: { text: string | null; senderId: string; createdAt: string; hasAttachment?: boolean } | null;
 };
@@ -44,13 +49,16 @@ export function otherMembers(conversation: ConversationSummary, viewerId: string
 }
 
 export function conversationTitle(conversation: ConversationSummary, viewerId: string): string {
+  if (conversation.groupName) return conversation.groupName;
   return otherMembers(conversation, viewerId)
     .map((member) => member.name)
     .join(", ");
 }
 
 export function conversationActivityAt(conversation: ConversationSummary): string {
-  return conversation.lastMessage?.createdAt ?? conversation.createdAt;
+  const last = conversation.lastMessage?.createdAt;
+  const joined = conversation.joinedAt ?? conversation.createdAt;
+  return last && Date.parse(last) > Date.parse(joined) ? last : joined;
 }
 
 export function sortByActivity(conversations: ConversationSummary[]): ConversationSummary[] {
@@ -70,6 +78,7 @@ export function searchConversations(
 
   return conversations.filter((conversation) => {
     const haystack = [
+      conversation.groupName ?? "",
       ...otherMembers(conversation, viewerId).flatMap((member) => [member.name, member.email]),
       conversation.lastMessage?.text ?? "",
     ]

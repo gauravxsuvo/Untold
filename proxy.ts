@@ -23,13 +23,15 @@ export function proxy(request: NextRequest) {
     "default-src 'self'",
     `script-src 'self' 'nonce-${nonce}' 'strict-dynamic'${isDevelopment ? " 'unsafe-eval'" : ""}`,
     `style-src 'self' 'nonce-${nonce}'`,
+    // React's crop coordinates and viewer zoom are style attributes, never HTML.
+    "style-src-attr 'unsafe-inline'",
     "img-src 'self' data: blob:",
     // Decrypted video and audio attachments play from in-memory blob: URLs.
     "media-src 'self' blob:",
-    "font-src 'self' data:",
+    "font-src 'self' data: blob:",
     // Ably realtime (primary endpoints on ably.net, fallbacks on ably-realtime.com), plus the
     // object-storage origin for encrypted attachment downloads.
-    `connect-src 'self'${storageOrigin ? ` ${storageOrigin}` : ""} https://*.ably.net wss://*.ably.net https://*.ably-realtime.com wss://*.ably-realtime.com https://*.ably.io wss://*.ably.io`,
+    `connect-src 'self' blob:${storageOrigin ? ` ${storageOrigin}` : ""} https://*.ably.net wss://*.ably.net https://*.ably-realtime.com wss://*.ably-realtime.com https://*.ably.io wss://*.ably.io`,
     "object-src 'none'",
     "worker-src 'self'",
     "base-uri 'self'",

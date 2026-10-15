@@ -1,4 +1,4 @@
-import { and, eq } from "drizzle-orm";
+import { and, eq, isNull } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
 import { getDatabase } from "@/lib/server/database";
 import { conversationMembers, profilePhotos } from "@/lib/server/schema";
@@ -34,7 +34,7 @@ export async function GET(
         .select({ id: conversationMembers.conversationId })
         .from(conversationMembers)
         .innerJoin(viewer, eq(viewer.conversationId, conversationMembers.conversationId))
-        .where(and(eq(conversationMembers.userId, userId), eq(viewer.userId, user.id)))
+        .where(and(eq(conversationMembers.userId, userId), eq(viewer.userId, user.id), isNull(viewer.leftAt), isNull(conversationMembers.leftAt)))
         .limit(1);
       if (!shared) return notFound();
     }

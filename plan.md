@@ -2,6 +2,26 @@
 
 ## Current status
 
+### Portways managed TURN (2026-10-16, implemented locally)
+
+- [x] Use server-only TURN_API_URL/TURN_TOKEN to POST {"ttl":3600}; return only validated iceServers from authenticated /api/ice.
+- [x] Accept only HTTP 200; handle 429/503 and malformed responses with bounded requests, short credential caching and provider cooldowns. Never poll the credential API automatically.
+- [x] Use production ICE selection with STUN fallback for a relay outage, optional TURN_RELAY_ONLY checks, and clear connection privacy copy. Never fall back on authentication/approval failure.
+- [x] Keep call duration within credential lifetime, update deployment notes and compile/lint without live tests or deployment.
+
+Production mode follows Portways' normal ICE selection and can disclose network addresses to contacts; relay-only mode disables direct fallback. Calls are capped at 55 minutes for one-hour credentials. Local production webpack compilation, TypeScript, lint and diff checks passed. Secrets were not read or printed; there was no live broker request, automated test, live call, migration, commit or deployment. The guide in `docs/private-membership-and-calls.md` has the exact rollout checks and configuration.
+
+### Groups and desktop typing (2026-10-16, implemented locally)
+
+- [x] Add named groups with compressed, cropped photos and owner controls for adding/removing members and leaving.
+- [x] Enforce current membership across messages, files, notifications and realtime. Snapshot message recipients so new members do not receive old history and group receipts remain accurate.
+- [x] Reuse account safety verification per group member and exclude former members from new encryption recipients.
+- [x] Show group names/photos and message sender names in the inbox and chat, and keep calls limited to direct chats.
+- [x] Focus the composer when typing on a desktop without interrupting inputs, dialogs, text selection, shortcuts, or composition.
+- [x] Document migration, compile, and lint. Do not start the development server or run tests.
+
+Groups support eight members and up to 64 approved recipient devices. Membership changes serialize with message insertion. Newly added groups rise in the list when a person joins. Former members' identities are returned only when they authored messages the viewer was authorized to receive. Profile photos require a current shared membership. Production webpack build, TypeScript, standalone crypto compilation, lint and diff checks pass. No automated tests, live account flows, migration execution, development server, commit, or deployment were run. Include migration 016 after 015 and follow `docs/groups-and-desktop-typing.md` before live rollout.
+
 ### Account verification and device approval (2026-10-15, implemented locally)
 
 The user chose to approve a new device once from an existing device. Contact verification must follow the account across approved devices. Signing in alone must not silently authorize another encryption device.
@@ -572,3 +592,13 @@ If you encounter a blocking decision, ask a concise question rather than making 
 Do not ask me to make trivial design decisions that you can reasonably handle using the established visual direction.
 
 **Your immediate task is Phase 0 only. Inspect the repository and present the implementation plan. Do not implement Phase 1 or any subsequent phase until I approve the plan.**
+# Attachments, calls, and private membership
+
+- [x] Open supported attachments in an accessible in-app viewer with download fallback.
+- [x] Record, preview, discard, and send compressed voice messages through encrypted uploads.
+- [x] Add voice and video calls with authenticated signaling, incoming controls, cleanup, and provider-neutral TURN configuration. Cloudflare-specific TURN integration removed at the user's request.
+- [x] Require admin approval for new accounts, enforce it on APIs, and add approve/reject management.
+- [x] Replace crop positioning sliders with direct dragging, pinch zoom, and clear crop controls.
+- [x] Document configuration and remaining live-device deployment checks in `docs/private-membership-and-calls.md`.
+
+Implementation is complete in files. Local production webpack build, TypeScript, lint, and diff checks pass. Production dependency audit reports zero known vulnerabilities, including PDF.js. No automated tests were run. Relay provisioning, migration 015 on the live database, and real-device call checks remain deployment steps.

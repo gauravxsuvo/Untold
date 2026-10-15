@@ -114,13 +114,16 @@ describe("attachment input and preview boundaries", () => {
     for (const type of [
       "text/html",
       "image/svg+xml",
-      "application/pdf",
       "image/avif",
       "image/gif",
       "application/octet-stream",
     ]) {
       assert.equal(attachmentPreviewKind(type), null);
     }
+  });
+
+  it("previews PDFs only through the sandboxed canvas renderer", () => {
+    assert.equal(attachmentPreviewKind("application/pdf"), "pdf");
   });
 });
 
