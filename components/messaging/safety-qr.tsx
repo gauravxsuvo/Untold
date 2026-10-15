@@ -1,18 +1,14 @@
 "use client";
-
-import { useEffect, useId, useRef, useState } from "react";
-import { Camera, QrCode as QrIcon, X } from "lucide-react";
+import { useEffect, useId, useState } from "react";
+import { Check, Copy, QrCode as QrIcon, ShieldCheck } from "lucide-react";
 import { QrCode } from "@/components/ui/qr-code";
-import {
-  deviceFingerprint,
-  type DeviceTrust,
-  type LocalDevice,
-  type PublicDevice,
-} from "@/crypto/src/protocol";
+import { QrScanner } from "@/components/ui/qr-scanner";
+import { useMessagingDevice } from "@/components/messaging/messaging-device-provider";
+import { accountPairCode, validAccountIdentity } from "@/crypto/src/account-trust";
+import type { DeviceTrust, LocalDevice, PublicDevice } from "@/crypto/src/protocol";
+import { userFacingError } from "@/lib/messaging/api-client";
 
-type Check = { deviceId: string; fingerprint: string };
 export function SafetyQr({
-  conversationId,
   localDevice,
   devices,
   onVerify,
@@ -22,260 +18,208 @@ export function SafetyQr({
   devices: DeviceTrust[];
   onVerify: (device: PublicDevice) => Promise<void>;
 }) {
-  const [open, setOpen] = useState(false);
-  const [ownCode, setOwnCode] = useState("");
-  const [scanning, setScanning] = useState(false);
-  const [pasted, setPasted] = useState("");
-  const [match, setMatch] = useState<Check | null>(null);
+  const local = useMessagingDevice();
+  const own = devices.find((d) => d.userId === localDevice.accountId)?.accountIdentity;
+  const peer = devices.find((d) => d.userId !== localDevice.accountId);
+  const identity = peer?.accountIdentity;
+  const [fingerprint, setFingerprint] = useState("");
+  const [showQr, setShowQr] = useState(false);
+  const [matched, setMatched] = useState(false);
   const [feedback, setFeedback] = useState("");
   const [busy, setBusy] = useState(false);
-  const video = useRef<HTMLVideoElement>(null);
-  const devicesRef = useRef(devices);
-  devicesRef.current = devices;
-  const scanResult = useRef<(value: string) => Promise<void>>(async () => {});
-  const id = useId();
+  const [copied, setCopied] = useState(false);
+  const [pasted, setPasted] = useState("");
+  const pasteId = useId();
+  const verified = devices.some(
+    (d) => d.userId === identity?.userId && !d.revoked && d.approved && d.trust === "verified",
+  );
+  const changed = devices.some(
+    (d) => d.userId === identity?.userId && !d.revoked && d.trust === "changed",
+  );
+  const rootKey = JSON.stringify([own, identity]);
   useEffect(() => {
     let cancelled = false;
-    setOwnCode("");
-    setMatch(null);
-    void deviceFingerprint({
-      userId: localDevice.accountId,
-      userName: "",
-      deviceName: "",
-      revoked: false,
-      ...localDevice,
-    })
-      .then((fingerprint) => {
-        if (!cancelled)
-          setOwnCode(
-            JSON.stringify({
-              type: "untold-safety",
-              version: 1,
-              conversationId,
-              userId: localDevice.accountId,
-              deviceId: localDevice.deviceId,
-              fingerprint,
-            }),
-          );
-      })
-      .catch(() => {
-        if (!cancelled) setFeedback("We couldn’t prepare your safety code. Try again.");
-      });
+    setFingerprint("");
+    setMatched(false);
+    setFeedback("");
+    setCopied(false);
+    const [ownRoot, peerRoot] = JSON.parse(rootKey) as unknown[];
+    if (validAccountIdentity(ownRoot) && validAccountIdentity(peerRoot))
+      void accountPairCode(ownRoot, peerRoot)
+        .then((value) => {
+          if (!cancelled) setFingerprint(value);
+        })
+        .catch(() => {
+          if (!cancelled)
+            setFeedback("We couldn’t prepare your safety code. Refresh and try again.");
+        });
     return () => {
       cancelled = true;
     };
-  }, [conversationId, localDevice]);
-
-  async function check(value: string) {
-    setMatch(null);
+  }, [rootKey]);
+  const accounts = own && identity ? [own.userId, identity.userId].sort() : [];
+  async function confirm() {
+    if (!peer || !fingerprint || !local.approved || busy) return;
+    if (
+      changed &&
+      !window.confirm(
+        "This account’s safety code changed. Only continue after comparing the new code with your contact by phone or in person.",
+      )
+    )
+      return;
+    setBusy(true);
     setFeedback("");
     try {
-      if (value.length > 2048) throw new Error("Invalid code");
-      const payload: unknown = JSON.parse(value);
-      if (!payload || typeof payload !== "object") throw new Error("Invalid code");
-      const data = payload as Record<string, unknown>;
-      if (
-        data.type !== "untold-safety" ||
-        data.version !== 1 ||
-        data.conversationId !== conversationId ||
-        data.userId === localDevice.accountId ||
-        typeof data.deviceId !== "string" ||
-        typeof data.fingerprint !== "string"
-      )
-        throw new Error("Invalid code");
-      const device = devicesRef.current.find(
-        (item) => item.userId === data.userId && item.deviceId === data.deviceId && !item.revoked,
-      );
-      if (
-        !device ||
-        device.trust === "changed" ||
-        (await deviceFingerprint(device)) !== data.fingerprint
-      )
-        throw new Error("Invalid code");
-      setMatch({ deviceId: device.deviceId, fingerprint: data.fingerprint });
+      await onVerify(peer);
+      setFeedback("Contact verified. This carries over to your approved devices.");
+      setMatched(false);
+    } catch (caught) {
       setFeedback(
-        `This code matches ${device.userName}’s ${device.deviceName}. Confirm only if you scanned it from their device or received it through a way you trust.`,
+        userFacingError(
+          caught,
+          "We couldn’t verify this contact. Refresh and compare the current code.",
+        ),
       );
-    } catch {
-      setFeedback(
-        "This QR code doesn’t match a current device in this conversation. Compare the written safety code with your contact before continuing.",
-      );
-    }
-  }
-  scanResult.current = check;
-  useEffect(() => {
-    if (!scanning) return;
-    let stopped = false;
-    let controls: { stop: () => void } | undefined;
-    let stream: MediaStream | undefined;
-    const element = video.current;
-    (async () => {
-      try {
-        const { BrowserQRCodeReader } = await import("@zxing/browser");
-        if (stopped || !element) return;
-        stream = await navigator.mediaDevices.getUserMedia({
-          video: {
-            facingMode: { ideal: "environment" },
-            width: { ideal: 720 },
-            height: { ideal: 720 },
-          },
-          audio: false,
-        });
-        if (stopped) {
-          stream.getTracks().forEach((track) => {
-            track.stop();
-          });
-          return;
-        }
-        controls = await new BrowserQRCodeReader().decodeFromStream(
-          stream,
-          element,
-          (result, _error, scanner) => {
-            if (!result || stopped) return;
-            stopped = true;
-            scanner.stop();
-            stream?.getTracks().forEach((track) => {
-              track.stop();
-            });
-            setScanning(false);
-            void scanResult.current(result.getText());
-          },
-        );
-        if (stopped) controls.stop();
-      } catch {
-        if (!stopped) {
-          setScanning(false);
-          setFeedback(
-            "Camera access isn’t available. Allow it in your browser settings, or compare the written safety codes instead.",
-          );
-        }
-      }
-    })();
-    const hide = () => {
-      if (document.visibilityState !== "visible") setScanning(false);
-    };
-    document.addEventListener("visibilitychange", hide);
-    return () => {
-      stopped = true;
-      controls?.stop();
-      stream?.getTracks().forEach((track) => {
-        track.stop();
-      });
-      if (element) element.srcObject = null;
-      document.removeEventListener("visibilitychange", hide);
-    };
-  }, [scanning]);
-
-  async function confirm() {
-    if (!match) return;
-    setBusy(true);
-    try {
-      const device = devicesRef.current.find(
-        ({ deviceId, revoked, trust }) =>
-          deviceId === match.deviceId && !revoked && trust !== "changed",
-      );
-      if (!device || (await deviceFingerprint(device)) !== match.fingerprint) {
-        setMatch(null);
-        setFeedback("This device changed. Refresh and compare its safety code again.");
-        return;
-      }
-      await onVerify(device);
-      setMatch(null);
-      setFeedback("Safety code verified on this browser.");
-    } catch {
-      setFeedback("We couldn’t verify this device. Refresh and try again.");
     } finally {
       setBusy(false);
     }
   }
+  function scan(value: string) {
+    setMatched(false);
+    try {
+      const data = JSON.parse(value) as Record<string, unknown>;
+      if (
+        data.type !== "untold-account-safety" ||
+        data.version !== 2 ||
+        data.code !== fingerprint ||
+        JSON.stringify(data.accounts) !== JSON.stringify(accounts)
+      )
+        throw new Error();
+      setMatched(true);
+      setFeedback(
+        "The code matches. Confirm only if you scanned it from your contact’s device or received it through a way you trust.",
+      );
+    } catch {
+      setFeedback(
+        "This code doesn’t match these accounts. Ask your contact to update Untold and open the safety code in your conversation.",
+      );
+    }
+  }
+  if (!local.approved)
+    return (
+      <p className="auth-field__hint">
+        Approve this device in Settings first. Your existing contact verifications will then carry
+        over.
+      </p>
+    );
+  if (!identity || !own)
+    return (
+      <p className="auth-field__hint">
+        Ask your contact to open Untold so their account safety code is available.
+      </p>
+    );
   return (
-    <div className="safety-qr">
-      <button
-        className="security-button security-button--secondary"
-        onClick={() => {
-          setOpen(!open);
-          setScanning(false);
-        }}
-        type="button"
-      >
-        <QrIcon aria-hidden="true" size={16} />
-        {open ? "Hide QR verification" : "Verify with QR code"}
-      </button>
-      {open ? (
-        <div className="security-stack">
-          <h3>Your code for this browser</h3>
-          <p>
-            Let your contact scan this from their Untold conversation with you. This only checks
-            this browser’s identity. Compare other devices separately.
-          </p>
-          {ownCode ? (
-            <QrCode value={ownCode} label="Your device safety code for this conversation" />
-          ) : (
-            <p role="status">Preparing QR code…</p>
-          )}
-          <button
-            className="security-button security-button--secondary"
-            onClick={() => {
-              setFeedback("");
-              setMatch(null);
-              setScanning(!scanning);
-            }}
-            type="button"
-          >
-            {scanning ? (
-              <X aria-hidden="true" size={16} />
-            ) : (
-              <Camera aria-hidden="true" size={16} />
-            )}
-            {scanning ? "Stop camera" : "Scan your contact’s code"}
-          </button>
-          {scanning ? (
-            <video
-              aria-label="Safety code scanner"
-              autoPlay
-              className="safety-qr__camera"
-              muted
-              playsInline
-              ref={video}
-            />
-          ) : null}
-          <details>
+    <section className="account-safety security-stack" aria-label="Account safety code">
+      <div className="account-safety__status">
+        <ShieldCheck aria-hidden="true" size={19} />
+        <strong>
+          {changed
+            ? "Account safety code changed"
+            : verified
+              ? "Contact verified"
+              : "Verify this contact once"}
+        </strong>
+      </div>
+      <p>
+        {changed
+          ? "Your contact recovered or reset their messaging identity. Compare the new code before sharing again."
+          : "You and your contact see the same code. Compare it by phone, in person, or by scanning their QR code. Adding an approved device won’t change it."}
+      </p>
+      <code className="account-safety__code">{fingerprint || "Preparing safety code…"}</code>
+      <div className="security-actions">
+        <button
+          className="security-button security-button--secondary"
+          disabled={!fingerprint}
+          onClick={() =>
+            void navigator.clipboard
+              .writeText(fingerprint)
+              .then(() => {
+                setCopied(true);
+              })
+              .catch(() => {
+                setFeedback("Select and copy the code above.");
+              })
+          }
+          type="button"
+        >
+          {copied ? <Check aria-hidden="true" size={16} /> : <Copy aria-hidden="true" size={16} />}
+          {copied ? "Copied" : "Copy code"}
+        </button>
+        <button
+          className="security-button security-button--secondary"
+          disabled={!fingerprint}
+          onClick={() => setShowQr(!showQr)}
+          type="button"
+        >
+          <QrIcon aria-hidden="true" size={16} />
+          {showQr ? "Hide QR code" : "Show QR code"}
+        </button>
+      </div>
+      {showQr && fingerprint ? (
+        <>
+          <QrCode
+            value={JSON.stringify({
+              type: "untold-account-safety",
+              version: 2,
+              accounts,
+              code: fingerprint,
+            })}
+            label="Shared account safety code for you and your contact"
+          />
+          <QrScanner label="Scan your contact’s safety code" onScan={scan} />
+          <details className="security-stack">
             <summary>Paste QR contents instead</summary>
             <div className="auth-field">
-              <label htmlFor={id}>Safety QR contents</label>
+              <label htmlFor={pasteId}>Safety QR contents</label>
               <textarea
-                id={id}
-                maxLength={2048}
+                id={pasteId}
+                maxLength={4096}
                 onChange={(event) => setPasted(event.target.value)}
                 value={pasted}
               />
               <button
                 className="security-text-button"
                 disabled={!pasted.trim()}
-                onClick={() => void check(pasted.trim())}
+                onClick={() => scan(pasted.trim())}
                 type="button"
               >
                 Check code
               </button>
             </div>
           </details>
-          {feedback ? (
-            <p aria-live="polite" role="status">
-              {feedback}
-            </p>
-          ) : null}
-          {match ? (
-            <button
-              className="security-button"
-              disabled={busy}
-              onClick={() => void confirm()}
-              type="button"
-            >
-              {busy ? "Verifying…" : "Confirm this device"}
-            </button>
-          ) : null}
-        </div>
+        </>
       ) : null}
-    </div>
+      {(!verified || changed || matched) && fingerprint ? (
+        <button
+          className="security-button"
+          disabled={busy}
+          onClick={() => void confirm()}
+          type="button"
+        >
+          {busy
+            ? "Verifying…"
+            : matched
+              ? "Confirm matching code"
+              : changed
+                ? "I compared the new code"
+                : "I compared this code"}
+        </button>
+      ) : null}
+      {feedback ? (
+        <p className="auth-field__hint" role="status">
+          {feedback}
+        </p>
+      ) : null}
+    </section>
   );
 }

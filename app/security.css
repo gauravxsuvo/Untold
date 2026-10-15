@@ -44,6 +44,188 @@
   gap: 12px;
 }
 
+.device-approval-notice {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 12px;
+  margin-block: 12px;
+  padding: 12px 14px;
+  border: 1px solid var(--ui-border);
+  border-radius: 12px;
+  background: var(--ui-subtle);
+  color: var(--ui-text);
+  font-size: calc(12px * var(--text-scale, 1));
+  line-height: 1.6;
+}
+.device-approval-notice > svg {
+  flex-shrink: 0;
+  color: var(--ui-accent);
+}
+.device-approval-notice > span {
+  flex: 1;
+  min-width: 0;
+}
+.device-approval-notice > a {
+  flex-shrink: 0;
+  color: var(--ui-accent);
+  font-weight: 600;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.device-link-card {
+  padding: 18px;
+  border: 1px solid var(--ui-border);
+  border-radius: 12px;
+  background: var(--ui-subtle);
+  min-width: 0;
+}
+.device-link-heading,
+.device-list-identity {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+.device-link-heading {
+  align-items: flex-start;
+}
+.device-link-heading > svg,
+.device-list-identity > svg {
+  flex-shrink: 0;
+  color: var(--ui-accent);
+}
+.device-link-heading > div,
+.device-list-identity > span {
+  min-width: 0;
+}
+.device-link-card h3,
+.account-safety h3 {
+  margin: 0;
+  color: var(--ui-text);
+  font-size: calc(14px * var(--text-scale, 1));
+}
+.device-link-card p,
+.account-safety p,
+.device-recovery p {
+  margin: 0;
+  color: var(--ui-muted);
+  font-size: calc(12px * var(--text-scale, 1));
+  line-height: 1.7;
+}
+.device-link-heading p {
+  margin-top: 6px;
+}
+.device-link-card label {
+  color: var(--ui-muted);
+  font-size: calc(12px * var(--text-scale, 1));
+}
+.device-link-code {
+  min-width: 0;
+  width: 100%;
+  max-width: 480px;
+  border: 1px solid var(--ui-border);
+  border-radius: 8px;
+  padding: 12px;
+  background: var(--ui-surface);
+  color: var(--ui-text);
+  font: inherit;
+  font-size: max(16px, calc(14px * var(--text-scale, 1)));
+}
+.device-link-code--display {
+  display: block;
+  overflow-wrap: anywhere;
+  font-family: ui-monospace, monospace;
+  line-height: 1.8;
+  user-select: all;
+}
+.device-list-identity small {
+  display: block;
+  margin-top: 5px;
+  color: var(--ui-muted);
+  font-size: calc(12px * var(--text-scale, 1));
+}
+.account-device-list li > .device-list-identity:first-child {
+  display: flex;
+  flex-direction: row;
+}
+.device-list-identity strong {
+  overflow-wrap: anywhere;
+}
+.device-list-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  flex-shrink: 0;
+}
+.device-list-actions button {
+  min-height: 40px;
+}
+.account-device-list li {
+  border-radius: 12px;
+}
+.account-device-list button.device-list-approve {
+  background: var(--ui-accent);
+  color: var(--ui-on-accent);
+  border-color: var(--ui-accent);
+}
+#your-devices {
+  scroll-margin-top: 90px;
+}
+.device-recovery > summary {
+  min-height: 44px;
+  color: var(--ui-muted);
+  font-size: calc(12px * var(--text-scale, 1));
+  cursor: pointer;
+}
+.device-recovery > form {
+  margin-top: 12px;
+}
+.account-safety {
+  margin-block: 18px;
+}
+.account-safety__status {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  color: var(--ui-accent);
+  font-size: calc(13px * var(--text-scale, 1));
+}
+.account-safety__status svg {
+  flex-shrink: 0;
+}
+.account-safety__code {
+  display: block;
+  padding: 12px;
+  border: 1px solid var(--ui-border);
+  border-radius: 8px;
+  background: var(--ui-subtle);
+  color: var(--ui-text);
+  white-space: normal;
+  overflow-wrap: anywhere;
+  font-size: calc(12px * var(--text-scale, 1));
+  line-height: 1.8;
+}
+@media (max-width: 600px) {
+  .device-approval-notice {
+    flex-wrap: wrap;
+    margin-inline: 8px;
+    gap: 8px;
+  }
+  .device-approval-notice > a {
+    margin-left: 28px;
+  }
+  .account-device-list li {
+    flex-wrap: wrap;
+  }
+  .device-list-actions {
+    margin-left: 33px;
+  }
+  .device-link-card {
+    padding: 14px;
+  }
+}
+
 .account-signout__confirmation {
   min-width: 0;
   margin: 0;

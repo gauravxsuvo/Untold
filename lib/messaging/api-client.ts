@@ -1,5 +1,12 @@
 import type { ConversationMessage, ConversationSummary } from "@/lib/messaging/people";
 import type { PublicDevice } from "@/crypto/src/protocol";
+import type {
+  AccountIdentity,
+  ContactVerification,
+  DeviceApproval,
+  DeviceRemoval,
+  SealedApproval,
+} from "@/crypto/src/account-types";
 
 export class ApiError extends Error {
   constructor(
@@ -14,21 +21,67 @@ export class ApiError extends Error {
 // Only known, useful local errors may reach the interface. Browser and crypto
 // exceptions can contain implementation details and must use the fallback.
 const localErrorMessages = new Map([
+  [
+    "The linking code doesn’t match this device. Check the code on your new device and try again.",
+    "The linking code doesn’t match this device. Check the code on your new device and try again.",
+  ],
+  [
+    "Your account safety identity changed. Open Settings to recover this device.",
+    "Your messaging access changed. Open Settings to recover this device, or use an approved device.",
+  ],
+  [
+    "Approve this device before verifying a contact.",
+    "Approve this device in Settings first. Your contact verifications will carry over.",
+  ],
+  [
+    "The account safety code changed. Refresh and compare the new code.",
+    "Your contact’s account safety code changed. Refresh and compare the new code before continuing.",
+  ],
   ["Files must be 20 MiB or smaller.", "Choose a file that’s 20 MB or smaller."],
-  ["Executable files, scripts, shortcuts, and macro-enabled documents cannot be shared.", "Apps, scripts, shortcuts, and documents with macros can’t be shared."],
+  [
+    "Executable files, scripts, shortcuts, and macro-enabled documents cannot be shared.",
+    "Apps, scripts, shortcuts, and documents with macros can’t be shared.",
+  ],
   ["Executable files and scripts cannot be shared.", "Apps and scripts can’t be shared."],
-  ["This image or video is too large to process safely. Use a smaller resolution.", "This photo or video is too large to open safely. Try a smaller version."],
-  ["The file contents do not match its media type.", "This file doesn’t match its file type. Try another copy."],
-  ["The image header is invalid or unsupported.", "We can’t open this photo. Try another copy or file type."],
+  [
+    "This image or video is too large to process safely. Use a smaller resolution.",
+    "This photo or video is too large to open safely. Try a smaller version.",
+  ],
+  [
+    "The file contents do not match its media type.",
+    "This file doesn’t match its file type. Try another copy.",
+  ],
+  [
+    "The image header is invalid or unsupported.",
+    "We can’t open this photo. Try another copy or file type.",
+  ],
   ["Update your browser to open this compressed file.", "Update your browser to open this file."],
   ["Unsupported file format. Update Untold and try again.", "Update Untold to open this file."],
-  ["This image is available as a download only.", "This photo can only be downloaded. A preview isn’t available."],
+  [
+    "This image is available as a download only.",
+    "This photo can only be downloaded. A preview isn’t available.",
+  ],
   ["Media processing timed out.", "Preparing this file took too long. Try a smaller version."],
-  ["This browser does not provide secure Web Crypto. Open Untold over HTTPS.", "This browser can’t protect your messages. Use an up-to-date browser and open Untold from its secure web address."],
-  ["This device was added after the message was sent and cannot open it.", "This message was sent before you added this device. Open it in the browser you used before."],
-  ["This device key changed. Stop and verify the account with its owner.", "This safety code has changed. Check with your contact before continuing."],
-  ["Message signature is invalid. The message may have been changed.", "This message may have been changed. Ask your contact to send it again."],
-  ["File authentication failed. Its encrypted bytes may have changed.", "This file may have been changed. Ask your contact to send it again."],
+  [
+    "This browser does not provide secure Web Crypto. Open Untold over HTTPS.",
+    "This browser can’t protect your messages. Use an up-to-date browser and open Untold from its secure web address.",
+  ],
+  [
+    "This device was added after the message was sent and cannot open it.",
+    "This message was sent before you added this device. Open it in the browser you used before.",
+  ],
+  [
+    "This device key changed. Stop and verify the account with its owner.",
+    "This safety code has changed. Check with your contact before continuing.",
+  ],
+  [
+    "Message signature is invalid. The message may have been changed.",
+    "This message may have been changed. Ask your contact to send it again.",
+  ],
+  [
+    "File authentication failed. Its encrypted bytes may have changed.",
+    "This file may have been changed. Ask your contact to send it again.",
+  ],
   ["Message exceeds the encrypted text limit.", "This message is too long. Try a shorter message."],
 ]);
 
@@ -47,7 +100,7 @@ function requestErrorMessage(status: number, message: unknown): string {
   return localErrorMessages.get(message) ?? message;
 }
 
-export type AccountDevice = {
+export type AccountDevice = PublicDevice & {
   deviceId: string;
   deviceName: string;
   agreementKey: string;
@@ -65,7 +118,9 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
       ...init,
       cache: "no-store",
       credentials: "same-origin",
-      signal: init?.signal ? AbortSignal.any([init.signal, AbortSignal.timeout(30_000)]) : AbortSignal.timeout(30_000),
+      signal: init?.signal
+        ? AbortSignal.any([init.signal, AbortSignal.timeout(30_000)])
+        : AbortSignal.timeout(30_000),
       headers,
     });
   } catch {
@@ -81,7 +136,10 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
 
 export async function updateProfilePhoto(photo: Blob, signal?: AbortSignal): Promise<string> {
   const result = await request<{ image: string }>("/api/profile/photo", {
-    method: "PUT", headers: { "Content-Type": photo.type }, body: photo, signal,
+    method: "PUT",
+    headers: { "Content-Type": photo.type },
+    body: photo,
+    signal,
   });
   return result.image;
 }
@@ -111,10 +169,47 @@ export async function registerDevice(device: {
   name: string;
   agreementKey: string;
   signingKey: string;
+  linkHash: string;
 }): Promise<void> {
   await request<{ device: unknown }>("/api/devices", {
     method: "POST",
     body: JSON.stringify(device),
+  });
+}
+
+export type DeviceSecuritySnapshot = {
+  identity: AccountIdentity | null;
+  devices: PublicDevice[];
+  verifications: ContactVerification[];
+  contacts: AccountIdentity[];
+  sealedApproval: SealedApproval | null;
+};
+export function fetchDeviceSecurity(deviceId: string) {
+  return request<DeviceSecuritySnapshot>(
+    `/api/security/devices?device=${encodeURIComponent(deviceId)}`,
+  );
+}
+export function approveLinkedDevice(approval: DeviceApproval, sealed: SealedApproval) {
+  return request<{ status: boolean }>("/api/security/devices", {
+    method: "POST",
+    body: JSON.stringify({ action: "approve", approval, sealed }),
+  });
+}
+export function syncContactVerification(proof: ContactVerification) {
+  return request<{ status: boolean }>("/api/security/devices", {
+    method: "POST",
+    body: JSON.stringify({ action: "verify", proof }),
+  });
+}
+export function recoverDeviceIdentity(
+  deviceId: string,
+  password: string,
+  code: string,
+  method: "totp" | "backup",
+) {
+  return request<{ identity: AccountIdentity }>("/api/security/devices/recover", {
+    method: "POST",
+    body: JSON.stringify({ deviceId, password, code, method, confirm: true }),
   });
 }
 
@@ -123,9 +218,10 @@ export async function fetchAccountDevices(): Promise<AccountDevice[]> {
   return devices;
 }
 
-export async function revokeAccountDevice(deviceId: string): Promise<void> {
+export async function revokeAccountDevice(deviceId: string, proof: DeviceRemoval): Promise<void> {
   await request<{ revoked: boolean }>(`/api/devices/${encodeURIComponent(deviceId)}`, {
     method: "DELETE",
+    body: JSON.stringify(proof),
   });
 }
 
@@ -153,17 +249,24 @@ export async function fetchMessageSnapshot(
   if (knownIds.length) query.set("known", knownIds.slice(0, 100).join(","));
   let response: Response;
   try {
-    response = await fetch(`/api/conversations/${encodeURIComponent(conversationId)}/messages?${query}`, {
-      cache: "no-store", credentials: "same-origin", signal,
-      headers: etag ? { "If-None-Match": etag } : undefined,
-    });
+    response = await fetch(
+      `/api/conversations/${encodeURIComponent(conversationId)}/messages?${query}`,
+      {
+        cache: "no-store",
+        credentials: "same-origin",
+        signal,
+        headers: etag ? { "If-None-Match": etag } : undefined,
+      },
+    );
   } catch {
     throw new ApiError("Untold could not be reached. Check your connection.", 0);
   }
   if (response.status === 304) return null;
   const body = await response.json().catch(() => null);
-  if (!response.ok) throw new ApiError(requestErrorMessage(response.status, body?.message), response.status);
-  if (!Array.isArray(body?.messages)) throw new ApiError("We couldn’t refresh this conversation. Please try again.", 0);
+  if (!response.ok)
+    throw new ApiError(requestErrorMessage(response.status, body?.message), response.status);
+  if (!Array.isArray(body?.messages))
+    throw new ApiError("We couldn’t refresh this conversation. Please try again.", 0);
   return { messages: body.messages, etag: response.headers.get("etag") };
 }
 
@@ -173,9 +276,14 @@ export async function acknowledgeMessages(
   readIds: string[],
   signal?: AbortSignal,
 ): Promise<void> {
-  await request<{ updated: boolean }>(`/api/conversations/${encodeURIComponent(conversationId)}/receipts`, {
-    method: "POST", body: JSON.stringify({ receivedIds, readIds }), signal,
-  });
+  await request<{ updated: boolean }>(
+    `/api/conversations/${encodeURIComponent(conversationId)}/receipts`,
+    {
+      method: "POST",
+      body: JSON.stringify({ receivedIds, readIds }),
+      signal,
+    },
+  );
 }
 
 export async function sendMessage(
@@ -203,7 +311,10 @@ export async function uploadEncryptedAttachment(
   signal?: AbortSignal,
 ): Promise<void> {
   return new Promise((resolve, reject) => {
-    if (signal?.aborted) { reject(signal.reason); return; }
+    if (signal?.aborted) {
+      reject(signal.reason);
+      return;
+    }
     const xhr = new XMLHttpRequest();
     const abort = () => xhr.abort();
     signal?.addEventListener("abort", abort, { once: true });
@@ -222,9 +333,11 @@ export async function uploadEncryptedAttachment(
         onProgress(Math.max(0, Math.min(100, Math.round((event.loaded / event.total) * 100))));
       }
     };
-    xhr.onerror = () => reject(new ApiError("Untold could not be reached. Check your connection.", 0));
+    xhr.onerror = () =>
+      reject(new ApiError("Untold could not be reached. Check your connection.", 0));
     xhr.onabort = () => reject(new ApiError("File upload was cancelled.", 0));
-    xhr.ontimeout = () => reject(new ApiError("File upload timed out. Check your connection and retry.", 0));
+    xhr.ontimeout = () =>
+      reject(new ApiError("File upload timed out. Check your connection and retry.", 0));
     xhr.onload = () => {
       const body = xhr.response as { message?: string } | null;
       if (xhr.status >= 200 && xhr.status < 300) {

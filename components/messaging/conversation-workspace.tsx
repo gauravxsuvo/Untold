@@ -22,7 +22,7 @@ import { StartConversationForm } from "@/components/messaging/start-conversation
 import { MessageReceipt } from "@/components/messaging/message-receipt";
 import { useMessageReceipts } from "@/components/messaging/use-message-receipts";
 import { useMessageScroll } from "@/components/messaging/use-message-scroll";
-import { deviceFingerprint, type DeviceTrust, type PublicDevice } from "@/crypto/src/protocol";
+import type { DeviceTrust, PublicDevice } from "@/crypto/src/protocol";
 import {
   useConversationDeviceDirectory,
   useConversationList,
@@ -430,118 +430,9 @@ function ConversationDetails({
             <dt>Updates</dt>
             <dd>{isRealtimeConnected ? "Live" : "Refreshing every few seconds"}</dd>
           </div>
-          <div className="conversation-details__row">
-            <dt>Safety codes</dt>
-            <dd>
-              <DeviceSafetyList devices={devices ?? []} onVerify={onVerifyDevice} />
-            </dd>
-          </div>
         </dl>
       </div>
     </details>
-  );
-}
-
-function DeviceSafetyList({
-  devices,
-  onVerify,
-}: {
-  devices: DeviceTrust[];
-  onVerify: (device: PublicDevice) => Promise<void>;
-}) {
-  if (devices.length === 0) return <span>No devices to check yet.</span>;
-  return (
-    <div className="device-safety-list">
-      <p>Compare each new safety code with its owner by phone or in person.</p>
-      {devices.map((device) => (
-        <DeviceSafetyCode device={device} key={device.deviceId} onVerify={onVerify} />
-      ))}
-    </div>
-  );
-}
-
-function DeviceSafetyCode({
-  device,
-  onVerify,
-}: {
-  device: DeviceTrust;
-  onVerify: (device: PublicDevice) => Promise<void>;
-}) {
-  const [fingerprint, setFingerprint] = useState("Calculating safety code…");
-  const [feedback, setFeedback] = useState("");
-  const [verifying, setVerifying] = useState(false);
-  const ready = /^[a-f0-9]{4}( [a-f0-9]{4}){15}$/.test(fingerprint);
-
-  useEffect(() => {
-    let cancelled = false;
-    void deviceFingerprint(device)
-      .then((value) => {
-        if (!cancelled) setFingerprint(value);
-      })
-      .catch(() => {
-        if (!cancelled) setFingerprint("Safety code unavailable");
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [device]);
-
-  async function copyFingerprint() {
-    try {
-      await navigator.clipboard.writeText(fingerprint);
-      setFeedback("Copied");
-    } catch {
-      setFeedback("Select and copy the code");
-    }
-  }
-
-  async function verify() {
-    if (verifying || !ready) return;
-    setVerifying(true);
-    try {
-      await onVerify(device);
-      setFeedback("Device verified on this browser");
-    } catch (caught) {
-      setFeedback(userFacingError(caught, "Device could not be verified."));
-    } finally {
-      setVerifying(false);
-    }
-  }
-
-  return (
-    <div className={`device-safety-card device-safety-card--${device.trust}`}>
-      <div className="device-safety-card__heading">
-        <strong>
-          {device.userName} · {device.deviceName}
-        </strong>
-        <span>
-          {device.revoked
-            ? "Removed device"
-            : device.trust === "verified"
-              ? "Verified here"
-              : device.trust === "changed"
-                ? "Safety code changed"
-                : "New device"}
-        </span>
-      </div>
-      <code>{fingerprint}</code>
-      <div className="device-safety-card__actions">
-        <button disabled={!ready} onClick={copyFingerprint} type="button">
-          Copy safety code
-        </button>
-        {device.trust === "new" ? (
-          <button disabled={verifying || !ready} onClick={verify} type="button">
-            {verifying ? "Verifying…" : "I compared this code"}
-          </button>
-        ) : device.trust === "changed" ? (
-          <span>
-            Messages are paused because this safety code changed. Check with your contact before
-            continuing.
-          </span>
-        ) : null}
-        {feedback ? <span aria-live="polite">{feedback}</span> : null}
-      </div>
-    </div>
   );
 }
 
@@ -579,7 +470,10 @@ export function ConversationWorkspace({ initialSelectedId }: { initialSelectedId
   const trustedDevices = directory.state === "ready" ? directory.devices : null;
   const selectedMemberIds = selectedConversation?.members.map(({ id }) => id) ?? [];
   const missingMemberDevice = selectedConversation?.members.find(
-    ({ id }) => !directory.devices?.some((device) => device.userId === id && !device.revoked),
+    ({ id }) =>
+      !directory.devices?.some(
+        (device) => device.userId === id && !device.revoked && device.approved !== false,
+      ),
   );
   const thread = useConversationThread(
     selectedId,
@@ -673,12 +567,17 @@ export function ConversationWorkspace({ initialSelectedId }: { initialSelectedId
   const canSend =
     directory.state === "ready" &&
     localDevice.state === "ready" &&
+    localDevice.approved &&
     Boolean(directory.devices?.length) &&
     !selectedMemberIds.some(
       (memberId) =>
-        !directory.devices?.some((device) => device.userId === memberId && !device.revoked),
+        !directory.devices?.some(
+          (device) => device.userId === memberId && !device.revoked && device.approved !== false,
+        ),
     ) &&
-    !directory.devices?.some(({ trust, revoked }) => !revoked && trust !== "verified");
+    !directory.devices?.some(
+      ({ trust, revoked, approved }) => !revoked && approved !== false && trust !== "verified",
+    );
 
   return (
     <section
@@ -801,26 +700,27 @@ export function ConversationWorkspace({ initialSelectedId }: { initialSelectedId
           </header>
 
           <div className="conversation-notices">
-            {!canSend ? <ConversationPrivacyNote /> : null}
+            {!canSend && localDevice.approved ? <ConversationPrivacyNote /> : null}
 
-            {directory.state === "loading" ? (
+            {!localDevice.approved ? null : directory.state === "loading" ? (
               <p className="messaging-device-status" role="status">
-                Checking safety codes…
+                Checking account safety…
               </p>
             ) : directory.state === "error" ? (
               <p className="messaging-error" role="alert">
                 {directory.error}
               </p>
             ) : directory.devices?.some(
-                ({ trust, revoked }) => !revoked && trust !== "verified",
+                ({ trust, revoked, approved }) =>
+                  !revoked && approved !== false && trust !== "verified",
               ) ? (
               <p className="messaging-device-status messaging-device-status--warning">
-                Verify every new safety code in Details before sending or opening messages from that
-                device.
+                Compare your account safety code with your contact in Details before sharing.
               </p>
             ) : missingMemberDevice ? (
               <p className="messaging-device-status messaging-device-status--warning">
-                Ask {missingMemberDevice.name} to open Untold before you start sharing messages.
+                Ask {missingMemberDevice.name} to open Untold and approve a device before sharing
+                messages.
               </p>
             ) : null}
           </div>

@@ -6,6 +6,7 @@ import { ApplicationNavigation } from "@/components/app/application-navigation";
 import { InstallAppButton } from "@/components/pwa/install-app-button";
 import { ThemeSwitcher } from "@/components/theme/theme-switcher";
 import { ApplicationViewport } from "@/components/app/application-viewport";
+import { DeviceApprovalNotice } from "@/components/messaging/messaging-device-provider";
 
 export function ApplicationShell({ children }: { children: React.ReactNode }) {
   return (
@@ -48,6 +49,7 @@ export function ApplicationShell({ children }: { children: React.ReactNode }) {
               </span>
             </div>
           </div>
+          <DeviceApprovalNotice />
           {children}
           <footer className="app-main__footer">
             <span>Some things are just between us.</span>

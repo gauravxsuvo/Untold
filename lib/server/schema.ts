@@ -4,6 +4,7 @@ import {
   customType,
   index,
   integer,
+  jsonb,
   pgSchema,
   primaryKey,
   text,
@@ -230,8 +231,38 @@ export const devices = appSchema.table(
     signingKey: text("signing_key").notNull(),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     revokedAt: timestamp("revoked_at", { withTimezone: true }),
+    approval: jsonb("approval").$type<import("@/crypto/src/account-types").DeviceApproval>(),
+    approvalResponse:
+      jsonb("approval_response").$type<import("@/crypto/src/account-types").SealedApproval>(),
+    linkHash: text("link_hash"),
+    linkExpiresAt: timestamp("link_expires_at", { withTimezone: true }),
   },
   (table) => [index("untold_device_user_id_idx").on(table.userId)],
+);
+
+export const accountIdentities = appSchema.table("account_identity", {
+  userId: text("user_id")
+    .primaryKey()
+    .references(() => authUser.id, { onDelete: "cascade" }),
+  deviceId: uuid("device_id").notNull(),
+  agreementKey: text("agreement_key").notNull(),
+  signingKey: text("signing_key").notNull(),
+});
+
+export const contactVerifications = appSchema.table(
+  "contact_verification",
+  {
+    ownerId: text("owner_id")
+      .notNull()
+      .references(() => authUser.id, { onDelete: "cascade" }),
+    contactId: text("contact_id")
+      .notNull()
+      .references(() => authUser.id, { onDelete: "cascade" }),
+    proof: jsonb("proof")
+      .notNull()
+      .$type<import("@/crypto/src/account-types").ContactVerification>(),
+  },
+  (table) => [primaryKey({ columns: [table.ownerId, table.contactId] })],
 );
 
 export const messageAttachments = appSchema.table(
