@@ -13,6 +13,9 @@ export const metadata: Metadata = {
   },
 };
 
+// Every page depends on the signed-in session, so nothing is prerendered at build time.
+export const dynamic = "force-dynamic";
+
 export default async function RootLayout({
   children,
 }: Readonly<{

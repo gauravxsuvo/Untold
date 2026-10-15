@@ -10,8 +10,12 @@ export type ServerSessionState =
   | { status: "unavailable" };
 
 export async function getServerSession(): Promise<ServerSessionState> {
+  // Read request headers outside the try block: during a build, headers() throws Next's internal
+  // "this route is dynamic" signal, which must propagate instead of being treated as an auth failure.
+  const requestHeaders = await headers();
+
   try {
-    const session = await getAuth().api.getSession({ headers: await headers() });
+    const session = await getAuth().api.getSession({ headers: requestHeaders });
     if (!session?.user) return { status: "signed-out" };
     const { id, name, email } = session.user;
     return { status: "signed-in", user: { id, name, email } };

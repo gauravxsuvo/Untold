@@ -17,7 +17,16 @@ type AccountSessionContextValue = {
   signOut: () => Promise<void>;
 };
 
-const AccountSessionContext = createContext<AccountSessionContextValue | null>(null);
+// Safe default for a consumer rendered outside the provider (for example Next's built-in 404 page
+// during static generation): behave as "session still loading" instead of crashing the render.
+const fallbackSession: AccountSessionContextValue = {
+  session: null,
+  isSessionPending: true,
+  isAccountServiceUnavailable: false,
+  signOut: async () => undefined,
+};
+
+const AccountSessionContext = createContext<AccountSessionContextValue>(fallbackSession);
 
 export function AccountSessionProvider({ children }: { children: ReactNode }) {
   const { data, isPending, error } = authClient.useSession();
@@ -50,9 +59,5 @@ export function AccountSessionProvider({ children }: { children: ReactNode }) {
 }
 
 export function useAccountSession() {
-  const value = useContext(AccountSessionContext);
-  if (!value) {
-    throw new Error("useAccountSession must be used inside AccountSessionProvider.");
-  }
-  return value;
+  return useContext(AccountSessionContext);
 }
