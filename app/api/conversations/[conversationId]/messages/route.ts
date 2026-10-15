@@ -12,12 +12,14 @@ import {
   unauthorizedResponse,
 } from "@/lib/server/http";
 import { getDatabase } from "@/lib/server/database";
+import { accountDeviceDirectory } from "@/lib/server/device-trust";
 import { publishMessageAvailable } from "@/lib/server/ably";
 import { isConversationMember } from "@/lib/server/conversations";
 import { decodeMessageEnvelope } from "@/lib/server/message-envelope";
 import { consumeRateLimit, rateLimitedResponse, rateLimitRules } from "@/lib/server/rate-limit";
 import {
   conversationMembers,
+  authUser,
   devices,
   messageAttachments,
   messageEnvelopes,
@@ -49,7 +51,10 @@ export async function GET(request: Request, context: RouteContext): Promise<Resp
   try {
     const { conversationId } = await context.params;
     if (!uuidPattern.test(conversationId)) {
-      return Response.json({ message: "We couldn’t find that conversation. Refresh the page and try again." }, { status: 400 });
+      return Response.json(
+        { message: "We couldn’t find that conversation. Refresh the page and try again." },
+        { status: 400 },
+      );
     }
 
     const user = await getAuthenticatedUser(request);
@@ -60,8 +65,15 @@ export async function GET(request: Request, context: RouteContext): Promise<Resp
 
     const knownParam = new URL(request.url).searchParams.get("known");
     const knownIds = knownParam ? knownParam.split(",") : [];
-    if ((knownParam?.length ?? 0) > 4000 || knownIds.length > 100 || knownIds.some((id) => !uuidPattern.test(id))) {
-      return Response.json({ message: "We couldn’t refresh this conversation. Please try again." }, { status: 400 });
+    if (
+      (knownParam?.length ?? 0) > 4000 ||
+      knownIds.length > 100 ||
+      knownIds.some((id) => !uuidPattern.test(id))
+    ) {
+      return Response.json(
+        { message: "We couldn’t refresh this conversation. Please try again." },
+        { status: 400 },
+      );
     }
     const known = new Set(knownIds.map((id) => id.toLowerCase()));
     // Metadata and receipt reads do not load the larger encrypted message bodies.
@@ -79,20 +91,38 @@ export async function GET(request: Request, context: RouteContext): Promise<Resp
       .limit(100);
 
     const receipts = await outgoingMessageReceipts(
-      db, conversationId, user.id,
+      db,
+      conversationId,
+      user.id,
       messages.filter(({ senderId }) => senderId === user.id).map(({ id }) => id),
     );
     const metadata = messages.reverse().map(({ createdAt, ...message }) => ({
-      ...message, createdAt: createdAt.toISOString(), ...(receipts.get(message.id) ?? {}),
+      ...message,
+      createdAt: createdAt.toISOString(),
+      ...(receipts.get(message.id) ?? {}),
     }));
-    const etag = `"${createHash("sha256").update(JSON.stringify([user.id, conversationId, metadata])).digest("base64url")}"`;
-    const headers = { "Cache-Control": "no-store", "Vary": "Cookie", "ETag": etag };
-    if (request.headers.get("if-none-match") === etag && metadata.every(({ id }) => known.has(id))) {
+    const etag = `"${createHash("sha256")
+      .update(JSON.stringify([user.id, conversationId, metadata]))
+      .digest("base64url")}"`;
+    const headers = { "Cache-Control": "no-store", Vary: "Cookie", ETag: etag };
+    if (
+      request.headers.get("if-none-match") === etag &&
+      metadata.every(({ id }) => known.has(id))
+    ) {
       return new Response(null, { status: 304, headers });
     }
     const missingIds = metadata.filter(({ id }) => !known.has(id)).map(({ id }) => id);
-    const missing = missingIds.length ? await db.select({ id: messageEnvelopes.id, envelope: messageEnvelopes.envelope })
-      .from(messageEnvelopes).where(and(eq(messageEnvelopes.conversationId, conversationId), inArray(messageEnvelopes.id, missingIds))) : [];
+    const missing = missingIds.length
+      ? await db
+          .select({ id: messageEnvelopes.id, envelope: messageEnvelopes.envelope })
+          .from(messageEnvelopes)
+          .where(
+            and(
+              eq(messageEnvelopes.conversationId, conversationId),
+              inArray(messageEnvelopes.id, missingIds),
+            ),
+          )
+      : [];
     const bodies = new Map(missing.map(({ id, envelope }) => [id, envelope]));
 
     return Response.json(
@@ -100,7 +130,9 @@ export async function GET(request: Request, context: RouteContext): Promise<Resp
         messages: metadata.flatMap((message) => {
           if (known.has(message.id)) return [message];
           const envelope = bodies.get(message.id);
-          return envelope && parseE2eeEnvelope(envelope) ? [{ ...message, envelope: Buffer.from(envelope).toString("base64") }] : [];
+          return envelope && parseE2eeEnvelope(envelope)
+            ? [{ ...message, envelope: Buffer.from(envelope).toString("base64") }]
+            : [];
         }),
       },
       { headers },
@@ -114,7 +146,10 @@ export async function POST(request: Request, context: RouteContext): Promise<Res
   try {
     const { conversationId } = await context.params;
     if (!uuidPattern.test(conversationId)) {
-      return Response.json({ message: "We couldn’t find that conversation. Refresh the page and try again." }, { status: 400 });
+      return Response.json(
+        { message: "We couldn’t find that conversation. Refresh the page and try again." },
+        { status: 400 },
+      );
     }
 
     const user = await getAuthenticatedUser(request);
@@ -126,26 +161,37 @@ export async function POST(request: Request, context: RouteContext): Promise<Res
       return Response.json(
         {
           message:
-            parsed.status === 413 ? "This message is too large. Try a shorter message." : "We couldn’t complete that action. Refresh the page and try again.",
+            parsed.status === 413
+              ? "This message is too large. Try a shorter message."
+              : "We couldn’t complete that action. Refresh the page and try again.",
         },
         { status: parsed.status },
       );
     }
     const { body } = parsed;
     if (!body || typeof body !== "object") {
-      return Response.json({ message: "We couldn’t send that message. Refresh the conversation and try again." }, { status: 400 });
+      return Response.json(
+        { message: "We couldn’t send that message. Refresh the conversation and try again." },
+        { status: 400 },
+      );
     }
 
     const input = body as { clientMessageId?: unknown; envelope?: unknown; attachmentId?: unknown };
     if (typeof input.clientMessageId !== "string" || !uuidPattern.test(input.clientMessageId)) {
-      return Response.json({ message: "We couldn’t send that message. Refresh the conversation and try again." }, { status: 400 });
+      return Response.json(
+        { message: "We couldn’t send that message. Refresh the conversation and try again." },
+        { status: 400 },
+      );
     }
     if (
       input.attachmentId !== undefined &&
       input.attachmentId !== null &&
       (typeof input.attachmentId !== "string" || !uuidPattern.test(input.attachmentId))
     ) {
-      return Response.json({ message: "We couldn’t find that file. Refresh the conversation and try again." }, { status: 400 });
+      return Response.json(
+        { message: "We couldn’t find that file. Refresh the conversation and try again." },
+        { status: 400 },
+      );
     }
     const attachmentId = typeof input.attachmentId === "string" ? input.attachmentId : null;
 
@@ -169,20 +215,27 @@ export async function POST(request: Request, context: RouteContext): Promise<Res
       envelope.senderId !== user.id ||
       !envelope.wrappedKeys.some(({ deviceId }) => deviceId === envelope.senderDeviceId)
     ) {
-      return Response.json({ message: "We couldn’t send that message safely. Refresh the conversation and try again." }, { status: 400 });
+      return Response.json(
+        {
+          message: "We couldn’t send that message safely. Refresh the conversation and try again.",
+        },
+        { status: 400 },
+      );
     }
 
     const { db } = getDatabase();
     if (!(await isConversationMember(db, conversationId, user.id))) return notFoundResponse();
 
-    const conversationDevices = await db
-      .select({ id: devices.id })
+    const members = await db
+      .select({ userId: conversationMembers.userId })
       .from(conversationMembers)
-      .innerJoin(devices, eq(devices.userId, conversationMembers.userId))
-      .where(
-        and(eq(conversationMembers.conversationId, conversationId), isNull(devices.revokedAt)),
-      );
-    const expectedDeviceIds = new Set(conversationDevices.map(({ id }) => id));
+      .where(eq(conversationMembers.conversationId, conversationId));
+    const directory = await accountDeviceDirectory(members.map((member) => member.userId));
+    const expectedDeviceIds = new Set(
+      directory
+        .filter((device) => !device.revoked && device.approved)
+        .map((device) => device.deviceId),
+    );
     const wrappedDeviceIds = new Set(envelope.wrappedKeys.map(({ deviceId }) => deviceId));
     if (
       expectedDeviceIds.size === 0 ||
@@ -191,7 +244,7 @@ export async function POST(request: Request, context: RouteContext): Promise<Res
       [...expectedDeviceIds].some((deviceId) => !wrappedDeviceIds.has(deviceId))
     ) {
       return Response.json(
-        { message: "Someone’s devices changed. Refresh the conversation and check their safety codes before trying again." },
+        { message: "Someone’s approved devices changed. Refresh the conversation and try again." },
         { status: 409 },
       );
     }
@@ -209,7 +262,9 @@ export async function POST(request: Request, context: RouteContext): Promise<Res
       .limit(1);
     if (!senderDevice) {
       return Response.json(
-        { message: "This browser isn’t ready to send messages yet. Refresh the page and try again." },
+        {
+          message: "This browser isn’t ready to send messages yet. Refresh the page and try again.",
+        },
         { status: 409 },
       );
     }
@@ -219,6 +274,32 @@ export async function POST(request: Request, context: RouteContext): Promise<Res
 
     const clientMessageId = input.clientMessageId;
     const inserted = await db.transaction(async (tx) => {
+      await tx
+        .select({ id: authUser.id })
+        .from(authUser)
+        .where(
+          inArray(
+            authUser.id,
+            members.map((member) => member.userId),
+          ),
+        )
+        .orderBy(authUser.id)
+        .for("no key update");
+      const currentDirectory = await accountDeviceDirectory(
+        members.map((member) => member.userId),
+        tx,
+      );
+      const currentIds = new Set(
+        currentDirectory
+          .filter((device) => !device.revoked && device.approved)
+          .map((device) => device.deviceId),
+      );
+      if (
+        currentIds.size !== wrappedDeviceIds.size ||
+        [...currentIds].some((id) => !wrappedDeviceIds.has(id)) ||
+        !currentIds.has(envelope.senderDeviceId)
+      )
+        return "devices-changed" as const;
       if (attachmentId) {
         const [attachment] = await tx
           .select({ id: messageAttachments.id })
@@ -246,10 +327,16 @@ export async function POST(request: Request, context: RouteContext): Promise<Res
         })
         .onConflictDoNothing()
         .returning({ id: messageEnvelopes.id, createdAt: messageEnvelopes.createdAt });
-      if (created.length) await tx.insert(pushOutbox).values({ messageId: created[0].id }).onConflictDoNothing();
+      if (created.length)
+        await tx.insert(pushOutbox).values({ messageId: created[0].id }).onConflictDoNothing();
       return created;
     });
 
+    if (inserted === "devices-changed")
+      return Response.json(
+        { message: "Someone’s approved devices changed. Refresh the conversation and try again." },
+        { status: 409 },
+      );
     if (inserted === null) {
       return Response.json(
         { message: "The file hasn’t finished uploading. Please try again." },
@@ -282,7 +369,10 @@ export async function POST(request: Request, context: RouteContext): Promise<Res
         !Buffer.from(existing.envelope).equals(decoded.bytes)
       ) {
         return Response.json(
-          { message: "This message couldn’t be sent again. Refresh the conversation to check whether it arrived." },
+          {
+            message:
+              "This message couldn’t be sent again. Refresh the conversation to check whether it arrived.",
+          },
           { status: 409 },
         );
       }
@@ -304,7 +394,13 @@ export async function POST(request: Request, context: RouteContext): Promise<Res
       );
     }
 
-    after(async () => { try { await deliverPushOutbox(); } catch { console.error("Untold notification delivery will retry"); } });
+    after(async () => {
+      try {
+        await deliverPushOutbox();
+      } catch {
+        console.error("Untold notification delivery will retry");
+      }
+    });
     return Response.json(
       {
         message: {

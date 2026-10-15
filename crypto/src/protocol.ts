@@ -1,3 +1,5 @@
+import type { AccountIdentity, DeviceApproval } from "./account-types";
+
 const protocolName = "untold-e2ee";
 const protocolVersion = 1;
 const maxDevicesPerConversation = 32;
@@ -16,6 +18,11 @@ export type PublicDevice = Readonly<{
   agreementKey: string;
   signingKey: string;
   revoked: boolean;
+  accountIdentity?: AccountIdentity;
+  approval?: DeviceApproval | null;
+  approved?: boolean;
+  linkHash?: string | null;
+  linkExpiresAt?: string | null;
 }>;
 
 export type DeviceTrust = PublicDevice & Readonly<{ trust: "verified" | "new" | "changed" }>;
@@ -74,7 +81,7 @@ type StoredTrust = {
 };
 
 const databaseName = "untold-cryptographic-state";
-const databaseVersion = 1;
+const databaseVersion = 2;
 const identityStore = "identities";
 const trustStore = "trusted-devices";
 
@@ -100,14 +107,20 @@ function openKeyDatabase(): Promise<IDBDatabase> {
       if (!database.objectStoreNames.contains(trustStore)) {
         database.createObjectStore(trustStore, { keyPath: "id" });
       }
+      for (const name of ["account-roots", "account-links", "verified-accounts"]) {
+        if (!database.objectStoreNames.contains(name)) {
+          database.createObjectStore(name, { keyPath: "id" });
+        }
+      }
     };
     request.onsuccess = () => resolve(request.result);
     request.onerror = () => reject(new Error("Local cryptographic storage could not be opened."));
-    request.onblocked = () => reject(new Error("Close other Untold tabs to update local key storage."));
+    request.onblocked = () =>
+      reject(new Error("Close other Untold tabs to update local key storage."));
   });
 }
 
-function readRecord<T>(storeName: string, key: IDBValidKey): Promise<T | undefined> {
+export function readCryptoRecord<T>(storeName: string, key: IDBValidKey): Promise<T | undefined> {
   return openKeyDatabase().then(
     (database) =>
       new Promise<T | undefined>((resolve, reject) => {
@@ -121,7 +134,7 @@ function readRecord<T>(storeName: string, key: IDBValidKey): Promise<T | undefin
   );
 }
 
-function writeRecord(storeName: string, value: object): Promise<void> {
+export function writeCryptoRecord(storeName: string, value: object): Promise<void> {
   return openKeyDatabase().then(
     (database) =>
       new Promise<void>((resolve, reject) => {
@@ -136,6 +149,67 @@ function writeRecord(storeName: string, value: object): Promise<void> {
           reject(new Error("Local cryptographic state could not be saved."));
         };
         transaction.onabort = () => {
+          database.close();
+          reject(new Error("Local cryptographic state could not be saved."));
+        };
+      }),
+  );
+}
+
+const readRecord = readCryptoRecord;
+const writeRecord = writeCryptoRecord;
+
+export function updateCryptoRecord<T extends object>(
+  storeName: string,
+  key: IDBValidKey,
+  update: (current: T | undefined) => T,
+): Promise<T> {
+  return openKeyDatabase().then(
+    (database) =>
+      new Promise<T>((resolve, reject) => {
+        const transaction = database.transaction(storeName, "readwrite");
+        const store = transaction.objectStore(storeName);
+        let saved: T;
+        let failure: unknown;
+        const request = store.get(key);
+        request.onsuccess = () => {
+          try {
+            saved = update(request.result as T | undefined);
+            store.put(saved);
+          } catch (caught) {
+            failure = caught;
+            transaction.abort();
+          }
+        };
+        transaction.oncomplete = () => {
+          database.close();
+          resolve(saved);
+        };
+        transaction.onabort = transaction.onerror = () => {
+          database.close();
+          reject(failure ?? new Error("Local cryptographic state could not be saved."));
+        };
+      }),
+  );
+}
+
+function saveFirstIdentity(candidate: StoredIdentity): Promise<StoredIdentity> {
+  return openKeyDatabase().then(
+    (database) =>
+      new Promise((resolve, reject) => {
+        const transaction = database.transaction(identityStore, "readwrite");
+        const store = transaction.objectStore(identityStore);
+        let saved = candidate;
+        const request = store.get(candidate.accountId);
+        request.onsuccess = () => {
+          if (request.result) saved = request.result as StoredIdentity;
+          else store.add(candidate);
+        };
+        transaction.oncomplete = () => {
+          database.close();
+          resolve(saved);
+        };
+        transaction.onabort = transaction.onerror = () => {
           database.close();
           reject(new Error("Local cryptographic state could not be saved."));
         };
@@ -245,21 +319,26 @@ export async function loadOrCreateLocalDevice(accountId: string): Promise<LocalD
     deviceId: api.randomUUID(),
     agreementPrivateKey: agreementPair.privateKey,
     signingPrivateKey: signingPair.privateKey,
-    agreementKey: bytesToBase64Url(new Uint8Array(await api.subtle.exportKey("spki", agreementPair.publicKey))),
-    signingKey: bytesToBase64Url(new Uint8Array(await api.subtle.exportKey("spki", signingPair.publicKey))),
+    agreementKey: bytesToBase64Url(
+      new Uint8Array(await api.subtle.exportKey("spki", agreementPair.publicKey)),
+    ),
+    signingKey: bytesToBase64Url(
+      new Uint8Array(await api.subtle.exportKey("spki", signingPair.publicKey)),
+    ),
   };
 
-  // Re-read before saving in case two tabs initialized the account at the same time.
-  const raced = await readRecord<StoredIdentity>(identityStore, accountId);
-  if (raced) return raced;
-  await writeRecord(identityStore, candidate);
-  return candidate;
+  // Serialize the final read/add in IndexedDB, including across tabs.
+  return saveFirstIdentity(candidate);
 }
 
 export async function classifyDeviceTrust(
   accountId: string,
   devices: readonly PublicDevice[],
 ): Promise<DeviceTrust[]> {
+  if (devices.some((device) => device.accountIdentity)) {
+    const { classifyAccountDevices } = await import("./account-trust");
+    return classifyAccountDevices(accountId, devices);
+  }
   const local = await readRecord<StoredIdentity>(identityStore, accountId);
   return Promise.all(
     devices.map(async (device) => {
@@ -284,6 +363,19 @@ export async function classifyDeviceTrust(
       }
       return { ...device, trust: "verified" as const };
     }),
+  );
+}
+
+export async function hasLegacyDeviceTrust(
+  accountId: string,
+  device: PublicDevice,
+): Promise<boolean> {
+  const saved = await readRecord<StoredTrust>(
+    trustStore,
+    trustRecordId(accountId, device.userId, device.deviceId),
+  );
+  return Boolean(
+    saved && saved.agreementKey === device.agreementKey && saved.signingKey === device.signingKey,
   );
 }
 
@@ -325,14 +417,26 @@ export async function encryptMessageForDevices(
   localDevice: LocalDevice,
   recipients: readonly PublicDevice[],
 ): Promise<string> {
-  if (typeof plaintext !== "string" || textEncoder.encode(plaintext).byteLength > maxPlaintextBytes) {
+  if (
+    typeof plaintext !== "string" ||
+    textEncoder.encode(plaintext).byteLength > maxPlaintextBytes
+  ) {
     throw new RangeError("Message exceeds the encrypted text limit.");
   }
   if (recipients.length === 0 || recipients.length > maxDevicesPerConversation) {
-    throw new Error(`A conversation must have 1 to ${maxDevicesPerConversation} registered devices.`);
+    throw new Error(
+      `A conversation must have 1 to ${maxDevicesPerConversation} registered devices.`,
+    );
   }
-  if (!recipients.some(({ userId, deviceId }) => userId === localDevice.accountId && deviceId === localDevice.deviceId)) {
-    throw new Error("This browser is missing from the conversation device directory. Reload and try again.");
+  if (
+    !recipients.some(
+      ({ userId, deviceId }) =>
+        userId === localDevice.accountId && deviceId === localDevice.deviceId,
+    )
+  ) {
+    throw new Error(
+      "This browser is missing from the conversation device directory. Reload and try again.",
+    );
   }
   if (recipients.some(({ revoked }) => revoked)) {
     throw new Error("Revoked devices cannot receive new message keys.");
@@ -344,10 +448,17 @@ export async function encryptMessageForDevices(
   const messageNonce = new Uint8Array(12);
   api.getRandomValues(messageKeyBytes);
   api.getRandomValues(messageNonce);
-  const messageKey = await api.subtle.importKey("raw", messageKeyBytes, "AES-GCM", false, ["encrypt"]);
+  const messageKey = await api.subtle.importKey("raw", messageKeyBytes, "AES-GCM", false, [
+    "encrypt",
+  ]);
   const encryptedMessage = new Uint8Array(
     await api.subtle.encrypt(
-      { name: "AES-GCM", iv: messageNonce, additionalData: messageAdditionalData(context, localDevice.deviceId), tagLength: 128 },
+      {
+        name: "AES-GCM",
+        iv: messageNonce,
+        additionalData: messageAdditionalData(context, localDevice.deviceId),
+        tagLength: 128,
+      },
       messageKey,
       cleartext,
     ),
@@ -357,7 +468,8 @@ export async function encryptMessageForDevices(
     const wrappedKeys: WrappedKey[] = [];
     const uniqueDevices = new Set<string>();
     for (const recipient of recipients) {
-      if (uniqueDevices.has(recipient.deviceId)) throw new Error("The device directory contains a duplicate device.");
+      if (uniqueDevices.has(recipient.deviceId))
+        throw new Error("The device directory contains a duplicate device.");
       uniqueDevices.add(recipient.deviceId);
       const recipientPublicKey = await api.subtle.importKey(
         "spki",
@@ -367,7 +479,11 @@ export async function encryptMessageForDevices(
         [],
       );
       const shared = new Uint8Array(
-        await api.subtle.deriveBits({ name: "ECDH", public: recipientPublicKey }, localDevice.agreementPrivateKey, 256),
+        await api.subtle.deriveBits(
+          { name: "ECDH", public: recipientPublicKey },
+          localDevice.agreementPrivateKey,
+          256,
+        ),
       );
       const salt = new Uint8Array(16);
       const nonce = new Uint8Array(12);
@@ -431,8 +547,11 @@ export async function encryptMessageForDevices(
         stableEnvelope(unsigned),
       ),
     );
-    const wire = textEncoder.encode(JSON.stringify({ ...unsigned, signature: bytesToBase64Url(signature) }));
-    if (wire.byteLength > maxEnvelopeBytes) throw new RangeError("Encrypted message envelope is too large.");
+    const wire = textEncoder.encode(
+      JSON.stringify({ ...unsigned, signature: bytesToBase64Url(signature) }),
+    );
+    if (wire.byteLength > maxEnvelopeBytes)
+      throw new RangeError("Encrypted message envelope is too large.");
     return bytesToBase64(wire);
   } finally {
     cleartext.fill(0);
@@ -461,7 +580,8 @@ function parseWireEnvelope(encoded: string): WireEnvelope {
   } finally {
     bytes.fill(0);
   }
-  if (!envelope || typeof envelope !== "object") throw new Error("Encrypted message envelope is invalid.");
+  if (!envelope || typeof envelope !== "object")
+    throw new Error("Encrypted message envelope is invalid.");
   const value = envelope as Partial<WireEnvelope>;
   if (
     value.protocol !== protocolName ||
@@ -534,10 +654,14 @@ export async function decryptMessageForDevice(
     base64UrlToBytes(envelope.signature, 128),
     stableEnvelope(unsigned),
   );
-  if (!signatureOk) throw new Error("Message signature is invalid. The message may have been changed.");
+  if (!signatureOk)
+    throw new Error("Message signature is invalid. The message may have been changed.");
 
-  const wrapped = envelope.wrappedKeys.find(({ deviceId }) => deviceId === recipientDevice.deviceId);
-  if (!wrapped) throw new Error("This device was added after the message was sent and cannot open it.");
+  const wrapped = envelope.wrappedKeys.find(
+    ({ deviceId }) => deviceId === recipientDevice.deviceId,
+  );
+  if (!wrapped)
+    throw new Error("This device was added after the message was sent and cannot open it.");
   const senderAgreementKey = await api.subtle.importKey(
     "spki",
     base64UrlToBytes(senderDevice.agreementKey, 256),
@@ -546,7 +670,11 @@ export async function decryptMessageForDevice(
     [],
   );
   const shared = new Uint8Array(
-    await api.subtle.deriveBits({ name: "ECDH", public: senderAgreementKey }, recipientDevice.agreementPrivateKey, 256),
+    await api.subtle.deriveBits(
+      { name: "ECDH", public: senderAgreementKey },
+      recipientDevice.agreementPrivateKey,
+      256,
+    ),
   );
   const salt = base64UrlToBytes(wrapped.salt, 16);
   const wrapNonce = base64UrlToBytes(wrapped.nonce, 12);
@@ -570,7 +698,9 @@ export async function decryptMessageForDevice(
         wrappedBytes,
       ),
     );
-    const messageKey = await api.subtle.importKey("raw", messageKeyBytes, "AES-GCM", false, ["decrypt"]);
+    const messageKey = await api.subtle.importKey("raw", messageKeyBytes, "AES-GCM", false, [
+      "decrypt",
+    ]);
     const messageNonce = base64UrlToBytes(envelope.nonce, 12);
     const ciphertext = base64UrlToBytes(envelope.ciphertext, maxPlaintextBytes + 16);
     try {
@@ -586,7 +716,8 @@ export async function decryptMessageForDevice(
           ciphertext,
         ),
       );
-      if (cleartext.byteLength > maxPlaintextBytes) throw new Error("Decrypted message exceeds the size limit.");
+      if (cleartext.byteLength > maxPlaintextBytes)
+        throw new Error("Decrypted message exceeds the size limit.");
       return textDecoder.decode(cleartext);
     } finally {
       messageNonce.fill(0);
@@ -709,4 +840,3 @@ export function decodePublicKeyForStorage(value: string): Uint8Array<ArrayBuffer
 export function encodeEnvelopeForApi(envelope: string): Uint8Array<ArrayBuffer> {
   return base64ToBytes(envelope);
 }
-

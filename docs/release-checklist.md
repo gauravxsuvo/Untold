@@ -4,17 +4,21 @@
 
 ## Current local review (2026-10-15)
 
+Account verification follow-up: account safety codes now persist across signed, approved devices. Migration 014 and the device-linking, recovery, revocation, and migration checks in [account-device-verification.md](account-device-verification.md) are required for this release. File changes compile locally; real multi-device behavior and migration 014 have not been exercised here. Commit-ready does not mean live deployment has been verified.
+
+- [ ] Complete the staging checks in account-device-verification.md before a live rollout, including an existing verified PC chat followed by a newly approved iPhone, expired/wrong linking codes, device removal, recovery, and contact-verification sync.
+
 Empty-chat follow-up: migration 013 adds per-member explicit-start tracking. Empty chats stay in the starter’s list; automatic recipients see them only after a message is committed. Either member can explicitly start the same existing chat without creating a duplicate. Existing message history is preserved. Inbox, Chats, and Contacts share the server visibility filter. Foreground delivery triggers a list refresh for first messages in previously hidden chats.
 
 - [ ] Deploy with migration 013 before serving the updated queries. With two accounts, enter the recipient’s email without sending anything: their Inbox, Chats, and Contacts must stay unchanged. Send the first text or file-only message and confirm the chat appears. Repeat with both people independently starting the same chat and confirm they reuse its ID. Check an older empty chat and confirm only its original starter retains it until explicitly opened by the other person or a message is sent.
 - [ ] On an actual iPhone Home Screen install, enable notifications in Settings and send from the other account while the app is backgrounded. Confirm the alert opens the correct chat. iOS implementation is present, but physical-device delivery has not been verified here.
 
-Full-screen chats on screens up to 1000px wide, Settings-only sign out with confirmation, and verification-aware privacy banners are implemented. The complete privacy note remains accessible in Details. New or changed device codes still require verification; a member with only revoked devices cannot satisfy the send checks.
+Full-screen chats on screens up to 1000px wide, Settings-only sign out with confirmation, and verification-aware privacy banners are implemented. The complete privacy note remains accessible in Details. A new device requires its owner’s approval, and an account identity reset requires a new contact comparison. A member with only revoked or pending devices cannot satisfy the send checks.
 
 - [x] Production webpack build (including TypeScript) and lint pass. The production dependency audit (`npm audit --omit=dev`) reports zero known vulnerabilities.
 - [x] Review static sample-data chat layouts with 100 messages at phone, tablet, landscape, and desktop sizes, including extra-large text at 120% interface zoom and a simulated reduced keyboard viewport. Review Details, list navigation, and Settings placement. These previews do not verify live event handlers, real keyboards, authentication, or delivery.
 - [ ] On actual Android and iPhone installs, open a conversation, use the back button, rotate the screen, open the keyboard, and confirm the composer remains visible. Confirm navigation returns on leaving the chat.
-- [ ] Verify codes on both devices: the banner should disappear while the note remains in Details. Add or change a device and confirm verification warnings return.
+- [ ] Verify the account code from each account: the banner should disappear while the note remains in Details. Approve an additional device and confirm no extra contact comparison appears. Recover an account identity and confirm a change warning appears.
 - [ ] Confirm Settings sign out can be cancelled, a failed request keeps the session usable with a retry message, and a successful request removes access to authenticated pages.
 - [ ] Verify migrations through 012 against the deployment database, including MFA enrollment, sign-in challenges, password recovery, push subscription persistence, notifications, and Received/Read receipts on real devices. Keep earlier encryption, authorization, storage, and security review gates below.
 

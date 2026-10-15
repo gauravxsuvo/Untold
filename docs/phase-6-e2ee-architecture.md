@@ -15,9 +15,9 @@ This is an Untold-defined message envelope built from browser-standard primitive
 
 1. Each browser creates a P-256 ECDH key pair for key agreement and a separate P-256 ECDSA key pair for message signatures. Private `CryptoKey` objects are non-extractable and stored in IndexedDB, keyed to the signed-in account. The public SPKI keys are registered with the Untold API.
 2. For each message, the sender creates a fresh random 256-bit content key and a fresh 96-bit AES-GCM nonce. The text is encrypted with AES-256-GCM; conversation ID, message ID, sender account, and sender device are authenticated as additional data.
-3. The content key is wrapped separately for every registered device in the conversation. Each wrap derives an AES-GCM key from static ECDH P-256 plus HKDF-SHA-256, a fresh random salt, and conversation/message/device context.
-4. The sender signs the canonical envelope with its device ECDSA key. The server checks the sender/device/membership and that the wrapped-key list matches the current registered device directory, but it cannot verify the message signature or decrypt the text.
-5. A recipient verifies the sender signature and the local trust record before unwrapping the content key and decrypting the message. New device keys must be compared with the owner through a separate trusted channel before a user marks them verified. Changed keys fail closed.
+3. The content key is wrapped separately for every approved device in the conversation. Each wrap derives an AES-GCM key from static ECDH P-256 plus HKDF-SHA-256, a fresh random salt, and conversation/message/device context.
+4. The sender signs the canonical envelope with its device ECDSA key. The server checks the sender/device/membership and that the wrapped-key list matches the current approved device directory, but it cannot verify the message signature or decrypt the text.
+5. A recipient verifies the sender signature and the local trust record before unwrapping the content key and decrypting the message. A contact account is compared once through a separate trusted channel. Additional devices inherit trust only through signed device approval; an account identity reset requires a new comparison.
 
 The server accepts at most 8 devices per account and 32 devices per conversation. Message history remains capped at the latest 100 items per API response.
 
@@ -38,7 +38,7 @@ The database stores the public device-key directory, account/conversation metada
 
 ## Trust and key lifecycle
 
-- Fingerprints are SHA-256 hashes of the two public device keys. A new device is untrusted until the user compares the displayed code with its owner and marks it verified on this browser. The app refuses to send to a conversation containing any unverified device and refuses to display messages from an unverified sender device.
+- The shared contact safety code hashes both stable account identities. Device approval certificates bind additional device keys to that identity, and signed contact attestations sync comparisons between approved devices. Pending devices do not participate in new messages or block existing chats. Identity changes pause sharing until a new comparison. See [account device verification](account-device-verification.md) for migration, linking, recovery, and remaining review requirements.
 - First-contact verification depends on the user actually comparing the codes. A malicious server could substitute keys before the first comparison. The app does not have a key-transparency service.
 - A device can be revoked from account settings. The server retains its public key for verifying old message signatures, excludes it from new key wraps, and expires the account's other sessions. Revocation cannot erase downloaded history or ciphertext/key wrappers already stored.
 - Keys are not backed up or recoverable. Clearing browser data or losing the browser profile can make old messages unreadable. A newly added device cannot open messages sent before it was registered.

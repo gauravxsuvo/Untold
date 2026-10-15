@@ -2,7 +2,7 @@
 
 Untold is a calm messaging app for the conversations that matter. You sign up with email and password, add a friend by their account email, and talk. It is one full-stack Next.js application: the interface and the server API deploy together as a single Node.js service on [Portways](#deploying-on-portways).
 
-> **Encryption status:** Text and attachment files are encrypted in the browser before the API or Portways object storage receives them. Migration 006 removes pre-encryption message rows when the app next starts, so that old history disappears; database backups may retain copies. Compare device safety codes before trusting a device. Protocol v1 has no forward secrecy and has not had an independent security review. Someone who gains access to an unlocked device may be able to read its messages; do not treat this as production-secure.
+> **Encryption status:** Text and attachment files are encrypted in the browser before the API or Portways object storage receives them. Migration 006 removes pre-encryption message rows when the app next starts, so that old history disappears; database backups may retain copies. Compare the shared account safety code once per contact, then approve additional devices from an existing device. Protocol v1 has no forward secrecy and has not had an independent security review. Someone who gains access to an unlocked device may be able to read its messages; do not treat this as production-secure.
 
 ## Features
 
@@ -12,7 +12,7 @@ Untold is a calm messaging app for the conversations that matter. You sign up wi
 | Conversations | Start a one-to-one conversation by entering someone's account email. Starting it again from either side opens the same conversation. |
 | Messaging | Send and receive text messages of up to 2,000 characters. Messages appear immediately for the sender, retry safely without duplicates, and arrive for the other person within a few seconds. |
 | Attachments | Share images, video, audio, PDFs, office documents, and other files up to 20 MiB. Files encrypt in the browser; supported images preview in chat, audio/video play on request, and other types download as files. |
-| Device encryption | A first-party browser protocol encrypts new messages for every registered device. It uses no external cryptography package or hosted encryption service. Device safety codes, local key storage, and revocation are built into the app. |
+| Device encryption | A first-party browser protocol encrypts new messages for every approved device. It uses no external cryptography package or hosted encryption service. Device safety codes, local key storage, and revocation are built into the app. |
 | Live updates | With an Ably key configured, new messages arrive instantly. Without one, the app refreshes open conversations every 3 seconds and the list every 8 seconds. |
 | Inbox and contacts | The inbox shows recent conversations, and contacts lists the people you talk with. Untold never reads device contacts. |
 | Access control | Every `/app` page requires a signed-in account (checked on the server). Every API call checks the session and conversation membership, and writes must come from the app's own origin. |

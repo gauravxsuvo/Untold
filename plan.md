@@ -2,6 +2,21 @@
 
 ## Current status
 
+### Account verification and device approval (2026-10-15, implemented locally)
+
+The user chose to approve a new device once from an existing device. Contact verification must follow the account across approved devices. Signing in alone must not silently authorize another encryption device.
+
+- [x] Add a stable account safety identity, signed device approvals, and signed contact-verification records. Keep private signing/agreement keys on their original device.
+- [x] Add one-time device linking with a secret shown only on the new device and transferred by QR or code to the approving device. Pin the account identity from the encrypted approval response.
+- [x] Sync verified contacts to approved devices; migrate previously compared device codes when they match the stable identity. Verify each contact account once, with a new check only when the account identity is deliberately reset.
+- [x] Keep pending or removed devices out of message recipients. They must not block existing conversations. Require approval before sending or verifying contacts from a new device.
+- [x] Add Settings controls for linking, approving, removing, and recovering when every old device is unavailable. Recovery requires password and existing MFA, revokes other devices/sessions, and changes the account identity so contacts get a real change warning.
+- [x] Update safety QR/copy/loading states and rollout docs. Compile and lint; record remaining live-device verification requirements without claiming an independent cryptographic review.
+
+Device labels now identify the platform and browser or installed app, including iPhone, iPad, Android, Windows, and Mac. Existing labels refresh when each device opens the updated app. The current-device marker is separate. Linking supports camera QR and a wrapping, copyable code; approval and removal use distinct styles. Transient device-refresh errors preserve an existing approval. Atomic IndexedDB updates prevent two tabs from generating conflicting identities/link secrets or rolling back trust pins.
+
+Local production webpack build, TypeScript, lint, and standalone crypto compilation pass. Static sample-data Settings previews cover approved/pending devices on desktop, phone, tablet, and extra-large text at 120% zoom. No automated tests, live two-account/device flows, migrations, or deployment were run. Commit all new files with migration 014. Use the default production build on Portways and npm start for migration; staging checks in docs/account-device-verification.md remain required before a live rollout.
+
 ### Private empty chats and iPhone notification review (2026-10-15)
 
 - [x] Keep an empty chat visible only to its original starter and anyone who explicitly starts that same chat themselves. Reuse the existing conversation when both people enter each other’s email.
