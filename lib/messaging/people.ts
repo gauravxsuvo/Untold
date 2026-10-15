@@ -1,4 +1,4 @@
-export type Person = { id: string; name: string; email: string };
+export type Person = { id: string; name: string; email: string; image?: string | null };
 
 export type ConversationSummary = {
   id: string;
@@ -15,6 +15,8 @@ export type ConversationMessage = {
   attachmentId?: string | null;
   text?: string | null;
   createdAt: string;
+  receivedAt?: string | null;
+  readAt?: string | null;
 };
 
 const avatarTones = ["sage", "clay", "blue"] as const;

@@ -4,6 +4,7 @@ import { Wordmark } from "@/components/brand/wordmark";
 import { SessionControl } from "@/components/auth/session-control";
 import { ApplicationNavigation } from "@/components/app/application-navigation";
 import { InstallAppButton } from "@/components/pwa/install-app-button";
+import { ThemeSwitcher } from "@/components/theme/theme-switcher";
 
 export function ApplicationShell({ children }: { children: React.ReactNode }) {
   return (
@@ -29,6 +30,7 @@ export function ApplicationShell({ children }: { children: React.ReactNode }) {
             <Wordmark />
           </Link>
           <div className="app-mobile-header__actions">
+            <ThemeSwitcher compact />
             <InstallAppButton placement="mobile" />
             <SessionControl placement="mobile" />
           </div>
@@ -38,6 +40,7 @@ export function ApplicationShell({ children }: { children: React.ReactNode }) {
           <div className="app-topbar">
             <span className="app-topbar__title">Your conversations</span>
             <div className="app-topbar__actions">
+              <ThemeSwitcher compact />
               <InstallAppButton />
               <span className="app-preview-pill">
                 <MessageCircle aria-hidden="true" size={14} strokeWidth={1.8} />

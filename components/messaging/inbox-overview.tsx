@@ -5,12 +5,12 @@ import { useRouter } from "next/navigation";
 import { ArrowRight, ArrowUpRight } from "lucide-react";
 import { useAccountSession } from "@/components/auth/account-session-provider";
 import { StartConversationForm } from "@/components/messaging/start-conversation-form";
+import { Avatar } from "@/components/profile/avatar";
 import { useConversationList } from "@/components/messaging/use-messaging";
 import {
   conversationActivityAt,
   conversationTitle,
   formatMessageTime,
-  initialsFor,
   otherMembers,
   toneFor,
   type ConversationSummary,
@@ -37,9 +37,7 @@ function RecentConversation({
         className={`inbox-conversation inbox-conversation--${toneFor(person?.id ?? conversation.id)}`}
         href={`/app/conversations?conversation=${encodeURIComponent(conversation.id)}`}
       >
-        <span aria-hidden="true" className="inbox-conversation__avatar">
-          {initialsFor(title)}
-        </span>
+        <Avatar className="inbox-conversation__avatar" id={person?.id ?? conversation.id} image={person?.image} name={title} />
         <span className="inbox-conversation__body">
           <span className="inbox-conversation__topline">
             <strong>{title}</strong>
@@ -99,8 +97,7 @@ export function InboxOverview() {
       )}
 
       <p className="inbox-overview__note">
-        Messages are sent over HTTPS and stored on Untold’s server. They are not end-to-end
-        encrypted yet.
+        Open a conversation to read your messages. Compare safety codes before sharing anything sensitive.
       </p>
     </section>
   );

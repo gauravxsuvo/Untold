@@ -14,6 +14,8 @@ export const rateLimitRules = {
   uploadAttachment: { max: 10, windowSeconds: 60 * 60 },
   downloadAttachment: { max: 120, windowSeconds: 60 },
   realtimeToken: { max: 30, windowSeconds: 60 },
+  messageReceipts: { max: 120, windowSeconds: 60 },
+  profilePhoto: { max: 20, windowSeconds: 60 * 60 },
 } satisfies Record<string, RateLimitRule>;
 
 export async function consumeRateLimit(

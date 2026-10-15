@@ -36,3 +36,13 @@ export async function publishMessageAvailable(
   );
   return true;
 }
+
+export async function publishReceiptsUpdated(conversationId: string): Promise<boolean> {
+  const key = process.env.ABLY_API_KEY?.trim();
+  if (!key) return false;
+  const realtime = new Rest({ key });
+  await realtime.channels.get(`untold:conversation:${conversationId}`).publish(
+    "receipts-updated", { conversationId },
+  );
+  return true;
+}

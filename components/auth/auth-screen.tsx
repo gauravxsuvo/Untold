@@ -5,6 +5,7 @@ import { ArrowUpRight, MessageCircle } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState, type FormEvent } from "react";
 import { Wordmark } from "@/components/brand/wordmark";
+import { ThemeSwitcher } from "@/components/theme/theme-switcher";
 import { useAccountSession } from "@/components/auth/account-session-provider";
 import { authClient } from "@/lib/auth/client";
 import { validateAuthForm, type AuthFieldErrors, type AuthFormMode } from "@/lib/auth/validation";
@@ -81,9 +82,7 @@ export function AuthScreen({
         <Link aria-label="Untold home" className="app-brand" href="/">
           <Wordmark />
         </Link>
-        <span className="auth-preview-badge">
-          <i aria-hidden="true" /> Account access
-        </span>
+        <ThemeSwitcher compact />
       </header>
 
       <div className="auth-layout">

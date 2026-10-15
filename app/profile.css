@@ -1,0 +1,115 @@
+.person-avatar {
+  display: inline-flex;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  border-radius: 50%;
+}
+
+.person-avatar__photo {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.profile-photo-editor {
+  grid-column: 1 / -1;
+  width: 100%;
+  min-width: 0;
+  margin-top: 4px;
+}
+
+.profile-photo-editor__actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.profile-photo-editor__actions button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  min-height: 38px;
+  padding: 0 12px;
+  border: 1px solid var(--ui-border);
+  border-radius: 9px;
+  background: var(--ui-surface);
+  color: var(--ui-accent);
+  cursor: pointer;
+  font: inherit;
+  font-size: 12px;
+}
+
+.profile-photo-editor__actions button:hover:not(:disabled) {
+  background: var(--ui-accent-wash);
+}
+
+.profile-photo-editor__actions button:disabled {
+  opacity: 0.6;
+  cursor: progress;
+}
+
+.profile-photo-editor__actions .profile-photo-editor__remove {
+  color: var(--ui-danger-ink);
+}
+
+.profile-photo-editor__hint,
+.profile-photo-editor__feedback {
+  color: var(--ui-muted);
+  font-size: 11px;
+  line-height: 1.6;
+}
+
+.profile-photo-crop {
+  display: grid;
+  min-inline-size: 0;
+  width: 100%;
+  grid-template-columns: 160px minmax(0, 1fr);
+  align-items: center;
+  gap: 24px;
+  max-width: 540px;
+  margin-top: 18px;
+  margin-inline: 0;
+  padding: 18px;
+  border: 1px solid var(--ui-border);
+  border-radius: 14px;
+  background: var(--ui-subtle);
+}
+
+.profile-photo-crop__preview {
+  width: 160px;
+  height: 160px;
+  border: 1px solid var(--ui-border);
+  border-radius: 50%;
+  background: var(--ui-surface);
+}
+
+.profile-photo-crop__controls {
+  display: grid;
+  min-width: 0;
+  gap: 9px;
+  color: var(--ui-muted);
+  font-size: 11px;
+}
+
+.profile-photo-crop__controls input[type="range"] {
+  width: 100%;
+  margin: 0 0 5px;
+  accent-color: var(--ui-accent);
+}
+
+@media (max-width: 680px) {
+  .profile-photo-crop {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 18px;
+    padding: 14px;
+  }
+
+  .profile-photo-crop__preview {
+    justify-self: center;
+  }
+}

@@ -1,8 +1,13 @@
 import type { Metadata, Viewport } from "next";
 import { connection } from "next/server";
+import { cookies } from "next/headers";
 import { AccountSessionProvider } from "@/components/auth/account-session-provider";
 import { InstallPromptProvider } from "@/components/pwa/install-prompt-provider";
+import { ThemeProvider } from "@/components/theme/theme-provider";
+import { isTheme, themeColors, themeCookieName } from "@/lib/ui/theme";
 import "./globals.css";
+import "./themes.css";
+import "./profile.css";
 
 export const metadata: Metadata = {
   metadataBase: new URL("https://untold.portways.app"),
@@ -38,9 +43,15 @@ export const metadata: Metadata = {
   },
 };
 
-export const viewport: Viewport = {
-  themeColor: "#f7f8f4",
-};
+export async function generateViewport(): Promise<Viewport> {
+  const preference = (await cookies()).get(themeCookieName)?.value;
+  return {
+    themeColor: isTheme(preference) ? themeColors[preference] : [
+      { media: "(prefers-color-scheme: light)", color: themeColors.light },
+      { media: "(prefers-color-scheme: dark)", color: themeColors.dark },
+    ],
+  };
+}
 
 export default async function RootLayout({
   children,
@@ -48,13 +59,17 @@ export default async function RootLayout({
   children: React.ReactNode;
 }>) {
   await connection();
+  const preference = (await cookies()).get(themeCookieName)?.value;
+  const initialTheme = isTheme(preference) ? preference : null;
 
   return (
-    <html lang="en">
+    <html data-theme={initialTheme ?? undefined} lang="en">
       <body className="min-h-screen antialiased">
-        <AccountSessionProvider>
-          <InstallPromptProvider>{children}</InstallPromptProvider>
-        </AccountSessionProvider>
+        <ThemeProvider initialTheme={initialTheme}>
+          <AccountSessionProvider>
+            <InstallPromptProvider>{children}</InstallPromptProvider>
+          </AccountSessionProvider>
+        </ThemeProvider>
       </body>
     </html>
   );

@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { ArrowUpRight, LogOut, UserRound } from "lucide-react";
 import { useAccountSession } from "@/components/auth/account-session-provider";
-import { initialsFor } from "@/lib/messaging/people";
+import { Avatar } from "@/components/profile/avatar";
 
 export function SessionControl({ placement }: { placement: "sidebar" | "mobile" }) {
   const { session, isSessionPending, signOut } = useAccountSession();
@@ -18,9 +18,9 @@ export function SessionControl({ placement }: { placement: "sidebar" | "mobile" 
 
   if (placement === "mobile") {
     return session ? (
-      <button className="app-preview-pill app-preview-pill--action" onClick={handleSignOut} type="button">
+      <button aria-label="Sign out" className="app-preview-pill app-preview-pill--action" onClick={handleSignOut} type="button">
         <LogOut aria-hidden="true" size={14} strokeWidth={1.8} />
-        Sign out
+        <span className="app-mobile-signout-label">Sign out</span>
       </button>
     ) : isSessionPending ? (
       <span className="app-preview-pill" aria-live="polite">Checking account…</span>
@@ -33,9 +33,9 @@ export function SessionControl({ placement }: { placement: "sidebar" | "mobile" 
 
   return (
     <div className="app-sidebar__foot">
-      <span aria-hidden="true" className="app-sidebar__avatar">
-        {session ? initialsFor(session.displayName) : <UserRound size={17} strokeWidth={1.8} />}
-      </span>
+      {session ? (
+        <Avatar className="app-sidebar__avatar" id={session.id} image={session.image} name={session.displayName} />
+      ) : <span aria-hidden="true" className="app-sidebar__avatar"><UserRound size={17} strokeWidth={1.8} /></span>}
       <div className="app-sidebar__session-copy">
         {session ? (
           <>

@@ -6,7 +6,7 @@ import {
   userFacingError,
   fetchConversations,
   fetchConversationDevices,
-  fetchMessages,
+  fetchMessageSnapshot,
   uploadEncryptedAttachment,
   discardEncryptedAttachment,
   registerDevice,
@@ -125,7 +125,7 @@ function useRealtimeNotifications(
       for (const id of ids) {
         realtime.channels
           .get(`untold:conversation:${id}`)
-          .subscribe("message-available", () => handlerRef.current(id))
+          .subscribe(["message-available", "receipts-updated"], () => handlerRef.current(id))
           .catch(() => undefined);
       }
     })();
@@ -189,6 +189,15 @@ export type ThreadMessage = ConversationMessage & {
   encryption: "encrypted" | "unverified" | "unavailable";
   issue?: string;
   delivery: "sent" | "sending" | "failed";
+};
+
+type ThreadReadCache = {
+  key: string;
+  etag: string | null;
+  messages: Map<string, ThreadMessage>;
+  controller: AbortController | null;
+  inFlight: boolean;
+  queued: boolean;
 };
 
 export type AttachmentUploadStatus = {
@@ -270,7 +279,7 @@ export function useConversationDeviceDirectory(
       return;
     }
     const requestedId = conversationId;
-    setState("loading");
+    setState((current) => current === "ready" ? "ready" : "loading");
     try {
       const publicDevices = await fetchConversationDevices(requestedId);
       const classified = await classifyDeviceTrust(accountId, publicDevices);
@@ -313,6 +322,7 @@ export function useConversationThread(
   const [state, setState] = useState<LoadState>("loading");
   const [error, setError] = useState("");
   const [attachmentUpload, setAttachmentUpload] = useState<AttachmentUploadStatus | null>(null);
+  const messagesConversationRef = useRef(conversationId);
   const attachmentRetryRef = useRef<AttachmentRetryData | null>(null);
   const attachmentPreparationRef = useRef<AbortController | null>(null);
   useEffect(() => () => {
@@ -325,6 +335,13 @@ export function useConversationThread(
   localDeviceRef.current = localDevice;
   const deviceDirectoryRef = useRef(deviceDirectory);
   deviceDirectoryRef.current = deviceDirectory;
+  const directoryKey = deviceDirectory ? JSON.stringify(deviceDirectory.map((device) => [
+    device.userId, device.deviceId, device.agreementKey, device.signingKey, device.trust, device.revoked,
+  ]).sort((first, second) => String(first[1]).localeCompare(String(second[1])))) : "";
+  const readCacheKey = JSON.stringify([viewerId, conversationId, localDevice?.deviceId, localDevice?.agreementKey, localDevice?.signingKey, directoryKey]);
+  const readCacheKeyRef = useRef(readCacheKey);
+  readCacheKeyRef.current = readCacheKey;
+  const readCacheRef = useRef<ThreadReadCache | null>(null);
 
   const decryptFetched = useCallback(async (
     message: ConversationMessage,
@@ -402,39 +419,75 @@ export function useConversationThread(
     }
   }, []);
 
-  const refresh = useCallback(async () => {
+  const refresh = useCallback(async (): Promise<void> => {
     const requestedId = activeIdRef.current;
     if (!requestedId || !deviceDirectoryRef.current || !localDeviceRef.current) return;
+    const key = readCacheKeyRef.current;
+    let cache = readCacheRef.current;
+    if (!cache || cache.key !== key) {
+      cache?.controller?.abort();
+      cache = { key, etag: null, messages: new Map(), controller: null, inFlight: false, queued: false };
+      readCacheRef.current = cache;
+    }
+    if (cache.inFlight) { cache.queued = true; return; }
+    const snapshot = cache;
+    snapshot.inFlight = true;
+    const controller = new AbortController();
+    snapshot.controller = controller;
+    const isCurrent = () => !controller.signal.aborted && activeIdRef.current === requestedId && readCacheKeyRef.current === key && readCacheRef.current === snapshot;
     try {
-      const fetched = await fetchMessages(requestedId);
-      if (activeIdRef.current !== requestedId) return;
-      const decrypted = await Promise.all(fetched.map((message) => decryptFetched(message, requestedId)));
-      if (activeIdRef.current !== requestedId) return;
+      const knownIds = [...snapshot.messages.values()].filter((message) => message.encryption !== "unavailable").map(({ id }) => id);
+      const fetched = await fetchMessageSnapshot(requestedId, knownIds, snapshot.etag,
+        AbortSignal.any([controller.signal, AbortSignal.timeout(15_000)]));
+      if (!isCurrent()) return;
+      if (fetched === null) { setState("ready"); setError(""); return; }
+      const decrypted = await Promise.all(fetched.messages.map(async (message) => {
+        const previous = snapshot.messages.get(message.id);
+        if (previous && previous.encryption !== "unavailable" && (!message.envelope || message.envelope === previous.envelope)) {
+          // Reuse plaintext only in this hook, with the same account, device, and trust state.
+          return { ...previous, ...message, envelope: previous.envelope,
+            receivedAt: previous.receivedAt ?? message.receivedAt, readAt: previous.readAt ?? message.readAt };
+        }
+        return decryptFetched(message, requestedId);
+      }));
+      if (!isCurrent()) return;
+      snapshot.messages = new Map(decrypted.map((message) => [message.id, message]));
+      snapshot.etag = fetched.etag;
       setMessages((current) => {
         const confirmedIds = new Set(decrypted.map(({ clientMessageId }) => clientMessageId));
-        const pending = current.filter(
-          (message) => message.delivery !== "sent" && !confirmedIds.has(message.clientMessageId),
-        );
-        return mergeMessages<ThreadMessage>(
-          pending,
-          decrypted,
-        );
+        const pending = current.filter((message) => message.delivery !== "sent" && !confirmedIds.has(message.clientMessageId));
+        const withReceipts = decrypted.map((message) => {
+          const existing = current.find(({ id }) => id === message.id);
+          return { ...message, receivedAt: existing?.receivedAt ?? message.receivedAt, readAt: existing?.readAt ?? message.readAt };
+        });
+        return mergeMessages<ThreadMessage>(pending, withReceipts);
       });
-      setState("ready");
-      setError("");
+      setState("ready"); setError("");
     } catch (caught) {
-      if (activeIdRef.current !== requestedId) return;
+      if (!isCurrent()) return;
       setError(userFacingError(caught, "Messages could not load."));
-      setState((current) => (current === "ready" ? "ready" : "error"));
+      if (caught instanceof ApiError && [401, 403, 404].includes(caught.status)) {
+        snapshot.messages.clear(); snapshot.etag = null;
+        setMessages([]); setState("error");
+        return;
+      }
+      setState((current) => current === "ready" ? "ready" : "error");
+    } finally {
+      snapshot.inFlight = false;
+      snapshot.controller = null;
+      if (snapshot.queued && isCurrent()) { snapshot.queued = false; void refresh(); }
     }
   }, [decryptFetched]);
 
   useEffect(() => {
-    setMessages([]);
-    setError("");
-    setState("loading");
-    if (conversationId && localDevice && deviceDirectory) void refresh();
-  }, [conversationId, deviceDirectory, localDevice, refresh]);
+    messagesConversationRef.current = conversationId;
+    setMessages([]); setError(""); setState("loading");
+    void refresh();
+    return () => {
+      const cache = readCacheRef.current;
+      if (cache?.key === readCacheKey) { cache.controller?.abort(); readCacheRef.current = null; }
+    };
+  }, [conversationId, readCacheKey, refresh]);
 
   usePolling(
     () => void refresh(),
@@ -450,8 +503,9 @@ export function useConversationThread(
         pending.attachmentId ?? null,
       );
       if (activeIdRef.current !== targetId) return;
-      setMessages((current) =>
-        mergeMessages<ThreadMessage>(
+      setMessages((current) => {
+        const existing = current.find(({ clientMessageId }) => clientMessageId === pending.clientMessageId);
+        return mergeMessages<ThreadMessage>(
           current.filter(({ clientMessageId }) => clientMessageId !== pending.clientMessageId),
           [
             {
@@ -462,10 +516,12 @@ export function useConversationThread(
               attachmentSenderDeviceId: pending.attachmentSenderDeviceId,
               encryption: "encrypted",
               delivery: "sent",
+              receivedAt: existing?.receivedAt ?? saved.receivedAt,
+              readAt: existing?.readAt ?? saved.readAt,
             },
           ],
-        ),
-      );
+        );
+      });
     } catch (caught) {
       if (activeIdRef.current !== targetId) return;
       setMessages((current) =>
@@ -793,7 +849,7 @@ export function useConversationThread(
   );
 
   return {
-    messages,
+    messages: messagesConversationRef.current === conversationId ? messages : [],
     state,
     error,
     refresh,

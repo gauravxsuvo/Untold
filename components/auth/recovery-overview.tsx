@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { ArrowUpRight } from "lucide-react";
 import { Wordmark } from "@/components/brand/wordmark";
+import { ThemeSwitcher } from "@/components/theme/theme-switcher";
 
 const signInTips = [
   {
@@ -30,7 +31,7 @@ export function RecoveryOverview() {
         <Link aria-label="Untold home" className="app-brand" href="/">
           <Wordmark />
         </Link>
-        <span className="auth-preview-badge"><i aria-hidden="true" /> Sign-in help</span>
+        <ThemeSwitcher compact />
       </header>
       <section aria-labelledby="recovery-title" className="recovery-page__intro">
         <p className="auth-kicker">Getting back in</p>

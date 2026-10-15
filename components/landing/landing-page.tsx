@@ -2,6 +2,7 @@ import Link from "next/link";
 import { ArrowDown, ArrowUpRight, CornerDownRight, MessageCircle } from "lucide-react";
 import { Wordmark } from "@/components/brand/wordmark";
 import { ConceptPreview } from "@/components/landing/concept-preview";
+import { ThemeSwitcher } from "@/components/theme/theme-switcher";
 
 const principles = [
   {
@@ -33,6 +34,7 @@ export function LandingPage() {
             <Wordmark />
           </a>
           <nav className="site-nav" aria-label="Main navigation">
+            <ThemeSwitcher compact />
             <a href="#privacy">Our approach</a>
             <a href="#building">What we’re building</a>
             <Link className="site-nav__cta" href="/auth/sign-in">
