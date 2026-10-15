@@ -65,6 +65,7 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
       ...init,
       cache: "no-store",
       credentials: "same-origin",
+      signal: init?.signal ? AbortSignal.any([init.signal, AbortSignal.timeout(30_000)]) : AbortSignal.timeout(30_000),
       headers,
     });
   } catch {
@@ -89,9 +90,10 @@ export async function removeProfilePhoto(): Promise<void> {
   await request<{ image: null }>("/api/profile/photo", { method: "DELETE" });
 }
 
-export async function fetchConversations(): Promise<ConversationSummary[]> {
+export async function fetchConversations(signal?: AbortSignal): Promise<ConversationSummary[]> {
   const { conversations } = await request<{ conversations: ConversationSummary[] }>(
     "/api/conversations",
+    { signal },
   );
   return conversations;
 }

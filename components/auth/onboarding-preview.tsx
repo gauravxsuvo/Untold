@@ -82,8 +82,9 @@ export function OnboardingPreview() {
           <p className="messaging-kicker">Keep your history</p>
           <h2 id="onboarding-recovery-title">Take care of your password and devices.</h2>
           <p>
-            Password resets aren’t available yet. Clearing your browser data or losing a device
-            can also make older messages unreadable, even if you sign in again.
+            Set up two-factor authentication in Settings and save your recovery codes so you
+            can reset a forgotten password. Clearing browser data or losing a device can still
+            make older messages unreadable.
           </p>
         </div>
         <Link href="/auth/recovery">

@@ -146,22 +146,42 @@ export function useConversationList(
   const [conversations, setConversations] = useState<ConversationSummary[]>([]);
   const [state, setState] = useState<LoadState>("loading");
   const [error, setError] = useState("");
+  const activeRequest = useRef<AbortController | null>(null);
 
   const refresh = useCallback(async () => {
+    if (activeRequest.current) return;
+    const controller = new AbortController();
+    activeRequest.current = controller;
     try {
-      const next = await fetchConversations();
+      const next = await fetchConversations(controller.signal);
+      if (controller.signal.aborted) return;
       setConversations(sortByActivity(next));
       setState("ready");
       setError("");
     } catch (caught) {
+      if (controller.signal.aborted) return;
       setError(userFacingError(caught, "Conversations could not load."));
       setState((current) => (current === "ready" ? "ready" : "error"));
+    } finally {
+      if (activeRequest.current === controller) activeRequest.current = null;
     }
   }, []);
 
   useEffect(() => {
     void refresh();
+    const resume = () => { void refresh(); };
+    const pushed = (event: MessageEvent) => { if (event.data?.type === "untold-message-available") { void refresh(); if (event.data.conversationId) window.dispatchEvent(new CustomEvent("untold:message", { detail: { conversationId: event.data.conversationId } })); } };
+    window.addEventListener("online", resume);
+    window.addEventListener("untold:conversations-changed", resume);
+    navigator.serviceWorker?.addEventListener("message", pushed);
+    return () => { activeRequest.current?.abort(); activeRequest.current = null; window.removeEventListener("online", resume); window.removeEventListener("untold:conversations-changed", resume); navigator.serviceWorker?.removeEventListener("message", pushed); };
   }, [refresh]);
+
+  useEffect(() => {
+    const received = (event: Event) => { const id = (event as CustomEvent<{ conversationId: string }>).detail?.conversationId; if (id) onMessageAvailable?.(id); };
+    window.addEventListener("untold:message", received);
+    return () => window.removeEventListener("untold:message", received);
+  }, [onMessageAvailable]);
 
   const isRealtimeConnected = useRealtimeNotifications(
     conversations.map(({ id }) => id),

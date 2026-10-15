@@ -1,5 +1,7 @@
 "use client";
 
+import { LoadingSkeleton } from "@/components/ui/loading-skeleton";
+
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { ArrowRight, ArrowUpRight } from "lucide-react";
@@ -73,9 +75,7 @@ export function InboxOverview() {
       </header>
 
       {state === "loading" ? (
-        <p className="inbox-overview__note" role="status">
-          Loading conversations…
-        </p>
+        <LoadingSkeleton label="Loading conversations…" />
       ) : state === "error" ? (
         <p className="inbox-overview__note messaging-error" role="alert">
           {error}

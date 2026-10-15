@@ -141,7 +141,7 @@ After the first deploy, work through [`docs/release-checklist.md`](docs/release-
 
 - **Early encryption protocol.** Message text, file bytes, and file details are encrypted in the browser and stored as ciphertext, but protocol v1 has no forward secrecy and no independent review. Verify safety codes before sending. Migration 006 permanently removes pre-encryption message rows from the live database; host backups may retain copies. See [`crypto/`](crypto/README.md).
 - **No email delivery.** Email verification and password reset are not set up, so there is no way to recover a forgotten password yet.
-- **Attachment size and scope.** One-to-one chats support files up to 20 MiB each. No group conversations, calls, push notifications, message editing or deletion.
+- **Attachment size and scope.** One-to-one chats support files up to 20 MiB each. No group conversations, calls, message editing or deletion. Opt-in private push alerts and cross-conversation delivery acknowledgements are implemented; real-device verification remains outstanding. See [the implementation and rollout notes](docs/readability-delivery-and-notifications.md).
 - **Email lookup.** Starting a conversation reveals whether an email has an account. It is rate limited, and conversation partners see each other's display name and email.
 - **Message history** shows the most recent 100 messages per conversation.
 

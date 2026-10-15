@@ -41,7 +41,7 @@
   color: var(--ui-accent);
   cursor: pointer;
   font: inherit;
-  font-size: 12px;
+  font-size: calc(12px * var(--text-scale, 1));
 }
 
 .profile-photo-editor__actions button:hover:not(:disabled) {
@@ -60,7 +60,7 @@
 .profile-photo-editor__hint,
 .profile-photo-editor__feedback {
   color: var(--ui-muted);
-  font-size: 11px;
+  font-size: calc(12px * var(--text-scale, 1));
   line-height: 1.6;
 }
 
@@ -93,7 +93,7 @@
   min-width: 0;
   gap: 9px;
   color: var(--ui-muted);
-  font-size: 11px;
+  font-size: calc(12px * var(--text-scale, 1));
 }
 
 .profile-photo-crop__controls input[type="range"] {

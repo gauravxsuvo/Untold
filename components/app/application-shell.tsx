@@ -5,10 +5,11 @@ import { SessionControl } from "@/components/auth/session-control";
 import { ApplicationNavigation } from "@/components/app/application-navigation";
 import { InstallAppButton } from "@/components/pwa/install-app-button";
 import { ThemeSwitcher } from "@/components/theme/theme-switcher";
+import { ApplicationViewport } from "@/components/app/application-viewport";
 
 export function ApplicationShell({ children }: { children: React.ReactNode }) {
   return (
-    <div className="app-shell">
+    <ApplicationViewport>
       <a className="app-skip-link" href="#app-content">
         Skip to content
       </a>
@@ -21,7 +22,7 @@ export function ApplicationShell({ children }: { children: React.ReactNode }) {
         <div className="app-sidebar__label">Your space</div>
         <ApplicationNavigation placement="sidebar" />
 
-        <SessionControl placement="sidebar" />
+        <SessionControl />
       </aside>
 
       <div className="app-main-column">
@@ -32,7 +33,6 @@ export function ApplicationShell({ children }: { children: React.ReactNode }) {
           <div className="app-mobile-header__actions">
             <ThemeSwitcher compact />
             <InstallAppButton placement="mobile" />
-            <SessionControl placement="mobile" />
           </div>
         </header>
 
@@ -57,6 +57,6 @@ export function ApplicationShell({ children }: { children: React.ReactNode }) {
       </div>
 
       <ApplicationNavigation placement="mobile" />
-    </div>
+    </ApplicationViewport>
   );
 }

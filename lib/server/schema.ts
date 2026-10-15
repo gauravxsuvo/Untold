@@ -22,6 +22,7 @@ export const authUser = authSchema.table(
     name: text("name").notNull(),
     email: text("email").notNull(),
     emailVerified: boolean("email_verified").notNull().default(false),
+    twoFactorEnabled: boolean("two_factor_enabled").notNull().default(false),
     image: text("image"),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
@@ -47,6 +48,35 @@ export const authSession = authSchema.table(
     uniqueIndex("untold_auth_session_token_unique").on(table.token),
     index("untold_auth_session_user_id_idx").on(table.userId),
   ],
+);
+
+export const authTwoFactor = authSchema.table(
+  "two_factor",
+  {
+    id: text("id").primaryKey(),
+    userId: text("user_id")
+      .notNull()
+      .references(() => authUser.id, { onDelete: "cascade" }),
+    secret: text("secret").notNull(),
+    backupCodes: text("backup_codes").notNull(),
+    verified: boolean("verified").notNull().default(false),
+    failedVerificationCount: integer("failed_verification_count").notNull().default(0),
+    lockedUntil: timestamp("locked_until", { withTimezone: true }),
+  },
+  (table) => [uniqueIndex("untold_auth_two_factor_user_unique").on(table.userId)],
+);
+
+// Short-lived fingerprints prevent a code used for a sensitive action being reused.
+export const authUsedTotp = authSchema.table(
+  "used_totp",
+  {
+    userId: text("user_id")
+      .notNull()
+      .references(() => authUser.id, { onDelete: "cascade" }),
+    fingerprint: text("fingerprint").notNull(),
+    expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+  },
+  (table) => [primaryKey({ columns: [table.userId, table.fingerprint] })],
 );
 
 export const authAccount = authSchema.table(
@@ -101,6 +131,53 @@ export const authRateLimit = authSchema.table(
   (table) => [uniqueIndex("untold_auth_rate_limit_key_unique").on(table.key)],
 );
 
+export const pushKeys = appSchema.table("push_keys", {
+  id: text("id").primaryKey(),
+  publicKey: text("public_key").notNull(),
+  privateKey: text("private_key").notNull(),
+});
+
+export const pushSubscriptions = appSchema.table(
+  "push_subscription",
+  {
+    endpointHash: text("endpoint_hash").primaryKey(),
+    endpoint: text("endpoint").notNull(),
+    p256dh: text("p256dh").notNull(),
+    auth: text("auth").notNull(),
+    userId: text("user_id")
+      .notNull()
+      .references(() => authUser.id, { onDelete: "cascade" }),
+    sessionId: text("session_id")
+      .notNull()
+      .references(() => authSession.id, { onDelete: "cascade" }),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [index("untold_push_subscription_user_idx").on(table.userId)],
+);
+
+export const pushOutbox = appSchema.table(
+  "push_outbox",
+  {
+    messageId: uuid("message_id")
+      .primaryKey()
+      .references(() => messageEnvelopes.id, { onDelete: "cascade" }),
+    attempts: integer("attempts").notNull().default(0),
+    nextAttemptAt: timestamp("next_attempt_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [index("untold_push_outbox_due_idx").on(table.nextAttemptAt)],
+);
+
+export const pushDeliveries = appSchema.table(
+  "push_delivery",
+  {
+    messageId: uuid("message_id")
+      .notNull()
+      .references(() => pushOutbox.messageId, { onDelete: "cascade" }),
+    endpointHash: text("endpoint_hash").notNull(),
+  },
+  (table) => [primaryKey({ columns: [table.messageId, table.endpointHash] })],
+);
+
 export const conversations = appSchema.table(
   "conversation",
   {
@@ -130,6 +207,7 @@ export const conversationMembers = appSchema.table(
       .notNull()
       .references(() => authUser.id, { onDelete: "cascade" }),
     joinedAt: timestamp("joined_at", { withTimezone: true }).notNull().defaultNow(),
+    initiatedAt: timestamp("initiated_at", { withTimezone: true }),
   },
   (table) => [
     primaryKey({
@@ -188,7 +266,9 @@ const bytea = customType<{ data: Buffer; driverData: Buffer }>({
 });
 
 export const profilePhotos = appSchema.table("profile_photo", {
-  userId: text("user_id").primaryKey().references(() => authUser.id, { onDelete: "cascade" }),
+  userId: text("user_id")
+    .primaryKey()
+    .references(() => authUser.id, { onDelete: "cascade" }),
   version: uuid("version").notNull(),
   image: bytea("image").notNull(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
@@ -205,7 +285,9 @@ export const messageEnvelopes = appSchema.table(
       .notNull()
       .references(() => authUser.id, { onDelete: "cascade" }),
     clientMessageId: uuid("client_message_id").notNull(),
-    attachmentId: uuid("attachment_id").references(() => messageAttachments.id, { onDelete: "restrict" }),
+    attachmentId: uuid("attachment_id").references(() => messageAttachments.id, {
+      onDelete: "restrict",
+    }),
     envelope: bytea("envelope").notNull(),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
@@ -223,8 +305,12 @@ export const messageEnvelopes = appSchema.table(
 export const messageReceipts = appSchema.table(
   "message_receipt",
   {
-    messageId: uuid("message_id").notNull().references(() => messageEnvelopes.id, { onDelete: "cascade" }),
-    userId: text("user_id").notNull().references(() => authUser.id, { onDelete: "cascade" }),
+    messageId: uuid("message_id")
+      .notNull()
+      .references(() => messageEnvelopes.id, { onDelete: "cascade" }),
+    userId: text("user_id")
+      .notNull()
+      .references(() => authUser.id, { onDelete: "cascade" }),
     receivedAt: timestamp("received_at", { withTimezone: true }).notNull().defaultNow(),
     readAt: timestamp("read_at", { withTimezone: true }),
   },

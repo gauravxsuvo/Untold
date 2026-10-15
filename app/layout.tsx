@@ -5,9 +5,16 @@ import { AccountSessionProvider } from "@/components/auth/account-session-provid
 import { InstallPromptProvider } from "@/components/pwa/install-prompt-provider";
 import { ThemeProvider } from "@/components/theme/theme-provider";
 import { isTheme, themeColors, themeCookieName } from "@/lib/ui/theme";
+import { ReadabilityProvider } from "@/components/theme/readability-provider";
+import { BackgroundDelivery } from "@/components/messaging/background-delivery";
+import { NotificationSessionSync } from "@/components/pwa/notification-settings";
+import { fontSizeCookie, zoomCookie, isFontSize, isInterfaceZoom } from "@/lib/ui/readability";
 import "./globals.css";
 import "./themes.css";
 import "./profile.css";
+import "./security.css";
+import "./improvements.css";
+import "./conversation-layout.css";
 
 export const metadata: Metadata = {
   metadataBase: new URL("https://untold.portways.app"),
@@ -20,12 +27,14 @@ export const metadata: Metadata = {
     locale: "en_US",
     siteName: "Untold",
     title: "Some things are just between us.",
-    description: "A quiet place for your conversations. Add a friend, share a moment, and keep in touch.",
+    description:
+      "A quiet place for your conversations. Add a friend, share a moment, and keep in touch.",
   },
   twitter: {
     card: "summary_large_image",
     title: "Some things are just between us.",
-    description: "A quiet place for your conversations. Add a friend, share a moment, and keep in touch.",
+    description:
+      "A quiet place for your conversations. Add a friend, share a moment, and keep in touch.",
   },
   appleWebApp: {
     capable: true,
@@ -37,19 +46,20 @@ export const metadata: Metadata = {
       { url: "/icons/untold-app-icon.svg?v=2", type: "image/svg+xml" },
       { url: "/icons/untold-192.png?v=2", sizes: "192x192", type: "image/png" },
     ],
-    apple: [
-      { url: "/icons/apple-touch-icon.png?v=2", sizes: "180x180", type: "image/png" },
-    ],
+    apple: [{ url: "/icons/apple-touch-icon.png?v=2", sizes: "180x180", type: "image/png" }],
   },
 };
 
 export async function generateViewport(): Promise<Viewport> {
   const preference = (await cookies()).get(themeCookieName)?.value;
   return {
-    themeColor: isTheme(preference) ? themeColors[preference] : [
-      { media: "(prefers-color-scheme: light)", color: themeColors.light },
-      { media: "(prefers-color-scheme: dark)", color: themeColors.dark },
-    ],
+    interactiveWidget: "resizes-content",
+    themeColor: isTheme(preference)
+      ? themeColors[preference]
+      : [
+          { media: "(prefers-color-scheme: light)", color: themeColors.light },
+          { media: "(prefers-color-scheme: dark)", color: themeColors.dark },
+        ],
   };
 }
 
@@ -61,14 +71,30 @@ export default async function RootLayout({
   await connection();
   const preference = (await cookies()).get(themeCookieName)?.value;
   const initialTheme = isTheme(preference) ? preference : null;
+  const saved = await cookies();
+  const font = saved.get(fontSizeCookie)?.value;
+  const zoom = saved.get(zoomCookie)?.value;
+  const initial = {
+    fontSize: isFontSize(font) ? font : "default",
+    zoom: isInterfaceZoom(zoom) ? zoom : "100",
+  };
 
   return (
-    <html data-theme={initialTheme ?? undefined} lang="en">
+    <html
+      data-theme={initialTheme ?? undefined}
+      data-font-size={initial.fontSize}
+      data-interface-zoom={initial.zoom}
+      lang="en"
+    >
       <body className="min-h-screen antialiased">
         <ThemeProvider initialTheme={initialTheme}>
-          <AccountSessionProvider>
-            <InstallPromptProvider>{children}</InstallPromptProvider>
-          </AccountSessionProvider>
+          <ReadabilityProvider initial={initial}>
+            <AccountSessionProvider>
+              <BackgroundDelivery />
+              <NotificationSessionSync />
+              <InstallPromptProvider>{children}</InstallPromptProvider>
+            </AccountSessionProvider>
+          </ReadabilityProvider>
         </ThemeProvider>
       </body>
     </html>

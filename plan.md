@@ -2,6 +2,49 @@
 
 ## Current status
 
+### Private empty chats and iPhone notification review (2026-10-15)
+
+- [x] Keep an empty chat visible only to its original starter and anyone who explicitly starts that same chat themselves. Reuse the existing conversation when both people enter each other’s email.
+- [x] Show the chat to both members after the first committed message, including a file-only message. Unsent text, failed sends, and uploaded files without a sent message do not reveal it in the recipient’s chat list or Contacts.
+- [x] Add migration 013 to track explicit starts per member, preserve original starters’ existing drafts, and hide older empty chats from automatic recipients without deleting messages.
+- [x] Refresh the chat list after foreground delivery acknowledges a first incoming message, including when push is disabled and that chat has no live subscription yet.
+- [x] Review iPhone/iPad notification implementation against Apple’s Home Screen installation, user-initiated permission, Apple push endpoint, and visible-notification requirements. Real iPhone delivery remains unverified.
+- [x] Complete lint, production webpack compilation (including TypeScript), and whitespace checks. No tests or live two-account/iPhone flows were run. Deployment and migration 013 have not been run here. Deploy with npm start so migration 013 runs before the new app serves requests; verify both accounts on staging.
+
+### Full-screen chats and safer account controls (2026-10-15)
+
+- [x] Open chats across the full app window on screens up to 1000px wide. Hide global navigation and page headings while chatting, keep an accessible back button, and restore the conversation list and app navigation on return.
+- [x] Keep chat history scrollable and the composer visible with safe-area padding, keyboard resizing, large text, and interface zoom.
+- [x] Move sign out to Settings with a deliberate confirmation, progress, and a safe retry message. Replace sidebar sign out with an account settings link.
+- [x] Hide the repeated privacy banner after current safety codes are verified. Keep the complete note in Details, and preserve warnings for new, changed, missing, or revoked devices.
+- [x] Complete local lint, production compilation, static visual review, and the release handoff. Live device/account checks and migration verification remain separate release gates.
+
+Lint, the final webpack production build (including TypeScript), and whitespace checks pass. The production dependency audit reports zero known vulnerabilities. Static previews cover long histories on phone, tablet, landscape, and desktop, large text at 120% zoom, a simulated keyboard viewport, Details, and the restored list/navigation view. No automated tests or live account/device flows were run. No deployment or database migration was performed. The local UI changes are ready to commit; complete the outstanding live checks in docs/release-checklist.md before treating the full release as production verified.
+
+### Conversation composer visibility (2026-10-15, implemented locally)
+
+- [x] Bound the conversation route to the visible viewport on desktop, tablet, and mobile. Scroll long histories and conversation lists inside their panels.
+- [x] Keep the composer above mobile navigation and adapt to the keyboard, orientation, interface zoom, and font settings.
+- [x] Apply the same bounded history region to loading/error states. Review static long-thread layouts and record compilation and visual review results.
+
+The conversation shell now has a fixed visible-viewport height, shrinkable panels, an independently scrolling history, and a composer outside the message scroller. Mobile navigation occupies its own grid row. VisualViewport updates handle keyboard resizing, orientation, and saved interface zoom; regular pinch zoom stays enabled. Small-screen conversation headings collapse while a chat is open, and keyboard mode hides extra app chrome while preserving chat navigation and security-state warnings. Scroll following handles late media sizing and viewport changes, preserves the reader's position above the bottom, and follows new outgoing messages.
+
+Lint and webpack compilation passed. Static sample-data previews with 100 messages and 40 conversations were reviewed at 320x568, 390x844, 768x1024, 844x390, and 1440x900, plus extra-large text at 120% interface zoom and a simulated 390x340 keyboard viewport. The composer stayed within the viewport and above the navigation bar; message history remained scrollable. No tests, live account flows, physical keyboard/device checks, deployment, or migration runs were performed.
+
+### Readability, delivery, and mobile improvements (2026-10-15, implemented locally)
+
+- [x] 1. Add separate font size and interface zoom controls in Settings, persist them on this device, and preserve browser pinch zoom.
+- [x] 2. Use readable system sans fonts (Apple system fonts on Apple devices, Roboto on Android, Segoe UI on Windows), with consistent form and message typography.
+- [x] 3. Fix Received acknowledgements while Untold is open outside the conversation. Keep Read limited to visible messages in a focused conversation.
+- [x] 4. Add opt-in notifications, browser push subscriptions, a minimal service worker, and private new-message alerts. Document any deployment keys needed. Do not include plaintext chat content in notifications.
+- [x] 5. Add skeletons and clear loading/progress states for inbox, contacts, conversations, settings, profile, and slow actions without hiding existing content during refresh.
+- [x] 6. Make the authenticator QR setup in Settings easy to discover and complete, retaining password confirmation and code verification.
+- [x] 7. Add safety-code QR display and scanning/manual fallback on mobile and tablet. Validate exact device keys and conversation context before allowing confirmation.
+- [x] 8. Improve profile-photo cropping with direct drag/touch positioning and zoom, retain accessible controls, and preserve upload compression.
+- [x] 9. Replace the native appearance dropdown shown in the screenshot with a consistent themed, keyboard-accessible menu across Light, Dark, and AMOLED.
+
+Implemented all nine items. Readability controls save per browser, system sans typography replaces inconsistent control fonts, Received acknowledgements run across the open app, private opt-in Web Push uses an encrypted persisted VAPID key and database retry outbox, loading skeletons preserve existing content during refresh, MFA setup includes QR and a same-device link, safety QR scans validate device fingerprints with explicit confirmation, photo crops support drag/pinch/sliders, and the appearance menu is fully themed. Preserve earlier MFA, installation, and security changes. No live deployment or database migration is implied by implementation. Lint and the webpack production build passed; mobile/desktop static previews were reviewed including extra-large text at 120% zoom. No tests or live account/device flows were run. Migration 012 is applied by npm start on deployment. Push needs browser permission (and a Home Screen install on iOS). See docs/readability-delivery-and-notifications.md for rollout and remaining real-device checks.
+
 ### Phase 8 — encrypted media and file sharing (implemented locally, 2026-10-15)
 
 The user asked for WhatsApp-style image, document, and general file sharing, and explicitly excluded calling features. Keep the current one-to-one chat and build attachment delivery into it.

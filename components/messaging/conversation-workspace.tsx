@@ -1,6 +1,18 @@
 "use client";
 
-import { useEffect, useId, useMemo, useRef, useState, type ChangeEvent, type FormEvent, type KeyboardEvent } from "react";
+import { SafetyQr } from "@/components/messaging/safety-qr";
+import { LoadingSkeleton } from "@/components/ui/loading-skeleton";
+
+import {
+  useEffect,
+  useId,
+  useMemo,
+  useRef,
+  useState,
+  type ChangeEvent,
+  type FormEvent,
+  type KeyboardEvent,
+} from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
 import { ArrowLeft, ChevronDown, FileText, Paperclip, Search, Send } from "lucide-react";
@@ -9,11 +21,8 @@ import { ContactAvatar } from "@/components/messaging/contact-avatar";
 import { StartConversationForm } from "@/components/messaging/start-conversation-form";
 import { MessageReceipt } from "@/components/messaging/message-receipt";
 import { useMessageReceipts } from "@/components/messaging/use-message-receipts";
-import {
-  deviceFingerprint,
-  type DeviceTrust,
-  type PublicDevice,
-} from "@/crypto/src/protocol";
+import { useMessageScroll } from "@/components/messaging/use-message-scroll";
+import { deviceFingerprint, type DeviceTrust, type PublicDevice } from "@/crypto/src/protocol";
 import {
   useConversationDeviceDirectory,
   useConversationList,
@@ -21,10 +30,7 @@ import {
   useLocalMessagingDevice,
   type ThreadMessage,
 } from "@/components/messaging/use-messaging";
-import {
-  attachmentPreviewKind,
-  formatAttachmentSize,
-} from "@/lib/messaging/attachments";
+import { attachmentPreviewKind, formatAttachmentSize } from "@/lib/messaging/attachments";
 import { fetchAttachmentDownloadUrl, userFacingError } from "@/lib/messaging/api-client";
 import { decryptAttachmentBytes, maxAttachmentBytes } from "@/crypto/src/protocol";
 import { decodeAttachmentBytes } from "@/lib/messaging/attachment-compression";
@@ -56,7 +62,7 @@ function ConversationRow({
   const [person] = otherMembers(conversation, viewerId);
   const last = conversation.lastMessage;
   const preview = last
-    ? `${last.senderId === viewerId ? "You: " : ""}${last.hasAttachment ? "Attachment" : last.text ?? "Encrypted message"}`
+    ? `${last.senderId === viewerId ? "You: " : ""}${last.hasAttachment ? "Attachment" : (last.text ?? "Encrypted message")}`
     : "No messages yet";
   const activityAt = conversationActivityAt(conversation);
 
@@ -118,8 +124,11 @@ function AttachmentMessage({
     const controller = new AbortController();
     operationRef.current = controller;
     const response = await fetch(url, {
-      cache: "no-store", credentials: "omit", referrerPolicy: "no-referrer",
-      signal: AbortSignal.any([controller.signal, AbortSignal.timeout(30_000)]), redirect: "error",
+      cache: "no-store",
+      credentials: "omit",
+      referrerPolicy: "no-referrer",
+      signal: AbortSignal.any([controller.signal, AbortSignal.timeout(30_000)]),
+      redirect: "error",
     });
     if (!response.ok) throw new Error("The encrypted file could not be downloaded.");
     const expectedCiphertextBytes = attachment.size + 16;
@@ -130,8 +139,10 @@ function AttachmentMessage({
     }
     if (!response.body) throw new Error("The encrypted file could not be read.");
     const ciphertext = await readBoundedStream(response.body, {
-      maxBytes: maxAttachmentBytes + 16, expectedBytes: expectedCiphertextBytes,
-      signal: controller.signal, timeoutMs: 30_000,
+      maxBytes: maxAttachmentBytes + 16,
+      expectedBytes: expectedCiphertextBytes,
+      signal: controller.signal,
+      timeoutMs: 30_000,
     });
     try {
       const plaintext = await decryptAttachmentBytes(
@@ -157,9 +168,15 @@ function AttachmentMessage({
     let cleartext: Uint8Array<ArrayBuffer> | null = null;
     try {
       cleartext = await decryptedBytes();
-      await validateAttachmentPreview(cleartext, attachment.contentType, operationRef.current?.signal);
+      await validateAttachmentPreview(
+        cleartext,
+        attachment.contentType,
+        operationRef.current?.signal,
+      );
       if (!aliveRef.current) return;
-      const url = URL.createObjectURL(new Blob([cleartext.buffer], { type: attachment.contentType }));
+      const url = URL.createObjectURL(
+        new Blob([cleartext.buffer], { type: attachment.contentType }),
+      );
       mediaUrlRef.current = url;
       setMediaUrl(url);
     } catch (caught) {
@@ -213,7 +230,12 @@ function AttachmentMessage({
             width={340}
           />
         ) : (
-          <button className="message-attachment__preview-button" disabled={busy} onClick={() => void loadMedia()} type="button">
+          <button
+            className="message-attachment__preview-button"
+            disabled={busy}
+            onClick={() => void loadMedia()}
+            type="button"
+          >
             {busy ? "Opening photo…" : "Load photo preview"}
           </button>
         )
@@ -222,11 +244,25 @@ function AttachmentMessage({
         mediaUrl ? (
           <>
             {/* biome-ignore lint/a11y/useMediaCaption: Arbitrary user videos may have no separate captions file; the UI states this limitation and keeps download available. */}
-            <video aria-label={attachment.name} className="message-attachment__media" controls playsInline preload="none" src={mediaUrl} />
-            <span className="message-attachment__caption-note">Captions depend on the shared video file.</span>
+            <video
+              aria-label={attachment.name}
+              className="message-attachment__media"
+              controls
+              playsInline
+              preload="none"
+              src={mediaUrl}
+            />
+            <span className="message-attachment__caption-note">
+              Captions depend on the shared video file.
+            </span>
           </>
         ) : (
-          <button className="message-attachment__preview-button" disabled={busy} onClick={() => void loadMedia()} type="button">
+          <button
+            className="message-attachment__preview-button"
+            disabled={busy}
+            onClick={() => void loadMedia()}
+            type="button"
+          >
             {busy ? "Opening video…" : "Load video"}
           </button>
         )
@@ -235,11 +271,24 @@ function AttachmentMessage({
         mediaUrl ? (
           <>
             {/* biome-ignore lint/a11y/useMediaCaption: Arbitrary user audio may have no transcript file; the UI states this limitation and keeps download available. */}
-            <audio aria-label={attachment.name} className="message-attachment__media" controls preload="none" src={mediaUrl} />
-            <span className="message-attachment__caption-note">A transcript may not be included with this audio file.</span>
+            <audio
+              aria-label={attachment.name}
+              className="message-attachment__media"
+              controls
+              preload="none"
+              src={mediaUrl}
+            />
+            <span className="message-attachment__caption-note">
+              A transcript may not be included with this audio file.
+            </span>
           </>
         ) : (
-          <button className="message-attachment__preview-button" disabled={busy} onClick={() => void loadMedia()} type="button">
+          <button
+            className="message-attachment__preview-button"
+            disabled={busy}
+            onClick={() => void loadMedia()}
+            type="button"
+          >
             {busy ? "Opening audio…" : "Load audio"}
           </button>
         )
@@ -252,14 +301,20 @@ function AttachmentMessage({
           <strong>{attachment.name}</strong>
           <small>
             {formatAttachmentSize(attachment.compression?.originalSize ?? attachment.size)}
-            {attachment.compression ? ` · Compressed to ${formatAttachmentSize(attachment.size)}` : ""}
+            {attachment.compression
+              ? ` · Compressed to ${formatAttachmentSize(attachment.size)}`
+              : ""}
           </small>
         </span>
         <button disabled={busy} onClick={() => void download()} type="button">
           {busy ? "Preparing…" : "Download"}
         </button>
       </div>
-      {error ? <p className="message-attachment__error" role="alert">{error}</p> : null}
+      {error ? (
+        <p className="message-attachment__error" role="alert">
+          {error}
+        </p>
+      ) : null}
     </div>
   );
 }
@@ -289,7 +344,9 @@ function MessageBubble({
         <footer>
           <time dateTime={message.createdAt}>{formatMessageTime(message.createdAt)}</time>
           {message.delivery === "sent" && !isOutgoing ? (
-            <span className={`message-bubble__encryption message-bubble__encryption--${message.encryption}`}>
+            <span
+              className={`message-bubble__encryption message-bubble__encryption--${message.encryption}`}
+            >
               {message.encryption === "encrypted"
                 ? "Encrypted"
                 : message.encryption === "unverified"
@@ -317,18 +374,30 @@ function MessageBubble({
   );
 }
 
+function ConversationPrivacyNote() {
+  return (
+    <p className="conversation-disclaimer">
+      <span>Before you share</span>
+      Compare safety codes with your contact by phone or in person. Privacy features are still being
+      tested and haven’t been independently checked.
+    </p>
+  );
+}
+
 function ConversationDetails({
   conversation,
   viewerId,
   isRealtimeConnected,
   devices,
   onVerifyDevice,
+  localDevice,
 }: {
   conversation: ConversationSummary;
   viewerId: string;
   isRealtimeConnected: boolean;
   devices: DeviceTrust[] | null;
   onVerifyDevice: (device: PublicDevice) => Promise<void>;
+  localDevice: import("@/crypto/src/protocol").LocalDevice | null;
 }) {
   return (
     <details className="conversation-details">
@@ -338,6 +407,16 @@ function ConversationDetails({
       </summary>
       <div className="conversation-details__popover">
         <h3>About this conversation</h3>
+        <ConversationPrivacyNote />
+        {localDevice && devices ? (
+          <SafetyQr
+            conversationId={conversation.id}
+            devices={devices}
+            key={conversation.id}
+            localDevice={localDevice}
+            onVerify={onVerifyDevice}
+          />
+        ) : null}
         <dl>
           {otherMembers(conversation, viewerId).map((member) => (
             <div className="conversation-details__row" key={member.id}>
@@ -390,15 +469,21 @@ function DeviceSafetyCode({
 }) {
   const [fingerprint, setFingerprint] = useState("Calculating safety code…");
   const [feedback, setFeedback] = useState("");
+  const [verifying, setVerifying] = useState(false);
+  const ready = /^[a-f0-9]{4}( [a-f0-9]{4}){15}$/.test(fingerprint);
 
   useEffect(() => {
     let cancelled = false;
-    void deviceFingerprint(device).then((value) => {
-      if (!cancelled) setFingerprint(value);
-    }).catch(() => {
-      if (!cancelled) setFingerprint("Safety code unavailable");
-    });
-    return () => { cancelled = true; };
+    void deviceFingerprint(device)
+      .then((value) => {
+        if (!cancelled) setFingerprint(value);
+      })
+      .catch(() => {
+        if (!cancelled) setFingerprint("Safety code unavailable");
+      });
+    return () => {
+      cancelled = true;
+    };
   }, [device]);
 
   async function copyFingerprint() {
@@ -411,18 +496,24 @@ function DeviceSafetyCode({
   }
 
   async function verify() {
+    if (verifying || !ready) return;
+    setVerifying(true);
     try {
       await onVerify(device);
       setFeedback("Device verified on this browser");
     } catch (caught) {
       setFeedback(userFacingError(caught, "Device could not be verified."));
+    } finally {
+      setVerifying(false);
     }
   }
 
   return (
     <div className={`device-safety-card device-safety-card--${device.trust}`}>
       <div className="device-safety-card__heading">
-        <strong>{device.userName} · {device.deviceName}</strong>
+        <strong>
+          {device.userName} · {device.deviceName}
+        </strong>
         <span>
           {device.revoked
             ? "Removed device"
@@ -435,11 +526,18 @@ function DeviceSafetyCode({
       </div>
       <code>{fingerprint}</code>
       <div className="device-safety-card__actions">
-        <button onClick={copyFingerprint} type="button">Copy safety code</button>
+        <button disabled={!ready} onClick={copyFingerprint} type="button">
+          Copy safety code
+        </button>
         {device.trust === "new" ? (
-          <button onClick={verify} type="button">I compared this code</button>
+          <button disabled={verifying || !ready} onClick={verify} type="button">
+            {verifying ? "Verifying…" : "I compared this code"}
+          </button>
         ) : device.trust === "changed" ? (
-          <span>Messages are paused because this safety code changed. Check with your contact before continuing.</span>
+          <span>
+            Messages are paused because this safety code changed. Check with your contact before
+            continuing.
+          </span>
         ) : null}
         {feedback ? <span aria-live="polite">{feedback}</span> : null}
       </div>
@@ -464,6 +562,7 @@ export function ConversationWorkspace({ initialSelectedId }: { initialSelectedId
   const [draft, setDraft] = useState("");
   const [attachmentNotice, setAttachmentNotice] = useState("");
   const [mobileThreadOpen, setMobileThreadOpen] = useState(Boolean(initialSelectedId));
+  const previousRequestedId = useRef(initialSelectedId);
   const selectedIdRef = useRef(selectedId);
   selectedIdRef.current = selectedId;
   const refreshThreadRef = useRef<() => void>(() => undefined);
@@ -493,26 +592,32 @@ export function ConversationWorkspace({ initialSelectedId }: { initialSelectedId
   );
   refreshThreadRef.current = () => void thread.refresh();
   useMessageReceipts(selectedId, viewerId, thread.messages, historyRef);
+  useMessageScroll(historyRef, selectedId, viewerId, thread.messages);
+
+  // Keep links and browser history in sync without discarding a draft on refresh.
+  useEffect(() => {
+    if (previousRequestedId.current === initialSelectedId) return;
+    previousRequestedId.current = initialSelectedId;
+    if (selectedId !== initialSelectedId) {
+      setSelectedId(initialSelectedId);
+      setDraft("");
+      setAttachmentNotice("");
+    }
+    setMobileThreadOpen(Boolean(initialSelectedId));
+  }, [initialSelectedId, selectedId]);
 
   // On wide screens, open the most recent conversation once the list arrives.
   useEffect(() => {
     if (selectedId || list.conversations.length === 0) return;
-    if (!window.matchMedia("(max-width: 680px)").matches) setSelectedId(list.conversations[0].id);
+    if (!window.matchMedia("(max-width: 1000px)").matches) setSelectedId(list.conversations[0].id);
   }, [list.conversations, selectedId]);
-
-  const lastMessageId = thread.messages.at(-1)?.id;
-  useEffect(() => {
-    if (!lastMessageId) return;
-    const history = historyRef.current;
-    if (history) history.scrollTop = history.scrollHeight;
-  }, [lastMessageId]);
 
   function selectConversation(conversationId: string) {
     if (thread.attachmentUpload) return;
     setSelectedId(conversationId);
     setMobileThreadOpen(true);
     setDraft("");
-    if (window.matchMedia("(max-width: 680px)").matches) {
+    if (window.matchMedia("(max-width: 1000px)").matches) {
       window.requestAnimationFrame(() => threadHeadingRef.current?.focus());
     }
     router.replace(`/app/conversations?conversation=${encodeURIComponent(conversationId)}`, {
@@ -523,7 +628,7 @@ export function ConversationWorkspace({ initialSelectedId }: { initialSelectedId
   function returnToConversationList() {
     if (thread.attachmentUpload) return;
     setMobileThreadOpen(false);
-    if (window.matchMedia("(max-width: 680px)").matches) {
+    if (window.matchMedia("(max-width: 1000px)").matches) {
       window.requestAnimationFrame(() => listHeadingRef.current?.focus());
     }
     router.replace("/app/conversations", { scroll: false });
@@ -563,20 +668,22 @@ export function ConversationWorkspace({ initialSelectedId }: { initialSelectedId
     ? conversationTitle(selectedConversation, viewerId)
     : "";
   const [selectedPerson] = selectedConversation ? otherMembers(selectedConversation, viewerId) : [];
-  const currentAttachmentUpload = thread.attachmentUpload?.conversationId === selectedId
-    ? thread.attachmentUpload
-    : null;
+  const currentAttachmentUpload =
+    thread.attachmentUpload?.conversationId === selectedId ? thread.attachmentUpload : null;
   const canSend =
     directory.state === "ready" &&
     localDevice.state === "ready" &&
     Boolean(directory.devices?.length) &&
-    !selectedMemberIds.some((memberId) => !directory.devices?.some((device) => device.userId === memberId)) &&
+    !selectedMemberIds.some(
+      (memberId) =>
+        !directory.devices?.some((device) => device.userId === memberId && !device.revoked),
+    ) &&
     !directory.devices?.some(({ trust, revoked }) => !revoked && trust !== "verified");
 
   return (
     <section
       aria-label="Messaging workspace"
-      className={`messaging-workspace${mobileThreadOpen ? " is-thread-open" : ""}`}
+      className={`messaging-workspace${mobileThreadOpen && selectedConversation ? " is-thread-open" : ""}`}
     >
       <aside aria-label="Conversation list" className="conversation-list-panel">
         <header className="conversation-list-panel__header">
@@ -597,11 +704,15 @@ export function ConversationWorkspace({ initialSelectedId }: { initialSelectedId
         />
 
         {localDevice.state === "loading" ? (
-          <p className="device-setup-note" role="status">Getting this browser ready…</p>
+          <p className="device-setup-note" role="status">
+            Getting this browser ready…
+          </p>
         ) : localDevice.state === "error" ? (
           <div className="device-setup-note device-setup-note--error" role="alert">
             <span>{localDevice.error}</span>
-            <button onClick={() => void localDevice.retry()} type="button">Try again</button>
+            <button onClick={() => void localDevice.retry()} type="button">
+              Try again
+            </button>
           </div>
         ) : null}
 
@@ -621,9 +732,7 @@ export function ConversationWorkspace({ initialSelectedId }: { initialSelectedId
         ) : null}
 
         {list.state === "loading" ? (
-          <div aria-live="polite" className="conversation-list__empty" role="status">
-            <strong>Loading conversations…</strong>
-          </div>
+          <LoadingSkeleton label="Loading conversations…" />
         ) : list.state === "error" ? (
           <div className="conversation-list__empty" role="alert">
             <strong>Conversations could not load</strong>
@@ -662,9 +771,15 @@ export function ConversationWorkspace({ initialSelectedId }: { initialSelectedId
       {selectedConversation ? (
         <section aria-label={`Conversation with ${selectedTitle}`} className="conversation-panel">
           <header className="conversation-header">
-            <button className="conversation-back" disabled={Boolean(thread.attachmentUpload)} onClick={returnToConversationList} type="button">
-              <ArrowLeft aria-hidden="true" size={15} strokeWidth={1.8} />
-              All conversations
+            <button
+              aria-label="Back to conversations"
+              className="conversation-back"
+              disabled={Boolean(thread.attachmentUpload)}
+              onClick={returnToConversationList}
+              type="button"
+            >
+              <ArrowLeft aria-hidden="true" size={20} strokeWidth={1.8} />
+              <span className="sr-only">Back to conversations</span>
             </button>
             <div className="conversation-header__person">
               {selectedPerson ? <ContactAvatar large person={selectedPerson} /> : null}
@@ -676,6 +791,7 @@ export function ConversationWorkspace({ initialSelectedId }: { initialSelectedId
               </div>
             </div>
             <ConversationDetails
+              localDevice={localDevice.device}
               devices={directory.state === "ready" ? directory.devices : null}
               conversation={selectedConversation}
               isRealtimeConnected={list.isRealtimeConnected}
@@ -684,39 +800,56 @@ export function ConversationWorkspace({ initialSelectedId }: { initialSelectedId
             />
           </header>
 
-          <p className="conversation-disclaimer">
-            <span>Before you share</span>
-            Compare safety codes with your contact by phone or in person.
-            Privacy features are still being tested and haven’t been independently checked.
-          </p>
+          <div className="conversation-notices">
+            {!canSend ? <ConversationPrivacyNote /> : null}
 
-          {directory.state === "loading" ? (
-            <p className="messaging-device-status" role="status">Checking safety codes…</p>
-          ) : directory.state === "error" ? (
-            <p className="messaging-error" role="alert">{directory.error}</p>
-          ) : directory.devices?.some(({ trust, revoked }) => !revoked && trust !== "verified") ? (
-            <p className="messaging-device-status messaging-device-status--warning">
-              Verify every new safety code in Details before sending or opening messages from that device.
-            </p>
-          ) : missingMemberDevice ? (
-            <p className="messaging-device-status messaging-device-status--warning">
-              Ask {missingMemberDevice.name} to open Untold before you start sharing messages.
-            </p>
-          ) : null}
-
+            {directory.state === "loading" ? (
+              <p className="messaging-device-status" role="status">
+                Checking safety codes…
+              </p>
+            ) : directory.state === "error" ? (
+              <p className="messaging-error" role="alert">
+                {directory.error}
+              </p>
+            ) : directory.devices?.some(
+                ({ trust, revoked }) => !revoked && trust !== "verified",
+              ) ? (
+              <p className="messaging-device-status messaging-device-status--warning">
+                Verify every new safety code in Details before sending or opening messages from that
+                device.
+              </p>
+            ) : missingMemberDevice ? (
+              <p className="messaging-device-status messaging-device-status--warning">
+                Ask {missingMemberDevice.name} to open Untold before you start sharing messages.
+              </p>
+            ) : null}
+          </div>
           {thread.state === "loading" ? (
-            <div
-              className="message-history__empty"
-              role={localDevice.error || directory.error ? "alert" : "status"}
-            >
-              <p>{localDevice.error || directory.error || "Loading messages…"}</p>
-            </div>
+            localDevice.error || directory.error ? (
+              <div className="message-history__empty" role="alert">
+                <p>{localDevice.error || directory.error}</p>
+              </div>
+            ) : (
+              <LoadingSkeleton
+                kind="thread"
+                label={
+                  directory.state === "loading"
+                    ? "Checking safety codes and loading messages…"
+                    : "Loading messages…"
+                }
+                rows={5}
+              />
+            )
           ) : thread.state === "error" ? (
             <div className="message-history__empty" role="alert">
               <p>{thread.error}</p>
             </div>
           ) : thread.messages.length > 0 ? (
-            <ol aria-label={`Messages with ${selectedTitle}`} className="message-history" ref={historyRef}>
+            <ol
+              aria-label={`Messages with ${selectedTitle}`}
+              className="message-history"
+              ref={historyRef}
+            >
               {thread.messages.map((message) => (
                 <MessageBubble
                   conversationId={selectedConversation.id}
@@ -762,30 +895,41 @@ export function ConversationWorkspace({ initialSelectedId }: { initialSelectedId
                         ? `Making video smaller · ${currentAttachmentUpload.progress}% · Keep this tab open`
                         : "Preparing your file…"
                       : currentAttachmentUpload.phase === "preparing"
-                      ? "Getting ready to send…"
-                      : currentAttachmentUpload.phase === "failed"
-                        ? currentAttachmentUpload.error ?? "Upload failed."
-                        : `Uploading · ${currentAttachmentUpload.progress}%`}
+                        ? "Getting ready to send…"
+                        : currentAttachmentUpload.phase === "failed"
+                          ? (currentAttachmentUpload.error ?? "Upload failed.")
+                          : `Uploading · ${currentAttachmentUpload.progress}%`}
                   </span>
                 </div>
                 {currentAttachmentUpload.phase === "failed" ? (
                   <div className="message-composer__upload-actions">
                     {currentAttachmentUpload.retryable ? (
-                      <button onClick={() => void thread.retryAttachment()} type="button">Retry upload</button>
+                      <button onClick={() => void thread.retryAttachment()} type="button">
+                        Retry upload
+                      </button>
                     ) : null}
-                    <button onClick={() => void thread.discardAttachmentUpload()} type="button">Discard</button>
+                    <button onClick={() => void thread.discardAttachmentUpload()} type="button">
+                      Discard
+                    </button>
                   </div>
                 ) : (
                   <div className="message-composer__upload-actions">
                     <progress max={100} value={currentAttachmentUpload.progress} />
-                    {currentAttachmentUpload.phase === "optimizing" || currentAttachmentUpload.phase === "preparing" ? (
-                      <button onClick={() => void thread.discardAttachmentUpload()} type="button">Cancel</button>
+                    {currentAttachmentUpload.phase === "optimizing" ||
+                    currentAttachmentUpload.phase === "preparing" ? (
+                      <button onClick={() => void thread.discardAttachmentUpload()} type="button">
+                        Cancel
+                      </button>
                     ) : null}
                   </div>
                 )}
               </div>
             ) : null}
-            {attachmentNotice ? <p className="message-composer__notice" role="alert">{attachmentNotice}</p> : null}
+            {attachmentNotice ? (
+              <p className="message-composer__notice" role="alert">
+                {attachmentNotice}
+              </p>
+            ) : null}
             <input
               accept="*/*"
               className="sr-only"
@@ -811,14 +955,14 @@ export function ConversationWorkspace({ initialSelectedId }: { initialSelectedId
                 >
                   <Paperclip aria-hidden="true" size={17} strokeWidth={1.8} />
                 </button>
-              <button
-                disabled={
-                  normalizeMessageText(draft) === null ||
-                  !canSend ||
-                  Boolean(currentAttachmentUpload)
-                }
-                type="submit"
-              >
+                <button
+                  disabled={
+                    normalizeMessageText(draft) === null ||
+                    !canSend ||
+                    Boolean(currentAttachmentUpload)
+                  }
+                  type="submit"
+                >
                   Send <Send aria-hidden="true" size={15} strokeWidth={1.8} />
                 </button>
               </div>

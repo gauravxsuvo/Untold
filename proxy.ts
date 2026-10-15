@@ -31,6 +31,7 @@ export function proxy(request: NextRequest) {
     // object-storage origin for encrypted attachment downloads.
     `connect-src 'self'${storageOrigin ? ` ${storageOrigin}` : ""} https://*.ably.net wss://*.ably.net https://*.ably-realtime.com wss://*.ably-realtime.com https://*.ably.io wss://*.ably.io`,
     "object-src 'none'",
+    "worker-src 'self'",
     "base-uri 'self'",
     "form-action 'self'",
     "frame-ancestors 'none'",
@@ -54,7 +55,7 @@ export function proxy(request: NextRequest) {
 export const config = {
   matcher: [
     {
-      source: "/((?!api|_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
+      source: "/((?!api|_next/static|_next/image|sw.js|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
       missing: [
         { type: "header", key: "next-router-prefetch" },
         { type: "header", key: "purpose", value: "prefetch" },

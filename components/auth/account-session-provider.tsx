@@ -6,9 +6,11 @@ import { safeProfilePhotoUrl } from "@/lib/profile/photos";
 
 export type AccountSession = {
   id: string;
+  sessionId?: string;
   displayName: string;
   email: string;
   emailVerified: boolean;
+  twoFactorEnabled?: boolean;
   image?: string | null;
 };
 
@@ -28,15 +30,27 @@ export function AccountSessionProvider({ children }: { children: ReactNode }) {
   const session: AccountSession | null = data?.user
     ? {
         id: data.user.id,
+        sessionId: data.session.id,
         displayName: data.user.name,
         email: data.user.email,
         emailVerified: data.user.emailVerified,
+        twoFactorEnabled: data.user.twoFactorEnabled === true,
         image: safeProfilePhotoUrl(data.user.id, data.user.image),
       }
     : null;
 
   async function signOut() {
-    await authClient.signOut();
+    const result = await authClient.signOut();
+    if (result.error) throw new Error("Couldn’t sign out. Please try again.");
+    if ("serviceWorker" in navigator) {
+      void navigator.serviceWorker
+        .getRegistration("/")
+        .then(async (registration) => {
+          const notifications = await registration?.getNotifications();
+          for (const notification of notifications ?? []) notification.close();
+        })
+        .catch(() => {});
+    }
   }
 
   return (
@@ -46,7 +60,9 @@ export function AccountSessionProvider({ children }: { children: ReactNode }) {
         isSessionPending: isPending,
         isAccountServiceUnavailable: error?.status === 503,
         signOut,
-        refreshSession: async () => { await refetch(); },
+        refreshSession: async () => {
+          await refetch();
+        },
       }}
     >
       {children}

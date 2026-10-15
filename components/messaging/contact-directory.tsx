@@ -1,5 +1,7 @@
 "use client";
 
+import { LoadingSkeleton } from "@/components/ui/loading-skeleton";
+
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { ArrowUpRight } from "lucide-react";
@@ -32,9 +34,7 @@ export function ContactDirectory() {
       </div>
 
       {state === "loading" ? (
-        <p className="contact-directory__empty" role="status">
-          Loading contacts…
-        </p>
+        <LoadingSkeleton label="Loading contacts…" />
       ) : state === "error" ? (
         <p className="contact-directory__empty messaging-error" role="alert">
           {error}

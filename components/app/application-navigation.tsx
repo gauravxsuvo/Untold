@@ -34,7 +34,9 @@ export function ApplicationNavigation({ placement }: { placement: "sidebar" | "m
             key={item.href}
           >
             <Icon aria-hidden="true" size={19} strokeWidth={1.8} />
-            <span>{item.label}</span>
+            <span>
+              {placement === "mobile" && item.href === "/app/conversations" ? "Chats" : item.label}
+            </span>
           </Link>
         );
       })}

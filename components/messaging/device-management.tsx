@@ -1,5 +1,7 @@
 "use client";
 
+import { LoadingSkeleton } from "@/components/ui/loading-skeleton";
+
 import { useCallback, useEffect, useState } from "react";
 import {
   userFacingError,
@@ -74,8 +76,8 @@ export function DeviceManagement({ accountId }: { accountId: string }) {
       ) : null}
       {error ? (
         <p className="messaging-error" role="alert">{error}</p>
-      ) : isLoading ? (
-        <p role="status">Loading your devices…</p>
+      ) : isLoading && devices.length === 0 ? (
+        <LoadingSkeleton label="Loading your devices…" rows={2} />
       ) : devices.length === 0 ? (
         <p>Your devices will appear here once they’re ready.</p>
       ) : (

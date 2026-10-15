@@ -62,7 +62,7 @@ export function StartConversationForm({
         aria-live="polite"
         className={`start-conversation__feedback${feedback?.kind === "error" ? " start-conversation__feedback--error" : ""}`}
       >
-        {feedback?.text ?? ""}
+        {feedback?.text ?? "Starting a chat won’t notify them. Send a message when you’re ready."}
       </p>
     </form>
   );

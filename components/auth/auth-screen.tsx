@@ -5,7 +5,7 @@ import { ArrowUpRight, MessageCircle } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState, type FormEvent } from "react";
 import { Wordmark } from "@/components/brand/wordmark";
-import { ThemeSwitcher } from "@/components/theme/theme-switcher";
+import { AuthHeaderActions } from "@/components/auth/auth-header-actions";
 import { useAccountSession } from "@/components/auth/account-session-provider";
 import { authClient } from "@/lib/auth/client";
 import { validateAuthForm, type AuthFieldErrors, type AuthFormMode } from "@/lib/auth/validation";
@@ -58,6 +58,11 @@ export function AuthScreen({
         return;
       }
 
+      if (result.data && "twoFactorRedirect" in result.data && result.data.twoFactorRedirect) {
+        router.push("/auth/two-factor");
+        return;
+      }
+
       setName("");
       setEmail("");
       router.push(isSignUp ? "/app/onboarding" : "/app/inbox");
@@ -82,7 +87,7 @@ export function AuthScreen({
         <Link aria-label="Untold home" className="app-brand" href="/">
           <Wordmark />
         </Link>
-        <ThemeSwitcher compact />
+        <AuthHeaderActions />
       </header>
 
       <div className="auth-layout">
@@ -91,7 +96,7 @@ export function AuthScreen({
           <h1 id="auth-title">{isSignUp ? "Make room for what matters." : "Welcome back."}</h1>
           <p className="auth-card__intro">
             {isSignUp
-              ? "Create an account, then add a friend by email. Password resets aren’t available yet, so keep your password safe."
+              ? "Create an account, then add a friend by email. Set up two-factor authentication in Settings to protect your account and get recovery codes."
               : "Sign in to your Untold account to pick up your conversations."}
           </p>
 
@@ -220,7 +225,7 @@ export function AuthScreen({
             ) : (
               <div className="auth-form__utility">
                 <span>Forgot your password?</span>
-                <Link href="/auth/recovery">Need help signing in?</Link>
+                <Link href="/auth/recovery">Reset password</Link>
               </div>
             )}
 
@@ -262,7 +267,7 @@ export function AuthScreen({
           <ul>
             <li>Compare safety codes with your friend by phone or in person before sharing.</li>
             <li>Untold is in early access. Privacy features haven’t been independently checked yet.</li>
-            <li>Keep your password safe. Password resets aren’t available yet.</li>
+            <li>Set up two-factor authentication and save your recovery codes so you can reset a forgotten password.</li>
           </ul>
           <Link href="/auth/recovery">
             Help with signing in <ArrowUpRight aria-hidden="true" size={16} />

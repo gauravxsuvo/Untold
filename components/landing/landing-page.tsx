@@ -3,6 +3,7 @@ import { ArrowDown, ArrowUpRight, CornerDownRight, MessageCircle } from "lucide-
 import { Wordmark } from "@/components/brand/wordmark";
 import { ConceptPreview } from "@/components/landing/concept-preview";
 import { ThemeSwitcher } from "@/components/theme/theme-switcher";
+import { InstallAppButton } from "@/components/pwa/install-app-button";
 
 const principles = [
   {
@@ -30,9 +31,12 @@ export function LandingPage() {
     <main id="top">
       <header className="site-header">
         <div className="page-width site-header__inner">
-          <a className="site-header__brand" href="#top" aria-label="Untold home">
-            <Wordmark />
-          </a>
+          <div className="site-header__brand-actions">
+            <a className="site-header__brand" href="#top" aria-label="Untold home">
+              <Wordmark />
+            </a>
+            <InstallAppButton />
+          </div>
           <nav className="site-nav" aria-label="Main navigation">
             <ThemeSwitcher compact />
             <a href="#privacy">Our approach</a>
