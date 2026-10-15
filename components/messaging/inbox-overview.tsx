@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { ArrowRight, ArrowUpRight } from "lucide-react";
 import { useAccountSession } from "@/components/auth/account-session-provider";
 import { StartConversationForm } from "@/components/messaging/start-conversation-form";
 import { useConversationList } from "@/components/messaging/use-messaging";
@@ -46,9 +47,7 @@ function RecentConversation({
           </span>
           <span className="inbox-conversation__preview">{preview}</span>
         </span>
-        <span aria-hidden="true" className="inbox-conversation__arrow">
-          ↗
-        </span>
+        <ArrowUpRight aria-hidden="true" className="inbox-conversation__arrow" size={17} strokeWidth={1.8} />
       </Link>
     </li>
   );
@@ -71,7 +70,7 @@ export function InboxOverview() {
           <h2 id="recent-conversations-title">Recent conversations</h2>
         </div>
         <Link className="inbox-overview__all" href="/app/conversations">
-          All conversations <span aria-hidden="true">↗</span>
+          All conversations <ArrowRight aria-hidden="true" size={15} strokeWidth={1.8} />
         </Link>
       </header>
 

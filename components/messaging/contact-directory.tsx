@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { ArrowUpRight } from "lucide-react";
 import { useAccountSession } from "@/components/auth/account-session-provider";
 import { ContactAvatar } from "@/components/messaging/contact-avatar";
 import { StartConversationForm } from "@/components/messaging/start-conversation-form";
@@ -48,7 +49,7 @@ export function ContactDirectory() {
                 <span>{member.email}</span>
               </span>
               <Link href={`/app/conversations?conversation=${encodeURIComponent(conversationId)}`}>
-                Open conversation <span aria-hidden="true">↗</span>
+                Open conversation <ArrowUpRight aria-hidden="true" size={14} strokeWidth={1.8} />
               </Link>
             </li>
           ))}

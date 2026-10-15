@@ -3,6 +3,7 @@
 import { useEffect, useId, useMemo, useRef, useState, type ChangeEvent, type FormEvent, type KeyboardEvent } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
+import { ArrowLeft, ChevronDown, FileText, Paperclip, Search, Send } from "lucide-react";
 import { useAccountSession } from "@/components/auth/account-session-provider";
 import { ContactAvatar } from "@/components/messaging/contact-avatar";
 import { StartConversationForm } from "@/components/messaging/start-conversation-form";
@@ -265,7 +266,9 @@ function AttachmentMessage({
         )
       ) : null}
       <div className="message-attachment__details">
-        <span aria-hidden="true" className="message-attachment__icon">↗</span>
+        <span aria-hidden="true" className="message-attachment__icon">
+          <FileText size={16} strokeWidth={1.8} />
+        </span>
         <span className="message-attachment__name">
           <strong>{attachment.name}</strong>
           <small>{formatAttachmentSize(attachment.size)}</small>
@@ -341,7 +344,10 @@ function ConversationDetails({
 }) {
   return (
     <details className="conversation-details">
-      <summary>Details</summary>
+      <summary>
+        <ChevronDown aria-hidden="true" size={15} strokeWidth={1.8} />
+        Details
+      </summary>
       <div className="conversation-details__popover">
         <h3>About this conversation</h3>
         <dl>
@@ -612,10 +618,7 @@ export function ConversationWorkspace({ initialSelectedId }: { initialSelectedId
 
         {list.conversations.length > 0 ? (
           <label className="conversation-search" htmlFor={searchId}>
-            <svg aria-hidden="true" fill="none" viewBox="0 0 20 20">
-              <circle cx="8.7" cy="8.7" r="5.6" stroke="currentColor" strokeWidth="1.5" />
-              <path d="m13 13 4 4" stroke="currentColor" strokeLinecap="round" strokeWidth="1.5" />
-            </svg>
+            <Search aria-hidden="true" size={16} strokeWidth={1.8} />
             <span className="sr-only">Search conversations</span>
             <input
               autoComplete="off"
@@ -671,7 +674,8 @@ export function ConversationWorkspace({ initialSelectedId }: { initialSelectedId
         <section aria-label={`Conversation with ${selectedTitle}`} className="conversation-panel">
           <header className="conversation-header">
             <button className="conversation-back" disabled={Boolean(thread.attachmentUpload)} onClick={returnToConversationList} type="button">
-              <span aria-hidden="true">←</span> All conversations
+              <ArrowLeft aria-hidden="true" size={15} strokeWidth={1.8} />
+              All conversations
             </button>
             <div className="conversation-header__person">
               {selectedPerson ? <ContactAvatar large person={selectedPerson} /> : null}
@@ -808,9 +812,7 @@ export function ConversationWorkspace({ initialSelectedId }: { initialSelectedId
                   onClick={() => attachmentInputRef.current?.click()}
                   type="button"
                 >
-                  <svg aria-hidden="true" fill="none" viewBox="0 0 20 20">
-                    <path d="m7.3 10.8 5.4-5.4a3 3 0 0 1 4.2 4.2L9 17.5a4.5 4.5 0 0 1-6.4-6.4L11 2.8" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.6" />
-                  </svg>
+                  <Paperclip aria-hidden="true" size={17} strokeWidth={1.8} />
                 </button>
               <button
                 disabled={
@@ -820,7 +822,7 @@ export function ConversationWorkspace({ initialSelectedId }: { initialSelectedId
                 }
                 type="submit"
               >
-                  Send <span aria-hidden="true">↑</span>
+                  Send <Send aria-hidden="true" size={15} strokeWidth={1.8} />
                 </button>
               </div>
             </div>

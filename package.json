@@ -27,6 +27,7 @@
     "ably": "^2.29.0",
     "better-auth": "^1.7.8",
     "drizzle-orm": "^0.45.4",
+    "lucide-react": "^1.57.0",
     "next": "16.4.0",
     "pg": "^8.23.1",
     "react": "19.3.0",

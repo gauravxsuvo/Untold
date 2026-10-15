@@ -1,9 +1,11 @@
 "use client";
 
 import Link from "next/link";
+import { ArrowUpRight } from "lucide-react";
 import { PageHeading } from "@/components/app/page-heading";
 import { useAccountSession } from "@/components/auth/account-session-provider";
 import { DeviceManagement } from "@/components/messaging/device-management";
+import { InstallAppButton } from "@/components/pwa/install-app-button";
 
 export default function SettingsPage() {
   const { session } = useAccountSession();
@@ -11,7 +13,7 @@ export default function SettingsPage() {
   return (
     <div className="app-page">
       <PageHeading
-        description="Your account and what Untold does with your messages."
+        description="Manage your account, devices, and privacy."
         eyebrow="Account and privacy"
         title="Settings"
       />
@@ -23,8 +25,19 @@ export default function SettingsPage() {
             <p>Accounts use email and password. Email verification is not configured yet.</p>
           </div>
           <Link href="/app/profile">
-            View account profile <span aria-hidden="true">↗</span>
+            View account profile <ArrowUpRight aria-hidden="true" size={14} strokeWidth={1.8} />
           </Link>
+        </article>
+        <article className="account-settings-preview__install">
+          <div>
+            <p className="messaging-kicker">Your devices</p>
+            <h2>Install Untold</h2>
+            <p>
+              Open Untold in its own window on your computer, or add it to your Android
+              home screen. Your conversations stay connected to your account.
+            </p>
+          </div>
+          <InstallAppButton placement="settings" />
         </article>
         {session ? <DeviceManagement accountId={session.id} /> : null}
         <article>
@@ -43,13 +56,14 @@ export default function SettingsPage() {
           <div>
             <p className="messaging-kicker">Message privacy</p>
             <h2>Device encryption prototype</h2>
-            <p>
-              New messages and shared files are encrypted on your browser before Untold stores them.
-              Compare device safety codes with your contact before trusting a device. Migration 006 removes older
-              unencrypted message rows from the live database; backups may retain copies. Protocol
-              v1 has no forward secrecy and has not had an independent security review. Someone
-              who gains access to an unlocked device may be able to read its messages.
-            </p>
+            <p>What to know before you send a message.</p>
+            <ul className="account-privacy-notes">
+              <li>New messages and files are encrypted in your browser before upload.</li>
+              <li>Compare safety codes with your contact before trusting a new device.</li>
+              <li>Protocol v1 has no forward secrecy and has not had an independent security review.</li>
+              <li>Older unencrypted history was removed from the live database; backups may retain copies.</li>
+              <li>Someone with access to an unlocked device can read its messages.</li>
+            </ul>
           </div>
         </article>
         <article>
@@ -59,7 +73,7 @@ export default function SettingsPage() {
             <p>Password reset by email is not set up yet. Keep your password somewhere safe.</p>
           </div>
           <Link href="/auth/recovery">
-            Review recovery concepts <span aria-hidden="true">↗</span>
+            Review recovery concepts <ArrowUpRight aria-hidden="true" size={14} strokeWidth={1.8} />
           </Link>
         </article>
       </section>
