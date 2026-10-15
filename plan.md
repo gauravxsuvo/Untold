@@ -2,6 +2,16 @@
 
 ## Current status
 
+### Production call setup timeout (2026-10-16)
+
+- [x] Trace the reported Chrome-installed desktop error to the client ICE-gathering deadline before offer submission.
+- [x] Use gathered candidates instead of rejecting usable routes when an optional server remains pending; allow up to 25 seconds and use a bundled audio/video transport.
+- [x] Preserve relay-only enforcement, signed SDP snapshots, cancellation/resource cleanup, and the broker's no-retry behavior.
+- [x] Preserve an already-connected state when applying an answer, and add bounded console diagnostics without addresses, credentials or SDP.
+- [x] Document safe production troubleshooting. Real relay connectivity still needs confirmation after deployment.
+
+TypeScript, lint (196 files), production webpack compilation, and whitespace checks passed. No automated tests, live broker requests, live calls, commit or deployment were performed for this fix; production credentials were not read or printed. Live relay connectivity remains unverified.
+
 ### Portways managed TURN (2026-10-16, implemented locally)
 
 - [x] Use server-only TURN_API_URL/TURN_TOKEN to POST {"ttl":3600}; return only validated iceServers from authenticated /api/ice.

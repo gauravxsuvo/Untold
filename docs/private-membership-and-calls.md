@@ -37,6 +37,16 @@ For the deployment connectivity check, temporarily set `TURN_RELAY_ONLY=true`, m
 
 Previously configured `TURN_URLS`/`TURN_SHARED_SECRET` relays remain supported as a compatibility option, with one-hour temporary credentials. Portways' injected broker configuration takes priority. No `TURN_*` secret may have a `NEXT_PUBLIC_` or `VITE_` prefix. Without relay configuration, calls stay unavailable; account approval, messaging, recordings and attachment previews work independently.
 
+### Connection setup troubleshooting
+
+The Chrome-installed desktop app uses the same browser connection setup as the website. The earlier message "The call couldn’t connect to your network. Please try again." came from a client-side 15-second ICE gathering deadline, before the caller submitted the offer. That message alone did not establish whether the broker or relay was working. A pending or unreachable optional server could keep gathering open even after a usable candidate was available.
+
+Setup now uses one bundled transport for audio and video. It sends the signed gathered SDP when gathering completes, or after a relay candidate is available and gathering has been quiet for 1.5 seconds (at least three seconds total). It otherwise waits at most 25 seconds and uses the candidates found so far. Normal mode can attempt direct candidates at that deadline. Relay-only mode still requires an actual relay candidate and never silently enables direct connections. No late candidates are appended to signed descriptions or sent unsigned, and the credential broker is not retried.
+
+The browser console can report `Untold call setup` with a reason, candidate-type counts, ICE policy and numeric ICE error codes. These diagnostics intentionally omit addresses, server URLs, credentials, SDP, identities and browser error text. `relay-not-reached` means credentials/configuration were obtained but no relay allocation was gathered; direct connectivity may still succeed. `no-relay-candidate` means strict relay mode could not gather a relay route. A numeric error for one server is not, on its own, proof all servers failed.
+
+If setup still fails after deploying the fix, capture only the `/api/ice` HTTP status, its safe error `code` if present, and the `Untold call setup` diagnostic. Do not share the ICE response body, Authorization headers, SDP, or full network exports. Ask Portways to confirm valid temporary credentials and publicly reachable UDP and TCP/TLS relay endpoints, including TLS on port 443 for restricted networks. The HTTP Cloudflare Tunnel does not carry WebRTC media. Use the relay-only connectivity check described above to establish that a real relay path works; restore the intended privacy policy afterwards.
+
 ## Call behavior and privacy
 
 - One voice or video call per account at a time. An incoming call can be answered on any approved device, and the first answer wins. Other devices stop ringing. Connection details for an established call are returned only to its selected devices.
