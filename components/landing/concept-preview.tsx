@@ -1,3 +1,5 @@
+import { ArrowUp, Check, Ellipsis, Plus, Search } from "lucide-react";
+
 const conversations = [
   { initials: "J", name: "June", detail: "Made it home. Thank you for today.", active: true },
   { initials: "M", name: "Mara", detail: "I saved you the last chapter.", active: false },
@@ -9,22 +11,18 @@ export function ConceptPreview() {
     <figure className="concept" id="concept" aria-labelledby="concept-label">
       <div className="concept__caption">
         <span className="concept__caption-dot" aria-hidden="true" />
-        <span id="concept-label">A first look at the conversation space</span>
-        <span className="concept__caption-note">Concept preview</span>
+        <span id="concept-label">A little look inside</span>
+        <span className="concept__caption-note">Example conversation</span>
       </div>
 
       <div className="mock-app">
         <aside className="mock-sidebar" aria-label="Illustrative conversation list">
           <div className="mock-sidebar__top">
             <span className="mock-sidebar__label">CONVERSATIONS</span>
-            <span className="mock-add" aria-hidden="true">+</span>
+            <span className="mock-add" aria-hidden="true"><Plus size={12} /></span>
           </div>
           <div className="mock-search" aria-hidden="true">
-            <svg viewBox="0 0 18 18" fill="none" aria-hidden="true">
-              <title>Search</title>
-              <circle cx="8" cy="8" r="5.25" stroke="currentColor" strokeWidth="1.4" />
-              <path d="m12 12 3 3" stroke="currentColor" strokeLinecap="round" strokeWidth="1.4" />
-            </svg>
+            <Search size={18} strokeWidth={1.4} />
             <span>Find a conversation</span>
           </div>
           <ul className="mock-threads">
@@ -46,7 +44,7 @@ export function ConceptPreview() {
           <div className="mock-sidebar__foot">
             <span className="mock-avatar mock-avatar--you" aria-hidden="true">Y</span>
             <span>Example profile</span>
-            <span className="mock-more" aria-hidden="true">···</span>
+            <span className="mock-more" aria-hidden="true"><Ellipsis size={14} /></span>
           </div>
         </aside>
 
@@ -57,14 +55,14 @@ export function ConceptPreview() {
               <strong>June</strong>
               <span>Example conversation</span>
             </span>
-            <span className="mock-more-button" aria-hidden="true">···</span>
+            <span className="mock-more-button" aria-hidden="true"><Ellipsis size={14} /></span>
           </header>
 
           <div className="mock-chat__history">
             <p className="mock-date">TODAY · 4:16 PM</p>
             <div className="mock-message mock-message--outgoing">
               <p>Thanks for making an ordinary Tuesday feel like a little escape.</p>
-              <span>4:16 PM <span className="mock-check" aria-hidden="true">✓</span></span>
+              <span>4:16 PM <span className="mock-check" aria-hidden="true"><Check size={10} /></span></span>
             </div>
             <div className="mock-message mock-message--incoming">
               <p>I know exactly what you mean. Let’s not wait so long next time.</p>
@@ -72,20 +70,20 @@ export function ConceptPreview() {
             </div>
             <div className="mock-message mock-message--outgoing mock-message--short">
               <p>Already looking forward to it.</p>
-              <span>4:18 PM <span className="mock-check" aria-hidden="true">✓</span></span>
+              <span>4:18 PM <span className="mock-check" aria-hidden="true"><Check size={10} /></span></span>
             </div>
           </div>
 
           <div className="mock-composer" aria-hidden="true">
-            <span className="mock-composer__plus">+</span>
+            <span className="mock-composer__plus"><Plus size={12} /></span>
             <span>Write a message</span>
-            <span className="mock-composer__send">↑</span>
+            <span className="mock-composer__send"><ArrowUp size={14} /></span>
           </div>
         </section>
       </div>
 
       <figcaption className="concept__disclaimer">
-        An illustration of the conversation space. The people and messages shown are examples.
+        A sample conversation. The people and messages shown are examples.
       </figcaption>
     </figure>
   );

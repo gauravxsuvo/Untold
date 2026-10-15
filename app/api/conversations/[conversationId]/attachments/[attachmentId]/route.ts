@@ -43,7 +43,7 @@ export async function PUT(request: Request, context: RouteContext): Promise<Resp
   try {
     const { conversationId, attachmentId } = await context.params;
     if (!uuidPattern.test(conversationId) || !uuidPattern.test(attachmentId)) {
-      return Response.json({ message: "Attachment ID is invalid." }, { status: 400 });
+      return Response.json({ message: "We couldn’t find that file. Refresh the conversation and try again." }, { status: 400 });
     }
 
     const user = await getAuthenticatedUser(request);
@@ -53,7 +53,7 @@ export async function PUT(request: Request, context: RouteContext): Promise<Resp
       request.headers.get("content-type")?.split(";", 1)[0].trim().toLowerCase() !==
       "application/octet-stream"
     ) {
-      return Response.json({ message: "Upload encrypted file bytes only." }, { status: 415 });
+      return Response.json({ message: "We couldn’t upload that file safely. Please try again." }, { status: 415 });
     }
 
     const { db } = getDatabase();
@@ -62,7 +62,7 @@ export async function PUT(request: Request, context: RouteContext): Promise<Resp
     const deviceId = request.headers.get("x-untold-device-id");
     if (!deviceId || !uuidPattern.test(deviceId)) {
       return Response.json(
-        { message: "A registered messaging device is required." },
+        { message: "This browser isn’t ready to share files yet. Refresh the page and try again." },
         { status: 400 },
       );
     }
@@ -73,14 +73,14 @@ export async function PUT(request: Request, context: RouteContext): Promise<Resp
       .limit(1);
     if (!activeDevice) {
       return Response.json(
-        { message: "Register this browser as a messaging device first." },
+        { message: "This browser isn’t ready to send messages yet. Refresh the page and try again." },
         { status: 409 },
       );
     }
 
     const storage = getObjectStorage();
     if (!storage) {
-      return Response.json({ message: "File sharing is not configured yet." }, { status: 503 });
+      return Response.json({ message: "File sharing isn’t available right now. Please try again in a moment." }, { status: 503 });
     }
 
     const limit = await consumeRateLimit(
@@ -100,7 +100,7 @@ export async function PUT(request: Request, context: RouteContext): Promise<Resp
           message:
             error instanceof RangeError
               ? "Files must be 20 MiB or smaller."
-              : "Encrypted file upload is invalid, incomplete, or timed out.",
+              : "The file upload didn’t finish. Check your connection and try again.",
         },
         { status: error instanceof RangeError ? 413 : 400 },
       );
@@ -122,7 +122,7 @@ export async function PUT(request: Request, context: RouteContext): Promise<Resp
         return Response.json({ attachmentId }, { headers: { "Cache-Control": "no-store" } });
       }
       return Response.json(
-        { message: "This attachment ID has already been used." },
+        { message: "This upload couldn’t be completed. Select the file again to retry." },
         { status: 409 },
       );
     }
@@ -163,7 +163,7 @@ export async function PUT(request: Request, context: RouteContext): Promise<Resp
       return Response.json(
         {
           code: "attachment_quota",
-          message: "Your account has reached its 1 GiB file storage limit.",
+          message: "Your account has reached its 1 GB file storage limit.",
         },
         { status: 413 },
       );
@@ -186,7 +186,7 @@ export async function PUT(request: Request, context: RouteContext): Promise<Resp
         return Response.json({ attachmentId }, { headers: { "Cache-Control": "no-store" } });
       }
       return Response.json(
-        { message: "This attachment ID has already been used." },
+        { message: "This upload couldn’t be completed. Select the file again to retry." },
         { status: 409 },
       );
     }
@@ -219,7 +219,7 @@ export async function DELETE(request: Request, context: RouteContext): Promise<R
   try {
     const { conversationId, attachmentId } = await context.params;
     if (!uuidPattern.test(conversationId) || !uuidPattern.test(attachmentId)) {
-      return Response.json({ message: "Attachment ID is invalid." }, { status: 400 });
+      return Response.json({ message: "We couldn’t find that file. Refresh the conversation and try again." }, { status: 400 });
     }
 
     const user = await getAuthenticatedUser(request);
@@ -258,7 +258,7 @@ export async function DELETE(request: Request, context: RouteContext): Promise<R
       return { kind: "deleted", objectKey: attachment.objectKey } as const;
     });
     if (result.kind === "linked") {
-      return Response.json({ message: "A sent attachment cannot be discarded." }, { status: 409 });
+      return Response.json({ message: "A file that’s already been sent can’t be removed here." }, { status: 409 });
     }
     if (result.kind === "deleted") {
       try {

@@ -40,7 +40,7 @@ export async function POST(request: Request): Promise<Response> {
 
     const parsed = await readJsonBody(request, 4 * 1024);
     if (!parsed.ok) {
-      return Response.json({ message: "Send a valid JSON request." }, { status: parsed.status });
+      return Response.json({ message: "We couldn’t complete that action. Refresh the page and try again." }, { status: parsed.status });
     }
 
     const email = (parsed.body as { email?: unknown } | null)?.email;

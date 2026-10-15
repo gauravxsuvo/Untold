@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { ArrowUpRight, MessageCircle } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState, type FormEvent } from "react";
 import { Wordmark } from "@/components/brand/wordmark";
@@ -45,9 +46,13 @@ export function AuthScreen({
 
       if (result.error) {
         setFeedback(
-          result.error.status === 503
-            ? "The account service is not configured yet. Your password has been cleared; please try again later."
-            : result.error.message || "We could not complete that request. Check your details and try again.",
+          result.error.status === 429
+            ? "Too many attempts. Please wait a moment before trying again."
+            : (result.error.status ?? 0) >= 500
+              ? "Untold isn’t available right now. Please try again in a moment."
+              : isSignUp
+                ? "We couldn’t create your account. Check your details, or try signing in if you already have an account."
+                : "We couldn’t sign you in. Check your email address and password, then try again.",
         );
         return;
       }
@@ -57,7 +62,7 @@ export function AuthScreen({
       router.push(isSignUp ? "/app/onboarding" : "/app/inbox");
       router.refresh();
     } catch {
-      setFeedback("We could not reach the account service. Your password has been cleared; please try again.");
+      setFeedback("We couldn’t connect to Untold. Check your connection and try again.");
     } finally {
       setPassword("");
       setConfirmation("");
@@ -83,11 +88,11 @@ export function AuthScreen({
 
       <div className="auth-layout">
         <section aria-labelledby="auth-title" className="auth-card">
-          <p className="auth-kicker">A considered beginning</p>
+          <p className="auth-kicker">{isSignUp ? "Join Untold" : "Your conversations await"}</p>
           <h1 id="auth-title">{isSignUp ? "Make room for what matters." : "Welcome back."}</h1>
           <p className="auth-card__intro">
             {isSignUp
-              ? "Create an account, then add a friend by their email. Password reset by email is not set up yet, so keep your password safe."
+              ? "Create an account, then add a friend by email. Password resets aren’t available yet, so keep your password safe."
               : "Sign in to your Untold account to pick up your conversations."}
           </p>
 
@@ -98,7 +103,7 @@ export function AuthScreen({
           ) : null}
           {isAccountServiceUnavailable ? (
             <p className="auth-notice" role="status">
-              Account access is not configured on this server yet. Please try again later.
+              We can’t load your account right now. Please try again in a moment.
             </p>
           ) : null}
 
@@ -215,7 +220,7 @@ export function AuthScreen({
               </div>
             ) : (
               <div className="auth-form__utility">
-                <span>Password reset is not set up yet.</span>
+                <span>Forgot your password?</span>
                 <Link href="/auth/recovery">Need help signing in?</Link>
               </div>
             )}
@@ -226,15 +231,15 @@ export function AuthScreen({
               type="submit"
             >
               {isSubmitting
-                ? "Connecting…"
+                ? isSignUp ? "Creating account…" : "Signing in…"
                 : isSessionPending
-                  ? "Checking service…"
+                  ? "Loading…"
                   : isAccountServiceUnavailable
-                    ? "Service unavailable"
+                    ? "Try again later"
                     : isSignUp
                       ? "Create account"
                       : "Sign in"}
-              <span aria-hidden="true">↗</span>
+              <ArrowUpRight aria-hidden="true" size={16} />
             </button>
             <p aria-live="polite" className="auth-feedback" role={feedback ? "status" : undefined}>
               {feedback}
@@ -251,21 +256,17 @@ export function AuthScreen({
 
         <aside aria-label="How Untold handles your information" className="auth-side-note">
           <span aria-hidden="true" className="auth-side-note__mark">
-            ✳
+            <MessageCircle size={32} />
           </span>
-          <p className="auth-kicker">Honest by design</p>
-          <h2>
-            {isAccountServiceUnavailable
-              ? "Account access is being configured."
-              : "Plain about what is and isn’t private."}
-          </h2>
+          <p className="auth-kicker">Before you begin</p>
+          <h2>A few things to know.</h2>
           <ul>
-            <li>Your password is hashed and never stored in plain text.</li>
-            <li>Messages and shared files are encrypted on devices. Verify safety codes first; migration 006 removes older unencrypted history from the live database. Backups may retain copies, and this protocol is still under review.</li>
-            <li>Email verification and password reset are not configured.</li>
+            <li>Compare safety codes with your friend by phone or in person before sharing.</li>
+            <li>Untold is in early access. Privacy features haven’t been independently checked yet.</li>
+            <li>Keep your password safe. Password resets aren’t available yet.</li>
           </ul>
           <Link href="/auth/recovery">
-            How recovery could work <span aria-hidden="true">↗</span>
+            Help with signing in <ArrowUpRight aria-hidden="true" size={16} />
           </Link>
         </aside>
       </div>

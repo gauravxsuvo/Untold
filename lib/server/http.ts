@@ -17,11 +17,8 @@ export function backendErrorResponse(error: unknown): Response {
   if (error instanceof BackendConfigurationError) {
     return Response.json(
       {
-        code: "service_not_configured",
-        message:
-          error.service === "realtime"
-            ? "The realtime service is not configured yet. Please try again later."
-            : "The account service is not configured yet. Please try again later.",
+        code: "service_unavailable",
+        message: "Untold isn’t available right now. Please try again in a moment.",
       },
       { status: 503, headers: { "Cache-Control": "no-store" } },
     );
@@ -31,7 +28,7 @@ export function backendErrorResponse(error: unknown): Response {
     errorType: error instanceof Error ? error.name : "UnknownError",
   });
   return Response.json(
-    { code: "service_unavailable", message: "The service could not complete this request." },
+    { code: "service_unavailable", message: "Untold isn’t available right now. Please try again in a moment." },
     { status: 503, headers: { "Cache-Control": "no-store" } },
   );
 }
@@ -62,7 +59,7 @@ export function trustedBrowserOrigin(request: Request): boolean {
 
 export function forbiddenOriginResponse(): Response {
   return Response.json(
-    { code: "forbidden_origin", message: "This request origin is not allowed." },
+    { code: "forbidden_origin", message: "This action couldn’t be completed. Open Untold and try again." },
     { status: 403, headers: { "Cache-Control": "no-store" } },
   );
 }

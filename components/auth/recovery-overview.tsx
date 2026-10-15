@@ -1,27 +1,25 @@
 import Link from "next/link";
+import { ArrowUpRight } from "lucide-react";
 import { Wordmark } from "@/components/brand/wordmark";
 
-const recoveryOptions = [
+const signInTips = [
   {
     number: "01",
-    title: "A verified email reset",
-    label: "Simpler to use",
-    description:
-      "A time-limited link can restore account access. Anyone controlling the email account may be able to request it, so recovery addresses need protection and reset requests must avoid revealing which accounts exist.",
+    title: "Check your email address",
+    label: "Start here",
+    description: "Use the email address you signed up with. Check for typos or try another address you may have used.",
   },
   {
     number: "02",
-    title: "A saved recovery code",
-    label: "User-held secret",
-    description:
-      "A one-time code kept somewhere safe can work without relying on the inbox. If it is lost, account access may be harder to restore; if stolen, it can help someone else recover the account.",
+    title: "Look for a saved password",
+    label: "Your password manager",
+    description: "Your browser or password manager may have saved your Untold password. Check there before trying again.",
   },
   {
     number: "03",
-    title: "An existing trusted device",
-    label: "Device-based",
-    description:
-      "A device already linked to the account can approve a new sign-in. This depends on keeping that device available and needs a separate plan for people who lose every enrolled device.",
+    title: "Keep a signed-in browser open",
+    label: "Already signed in?",
+    description: "If Untold is still open on another device, keep it signed in. Don’t clear its browser data while trying to get back in.",
   },
 ];
 
@@ -32,52 +30,35 @@ export function RecoveryOverview() {
         <Link aria-label="Untold home" className="app-brand" href="/">
           <Wordmark />
         </Link>
-        <span className="auth-preview-badge">
-          <i aria-hidden="true" /> Design concept
-        </span>
+        <span className="auth-preview-badge"><i aria-hidden="true" /> Sign-in help</span>
       </header>
-
       <section aria-labelledby="recovery-title" className="recovery-page__intro">
-        <p className="auth-kicker">Account recovery · concept only</p>
-        <h1 id="recovery-title">Getting back in should not weaken privacy.</h1>
-        <p>
-          Recovery is not wired up. Each approach changes who can help restore an account and what a
-          lost device means. Untold has not chosen a recovery method.
-        </p>
+        <p className="auth-kicker">Getting back in</p>
+        <h1 id="recovery-title">Trouble signing in?</h1>
+        <p>Password resets aren’t available yet. Here are a few things to try if you can’t sign in.</p>
       </section>
-
-      <section aria-label="Account recovery approaches" className="recovery-options">
-        {recoveryOptions.map((option) => (
-          <article className="recovery-option" key={option.number}>
-            <span className="recovery-option__number">{option.number}</span>
-            <p className="recovery-option__label">{option.label}</p>
-            <h2>{option.title}</h2>
-            <p>{option.description}</p>
+      <section aria-label="Things to try" className="recovery-options">
+        {signInTips.map((tip) => (
+          <article className="recovery-option" key={tip.number}>
+            <span className="recovery-option__number">{tip.number}</span>
+            <p className="recovery-option__label">{tip.label}</p>
+            <h2>{tip.title}</h2>
+            <p>{tip.description}</p>
           </article>
         ))}
       </section>
-
       <aside aria-labelledby="key-recovery-title" className="recovery-key-note">
-        <p className="auth-kicker">A separate decision</p>
-        <h2 id="key-recovery-title">Account access and message keys are different.</h2>
+        <p className="auth-kicker">Keep your history</p>
+        <h2 id="key-recovery-title">Your browser data matters.</h2>
         <p>
-          A password reset can restore the ability to sign in. It cannot recreate encryption keys
-          that only existed in a lost browser profile. A newly registered device can read future
-          messages, but old messages wrapped for the lost keys stay unreadable. No key backup or
-          recovery flow is implemented.
+          Clearing Untold’s browser data or losing a device can make older messages unreadable,
+          even if you sign in again. Those messages can’t currently be restored on a new device.
+          Keep your password in a password manager and protect the devices you use.
         </p>
       </aside>
-
-      <p className="recovery-page__note">
-        No email, code, device, or identity check is contacted here. Recovery design will be
-        reviewed before implementation.
-      </p>
-
       <footer className="auth-page__footer">
-        <Link href="/auth/sign-in">Return to sign in</Link>
-        <Link href="/auth/sign-up">
-          Create an account <span aria-hidden="true">↗</span>
-        </Link>
+        <Link href="/auth/sign-in">Back to sign in</Link>
+        <Link href="/auth/sign-up">Create an account <ArrowUpRight aria-hidden="true" size={16} /></Link>
       </footer>
     </main>
   );

@@ -58,7 +58,7 @@ You need Node.js 20.9 or newer and a PostgreSQL database. With Portways, run the
 
 5. Optional: with the dev server running, `npm run test:backend` checks the database tables and the auth routes.
 
-`npm start` also applies pending migrations before serving. The manual `npm run db:migrate` command and the backend smoke test refuse to run against anything that is not a loopback address. If the database or auth settings are missing, pages still render and the API returns `503 service_not_configured` instead of crashing.
+`npm start` also applies pending migrations before serving. The manual `npm run db:migrate` command and the backend smoke test refuse to run against anything that is not a loopback address. If the database or auth settings are missing, pages still render and the API returns `503 service_unavailable` instead of crashing.
 
 ### Environment variables
 

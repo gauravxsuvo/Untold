@@ -20,7 +20,7 @@ export async function GET(request: Request, context: RouteContext): Promise<Resp
   try {
     const { attachmentId } = await context.params;
     if (!uuidPattern.test(attachmentId)) {
-      return Response.json({ message: "Attachment ID is invalid." }, { status: 400 });
+      return Response.json({ message: "We couldn’t find that file. Refresh the conversation and try again." }, { status: 400 });
     }
 
     const user = await getAuthenticatedUser(request);
@@ -41,13 +41,13 @@ export async function GET(request: Request, context: RouteContext): Promise<Resp
       ))
       .limit(1);
     if (!attachment || !(await isConversationMember(db, attachment.conversationId, user.id))) {
-      return Response.json({ message: "Attachment not found." }, { status: 404 });
+      return Response.json({ message: "This file is no longer available." }, { status: 404 });
     }
 
     const limit = await consumeRateLimit(db, `download-attachment:${user.id}`, rateLimitRules.downloadAttachment);
     if (!limit.allowed) return rateLimitedResponse(limit.retryAfterSeconds);
     if (!getObjectStorage()) {
-      return Response.json({ message: "File sharing is not configured yet." }, { status: 503 });
+      return Response.json({ message: "File sharing isn’t available right now. Please try again in a moment." }, { status: 503 });
     }
 
     const url = await createAttachmentDownloadUrl(attachment.objectKey);

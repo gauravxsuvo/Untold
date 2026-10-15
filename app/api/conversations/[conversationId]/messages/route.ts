@@ -44,7 +44,7 @@ export async function GET(request: Request, context: RouteContext): Promise<Resp
   try {
     const { conversationId } = await context.params;
     if (!uuidPattern.test(conversationId)) {
-      return Response.json({ message: "Conversation ID is invalid." }, { status: 400 });
+      return Response.json({ message: "We couldn’t find that conversation. Refresh the page and try again." }, { status: 400 });
     }
 
     const user = await getAuthenticatedUser(request);
@@ -90,7 +90,7 @@ export async function POST(request: Request, context: RouteContext): Promise<Res
   try {
     const { conversationId } = await context.params;
     if (!uuidPattern.test(conversationId)) {
-      return Response.json({ message: "Conversation ID is invalid." }, { status: 400 });
+      return Response.json({ message: "We couldn’t find that conversation. Refresh the page and try again." }, { status: 400 });
     }
 
     const user = await getAuthenticatedUser(request);
@@ -102,26 +102,26 @@ export async function POST(request: Request, context: RouteContext): Promise<Res
       return Response.json(
         {
           message:
-            parsed.status === 413 ? "Message envelope is too large." : "Send a valid JSON request.",
+            parsed.status === 413 ? "This message is too large. Try a shorter message." : "We couldn’t complete that action. Refresh the page and try again.",
         },
         { status: parsed.status },
       );
     }
     const { body } = parsed;
     if (!body || typeof body !== "object") {
-      return Response.json({ message: "Send a valid message envelope." }, { status: 400 });
+      return Response.json({ message: "We couldn’t send that message. Refresh the conversation and try again." }, { status: 400 });
     }
 
     const input = body as { clientMessageId?: unknown; envelope?: unknown; attachmentId?: unknown };
     if (typeof input.clientMessageId !== "string" || !uuidPattern.test(input.clientMessageId)) {
-      return Response.json({ message: "A valid client message ID is required." }, { status: 400 });
+      return Response.json({ message: "We couldn’t send that message. Refresh the conversation and try again." }, { status: 400 });
     }
     if (
       input.attachmentId !== undefined &&
       input.attachmentId !== null &&
       (typeof input.attachmentId !== "string" || !uuidPattern.test(input.attachmentId))
     ) {
-      return Response.json({ message: "Attachment ID is invalid." }, { status: 400 });
+      return Response.json({ message: "We couldn’t find that file. Refresh the conversation and try again." }, { status: 400 });
     }
     const attachmentId = typeof input.attachmentId === "string" ? input.attachmentId : null;
 
@@ -131,8 +131,8 @@ export async function POST(request: Request, context: RouteContext): Promise<Res
         {
           message:
             decoded.error === "too-large"
-              ? "Message envelope is too large."
-              : "Message envelope is invalid.",
+              ? "This message is too large. Try a shorter message."
+              : "We couldn’t send that message. Refresh the conversation and try again.",
         },
         { status: decoded.error === "too-large" ? 413 : 400 },
       );
@@ -145,7 +145,7 @@ export async function POST(request: Request, context: RouteContext): Promise<Res
       envelope.senderId !== user.id ||
       !envelope.wrappedKeys.some(({ deviceId }) => deviceId === envelope.senderDeviceId)
     ) {
-      return Response.json({ message: "Send a valid Untold encrypted message." }, { status: 400 });
+      return Response.json({ message: "We couldn’t send that message safely. Refresh the conversation and try again." }, { status: 400 });
     }
 
     const { db } = getDatabase();
@@ -167,7 +167,7 @@ export async function POST(request: Request, context: RouteContext): Promise<Res
       [...expectedDeviceIds].some((deviceId) => !wrappedDeviceIds.has(deviceId))
     ) {
       return Response.json(
-        { message: "The conversation device list changed. Reload the conversation and try again." },
+        { message: "Someone’s devices changed. Refresh the conversation and check their safety codes before trying again." },
         { status: 409 },
       );
     }
@@ -185,7 +185,7 @@ export async function POST(request: Request, context: RouteContext): Promise<Res
       .limit(1);
     if (!senderDevice) {
       return Response.json(
-        { message: "Register this browser as a messaging device first." },
+        { message: "This browser isn’t ready to send messages yet. Refresh the page and try again." },
         { status: 409 },
       );
     }
@@ -226,7 +226,7 @@ export async function POST(request: Request, context: RouteContext): Promise<Res
 
     if (inserted === null) {
       return Response.json(
-        { message: "Upload the encrypted attachment before sending its message." },
+        { message: "The file hasn’t finished uploading. Please try again." },
         { status: 409 },
       );
     }
@@ -256,7 +256,7 @@ export async function POST(request: Request, context: RouteContext): Promise<Res
         !Buffer.from(existing.envelope).equals(decoded.bytes)
       ) {
         return Response.json(
-          { message: "This client message ID has already been used." },
+          { message: "This message couldn’t be sent again. Refresh the conversation to check whether it arrived." },
           { status: 409 },
         );
       }

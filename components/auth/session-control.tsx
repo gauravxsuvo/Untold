@@ -54,7 +54,7 @@ export function SessionControl({ placement }: { placement: "sidebar" | "mobile" 
         ) : (
           <>
             <strong>Signed out</strong>
-            <small>No account session</small>
+            <small>Sign in to continue</small>
             <Link className="app-sidebar__session-action" href="/auth/sign-in">
               Sign in <ArrowUpRight aria-hidden="true" size={14} strokeWidth={1.8} />
             </Link>

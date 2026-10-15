@@ -5,7 +5,7 @@ import { StatePanel } from "@/components/app/state-panel";
 import { getServerSession } from "@/lib/auth/session";
 
 export const metadata: Metadata = {
-  title: "Workspace — Untold",
+  title: "Your conversations | Untold",
   description: "Your Untold conversations.",
 };
 
@@ -18,7 +18,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
       {session.status === "unavailable" ? (
         <div className="app-page">
           <StatePanel
-            description="The account service is not configured or cannot reach its database. Check the server environment and try again."
+            description="We can’t load your account right now. Please try again in a moment."
             kind="unavailable"
             title="Untold is temporarily unavailable."
           />

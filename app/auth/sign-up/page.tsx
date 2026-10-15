@@ -4,7 +4,7 @@ import { AuthScreen } from "@/components/auth/auth-screen";
 import { getServerSession } from "@/lib/auth/session";
 
 export const metadata: Metadata = {
-  title: "Create an account — Untold",
+  title: "Create an account | Untold",
   description: "Create an Untold account.",
 };
 

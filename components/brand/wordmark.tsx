@@ -8,25 +8,18 @@ export function Wordmark({ compact = false }: WordmarkProps) {
       <svg
         aria-hidden="true"
         className="wordmark__symbol"
-        fill="none"
-        viewBox="0 0 36 36"
+        fill="currentColor"
+        viewBox="0 0 100 100"
       >
         <path
-          d="M10.25 7.75h12.5a5.5 5.5 0 0 1 5.5 5.5v6a5.5 5.5 0 0 1-5.5 5.5h-2.5l-5.5 4v-4h-4.5a5.5 5.5 0 0 1-5.5-5.5v-6a5.5 5.5 0 0 1 5.5-5.5Z"
-          stroke="currentColor"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          strokeWidth="1.8"
+          d="M26 20H34C41 20 46 25 46 32V76L32 62H26C18 62 12 56 12 48V34C12 26 18 20 26 20Z"
         />
         <path
-          d="M12 14.5h9m-9 4h5.5"
-          stroke="currentColor"
-          strokeLinecap="round"
-          strokeWidth="1.8"
+          d="M74 20H66C59 20 54 25 54 32V76L68 62H74C82 62 88 56 88 48V34C88 26 82 20 74 20Z"
         />
       </svg>
       {!compact && <span className="wordmark__name">untold</span>}
-      <span className="sr-only">Untold</span>
+      {compact && <span className="sr-only">Untold</span>}
     </span>
   );
 }

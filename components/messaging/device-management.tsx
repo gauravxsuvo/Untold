@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import {
+  userFacingError,
   fetchAccountDevices,
   revokeAccountDevice,
   type AccountDevice,
@@ -23,7 +24,7 @@ export function DeviceManagement({ accountId }: { accountId: string }) {
       setDevices(await fetchAccountDevices());
       setError("");
     } catch (caught) {
-      setError(caught instanceof Error ? caught.message : "Registered devices could not be loaded.");
+      setError(userFacingError(caught, "Your devices couldn’t be loaded. Please try again."));
     } finally {
       setIsLoading(false);
     }
@@ -36,7 +37,7 @@ export function DeviceManagement({ accountId }: { accountId: string }) {
   async function revoke(device: AccountDevice) {
     if (
       !window.confirm(
-        `Revoke ${device.deviceName}? This signs out the other browsers and stops future key delivery to the device. It cannot erase messages or keys the device already downloaded.`,
+        `Remove ${device.deviceName}? This also signs out your other browsers. The removed device won’t receive new messages, but copies it already received will remain.`,
       )
     ) {
       return;
@@ -48,9 +49,9 @@ export function DeviceManagement({ accountId }: { accountId: string }) {
       setDevices((current) => current.map((item) =>
         item.deviceId === device.deviceId ? { ...item, revokedAt: new Date().toISOString() } : item,
       ));
-      setFeedback(`${device.deviceName} was revoked. Other open conversations update within 30 seconds.`);
+      setFeedback(`${device.deviceName} was removed. Your conversations will update shortly.`);
     } catch (caught) {
-      setError(caught instanceof Error ? caught.message : "This device could not be removed.");
+      setError(userFacingError(caught, "This device could not be removed."));
     } finally {
       setRevokingId("");
     }
@@ -59,25 +60,24 @@ export function DeviceManagement({ accountId }: { accountId: string }) {
   return (
     <article className="account-device-management">
       <div>
-        <p className="messaging-kicker">Encryption devices</p>
-        <h2>Your registered browsers</h2>
+        <p className="messaging-kicker">Your devices</p>
+        <h2>Where you use Untold</h2>
         <p>
-          Private keys stay in this browser profile. Losing it can make
-          older messages unreadable. Removing a device stops future delivery; it cannot erase copies
-          that device already received.
+          Clearing your browser data or losing a device can make older messages unreadable.
+          Removing a device stops new messages from reaching it. Copies it already received will remain.
         </p>
       </div>
       {local.state === "loading" ? (
-        <p role="status">Preparing this browser’s device keys…</p>
+        <p role="status">Getting this browser ready…</p>
       ) : local.state === "error" ? (
         <p className="messaging-error" role="alert">{local.error}</p>
       ) : null}
       {error ? (
         <p className="messaging-error" role="alert">{error}</p>
       ) : isLoading ? (
-        <p role="status">Loading registered devices…</p>
+        <p role="status">Loading your devices…</p>
       ) : devices.length === 0 ? (
-        <p>No devices are registered.</p>
+        <p>Your devices will appear here once they’re ready.</p>
       ) : (
         <ul className="account-device-list">
           {devices.map((device) => {
@@ -98,7 +98,7 @@ export function DeviceManagement({ accountId }: { accountId: string }) {
                   >
                     {revokingId === device.deviceId ? "Removing…" : "Remove device"}
                   </button>
-                ) : <span className="account-device-list__current">{device.revokedAt ? "Revoked" : "Active"}</span>}
+                ) : <span className="account-device-list__current">{device.revokedAt ? "Removed" : "Active"}</span>}
               </li>
             );
           })}

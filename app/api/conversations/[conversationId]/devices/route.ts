@@ -18,7 +18,7 @@ export async function GET(request: Request, context: RouteContext): Promise<Resp
   try {
     const { conversationId } = await context.params;
     if (!uuidPattern.test(conversationId)) {
-      return Response.json({ message: "Conversation ID is invalid." }, { status: 400 });
+      return Response.json({ message: "We couldn’t find that conversation. Refresh the page and try again." }, { status: 400 });
     }
     const user = await getAuthenticatedUser(request);
     if (!user) return unauthorizedResponse();
