@@ -6,6 +6,7 @@ import { classifyDeviceTrust } from "@/crypto/src/protocol";
 import { fetchConversationDevices } from "@/lib/messaging/api-client";
 import { signCallDescription, verifyCallDescription } from "@/lib/messaging/call-signatures";
 import { fallbackIceServers, maxCallDurationMs } from "@/lib/messaging/call-policy";
+import { gatherCallDescription } from "@/lib/messaging/call-ice";
 import type {
   CallConfiguration,
   CallDescription,
@@ -298,6 +299,7 @@ export function CallProvider({ children }: { children: ReactNode }) {
     const pc = new RTCPeerConnection({
       iceServers: config.iceServers,
       iceTransportPolicy: config.iceTransportPolicy,
+      bundlePolicy: "max-bundle",
     });
     pcRef.current = pc;
     for (const track of stream.getTracks()) pc.addTrack(track, stream);
@@ -332,34 +334,7 @@ export function CallProvider({ children }: { children: ReactNode }) {
     return pc;
   }
   async function gatheredDescription(pc: RTCPeerConnection, token: number) {
-    if (pc.iceGatheringState !== "complete")
-      await new Promise<void>((resolve, reject) => {
-        const done = () => {
-          clearTimeout(timer);
-          clearInterval(cancelTimer);
-          pc.removeEventListener("icegatheringstatechange", changed);
-        };
-        const changed = () => {
-          if (pc.iceGatheringState === "complete") {
-            done();
-            resolve();
-          }
-        };
-        const timer = setTimeout(() => {
-          done();
-          reject(new Error("The call couldn’t connect to your network. Please try again."));
-        }, 15_000);
-        const cancelTimer = setInterval(() => {
-          if (token !== generation.current) {
-            done();
-            reject(new Error("Call cancelled"));
-          }
-        }, 200);
-        pc.addEventListener("icegatheringstatechange", changed);
-        changed();
-      });
-    if (token !== generation.current || !pc.localDescription) throw new Error("Call cancelled");
-    return pc.localDescription;
+    return gatherCallDescription(pc, () => token === generation.current && pc === pcRef.current);
   }
   function connectionTimeout() {
     if (connectTimer.current) clearTimeout(connectTimer.current);
@@ -527,8 +502,10 @@ export function CallProvider({ children }: { children: ReactNode }) {
         ) {
           await trusted(call.answer, call);
           if (currentRef.current?.call.id !== call.id || !pcRef.current) return;
-          await pcRef.current.setRemoteDescription({ type: "answer", sdp: call.answer.sdp });
-          update({ call, phase: "connecting" });
+          const pc = pcRef.current;
+          await pc.setRemoteDescription({ type: "answer", sdp: call.answer.sdp });
+          if (currentRef.current?.call.id !== call.id || pcRef.current !== pc) return;
+          update({ call, phase: pc.connectionState === "connected" ? "connected" : "connecting" });
           connectionTimeout();
         }
         if (
