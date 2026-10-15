@@ -2,6 +2,8 @@
 
 Group chats support names, compressed photos, owner/member controls, and existing account safety checks. Desktop typing focuses the open chat's composer. See [groups and desktop typing](docs/groups-and-desktop-typing.md) for migration 016 and rollout details.
 
+Group voice/video calls and direct/group screen sharing use the existing Portways TURN integration. Cameras target 720p at 30 fps, screen sharing targets 720p at 60 fps, and outgoing video has a bitrate budget. Shared database limits protect direct/group messages against bursts. Include migration 017 and see [group calls and media](docs/group-calls-and-media.md) for limits and deployment checks.
+
 Private membership approval, attachment viewers, voice recordings, voice/video calls, and direct photo cropping are described in [the setup guide](docs/private-membership-and-calls.md). Set `ADMIN_EMAIL` before deployment. Calls use Portways' server-only `TURN_API_URL`/`TURN_TOKEN` integration. The guide covers relay checks, normal connection privacy, outage fallback and the 55-minute call limit.
 
 Untold is a calm messaging app for the conversations that matter. You sign up with email and password, add a friend by their account email, and talk. It is one full-stack Next.js application: the interface and the server API deploy together as a single Node.js service on [Portways](#deploying-on-portways).
@@ -20,7 +22,7 @@ Untold is a calm messaging app for the conversations that matter. You sign up wi
 | Live updates | With an Ably key configured, new messages arrive instantly. Without one, the app refreshes open conversations every 3 seconds and the list every 8 seconds. |
 | Inbox and contacts | The inbox shows recent conversations, and contacts lists the people you talk with. Untold never reads device contacts. |
 | Access control | Every `/app` page requires a signed-in account (checked on the server). Every API call checks the session and conversation membership, and writes must come from the app's own origin. |
-| Abuse limits | Per-user limits on starting conversations (20 per hour), sending messages (60 per minute) and realtime tokens (30 per minute). |
+| Abuse limits | Message burst, account, per-chat and conversation limits shared across devices and replicas. Starting conversations is limited to 20 per hour and realtime tokens to 30 per minute. See the group calls/media guide for exact message budgets. |
 | Security headers | A nonce-based Content Security Policy from `proxy.ts`, and standard browser headers from `next.config.ts`. |
 
 ## Tech stack
@@ -144,8 +146,8 @@ After the first deploy, work through [`docs/release-checklist.md`](docs/release-
 ## Known limitations
 
 - **Early encryption protocol.** Message text, file bytes, and file details are encrypted in the browser and stored as ciphertext, but protocol v1 has no forward secrecy and no independent review. Verify safety codes before sending. Migration 006 permanently removes pre-encryption message rows from the live database; host backups may retain copies. See [`crypto/`](crypto/README.md).
-- **No email delivery.** Email verification and password reset are not set up, so there is no way to recover a forgotten password yet.
-- **Attachment size and scope.** One-to-one chats support files up to 20 MiB each. No group conversations, calls, message editing or deletion. Opt-in private push alerts and cross-conversation delivery acknowledgements are implemented; real-device verification remains outstanding. See [the implementation and rollout notes](docs/readability-delivery-and-notifications.md).
+- **No email delivery.** Email addresses are not verified. Password recovery requires MFA to have been configured before the password was lost; password reset mail is not configured.
+- **Attachment size and scope.** Direct/group chats support files up to 20 MiB each, with no message editing or deletion. Small group calls support up to eight people. Screen sharing and background notifications depend on browser/OS support; real-device verification remains outstanding. See [group calls and media](docs/group-calls-and-media.md).
 - **Email lookup.** Starting a conversation reveals whether an email has an account. It is rate limited, and conversation partners see each other's display name and email.
 - **Message history** shows the most recent 100 messages per conversation.
 

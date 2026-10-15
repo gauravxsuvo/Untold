@@ -488,10 +488,101 @@
 .call-control[aria-pressed="true"] {
   background: var(--ui-accent-wash);
 }
+.call-control:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
 .call-note {
   color: var(--ui-muted);
   font-size: 12px;
   padding: 10px 20px 20px;
+}
+.group-call-dialog {
+  width: min(1080px, calc(100vw - 24px));
+}
+.group-call-dialog[open] {
+  display: flex;
+  flex-direction: column;
+  height: min(880px, calc(100dvh - 24px));
+  overflow: hidden;
+}
+.group-call-dialog > header,
+.group-call-dialog > h2,
+.group-call-dialog > .call-phase {
+  flex: 0 0 auto;
+}
+.group-call-dialog .call-controls {
+  flex: 0 0 auto;
+  flex-wrap: nowrap;
+  gap: 8px;
+  padding: 12px;
+}
+.group-call-dialog .call-control {
+  flex: 0 1 88px;
+  min-width: 0;
+  padding-inline: 4px;
+}
+.group-call-dialog .call-note {
+  flex: 0 1 auto;
+  max-height: 100px;
+  overflow-y: auto;
+  margin: 0;
+  padding-top: 0;
+}
+.group-call-grid {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(240px, 100%), 1fr));
+  gap: 12px;
+  padding: 0 16px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  align-content: start;
+}
+.group-call-grid > .call-avatar {
+  grid-column: 1 / -1;
+}
+.group-call-tile {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  border: 1px solid var(--ui-border);
+  border-radius: 16px;
+  overflow: hidden;
+  background: var(--ui-subtle);
+  text-align: left;
+}
+.group-call-tile video {
+  display: block;
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  max-height: 45dvh;
+  object-fit: contain;
+  background: #090b0a;
+}
+.group-call-tile .call-avatar {
+  min-height: 120px;
+}
+.group-call-tile__caption {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px 12px;
+  padding: 10px 12px;
+  font-size: calc(12px * var(--text-scale, 1));
+  overflow-wrap: anywhere;
+}
+.group-call-tile__caption span {
+  color: var(--ui-muted);
+}
+.group-call-tile--sharing {
+  grid-column: 1 / -1;
+}
+.group-call-tile--sharing video {
+  max-height: 60dvh;
 }
 .call-toast {
   position: fixed;
@@ -668,5 +759,23 @@
   }
   .call-control {
     width: 76px;
+  }
+}
+@media (max-height: 480px) {
+  .group-call-dialog h2 {
+    font-size: 20px;
+    margin-block: 2px;
+  }
+  .group-call-dialog .call-phase {
+    margin-bottom: 6px;
+    font-size: 12px;
+  }
+  .group-call-dialog .call-control {
+    min-height: 52px;
+    gap: 4px;
+  }
+  .group-call-dialog .call-note {
+    max-height: 38px;
+    padding-bottom: 6px;
   }
 }

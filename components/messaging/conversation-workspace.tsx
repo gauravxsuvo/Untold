@@ -821,28 +821,50 @@ export function ConversationWorkspace({ initialSelectedId }: { initialSelectedId
                 </h2>
               </div>
             </div>
-            {!selectedConversation.groupName ? (
+            {
               <div className="conversation-call-actions">
                 <button
                   type="button"
-                  aria-label="Start voice call"
+                  aria-label={
+                    selectedConversation.groupName
+                      ? "Start or join group voice call"
+                      : "Start voice call"
+                  }
                   title={calls.available === false ? "Calls aren’t available yet" : "Voice call"}
                   disabled={!canSend || calls.active || calls.available === false}
-                  onClick={() => void calls.start(selectedConversation.id, selectedTitle, "voice")}
+                  onClick={() =>
+                    void calls.start(
+                      selectedConversation.id,
+                      selectedTitle,
+                      "voice",
+                      Boolean(selectedConversation.groupName),
+                    )
+                  }
                 >
                   <Phone size={19} aria-hidden="true" />
                 </button>
                 <button
                   type="button"
-                  aria-label="Start video call"
+                  aria-label={
+                    selectedConversation.groupName
+                      ? "Start or join group video call"
+                      : "Start video call"
+                  }
                   title={calls.available === false ? "Calls aren’t available yet" : "Video call"}
                   disabled={!canSend || calls.active || calls.available === false}
-                  onClick={() => void calls.start(selectedConversation.id, selectedTitle, "video")}
+                  onClick={() =>
+                    void calls.start(
+                      selectedConversation.id,
+                      selectedTitle,
+                      "video",
+                      Boolean(selectedConversation.groupName),
+                    )
+                  }
                 >
                   <Video size={20} aria-hidden="true" />
                 </button>
               </div>
-            ) : null}
+            }
             <ConversationDetails
               localDevice={localDevice.device}
               devices={directory.state === "ready" ? directory.devices : null}

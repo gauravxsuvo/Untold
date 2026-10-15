@@ -11,6 +11,7 @@ import { accountAccess } from "@/lib/server/membership";
 import { getDatabase } from "@/lib/server/database";
 import { authUser, memberships, calls, pushSubscriptions } from "@/lib/server/schema";
 import { consumeRateLimit, rateLimitedResponse } from "@/lib/server/rate-limit";
+import { revokeGroupCallAccess } from "@/lib/server/group-calls";
 export const dynamic = "force-dynamic";
 export async function GET(request: Request) {
   try {
@@ -89,6 +90,7 @@ export async function POST(request: Request) {
           set: { status, reviewedBy: session.user.id, reviewedAt: new Date() },
         });
       if (status === "rejected") {
+        await revokeGroupCallAccess(tx, userId);
         await tx
           .update(calls)
           .set({ status: "ended", offer: null, answer: null })

@@ -7,6 +7,7 @@ import { MessagingDeviceProvider } from "@/components/messaging/messaging-device
 import { accountAccess } from "@/lib/server/membership";
 import { MembershipAccess } from "@/components/auth/membership-access";
 import { CallProvider } from "@/components/messaging/call-provider";
+import { GroupCallProvider } from "@/components/messaging/group-call-provider";
 
 export const metadata: Metadata = {
   title: "Your conversations | Untold",
@@ -21,22 +22,24 @@ export default async function AppLayout({ children }: { children: React.ReactNod
 
   return (
     <MessagingDeviceProvider>
-      <CallProvider>
-        <ApplicationShell>
-          <MembershipAccess />
-          {session.status === "unavailable" ? (
-            <div className="app-page">
-              <StatePanel
-                description="We can’t load your account right now. Please try again in a moment."
-                kind="unavailable"
-                title="Untold is temporarily unavailable."
-              />
-            </div>
-          ) : (
-            children
-          )}
-        </ApplicationShell>
-      </CallProvider>
+      <GroupCallProvider>
+        <CallProvider>
+          <ApplicationShell>
+            <MembershipAccess />
+            {session.status === "unavailable" ? (
+              <div className="app-page">
+                <StatePanel
+                  description="We can’t load your account right now. Please try again in a moment."
+                  kind="unavailable"
+                  title="Untold is temporarily unavailable."
+                />
+              </div>
+            ) : (
+              children
+            )}
+          </ApplicationShell>
+        </CallProvider>
+      </GroupCallProvider>
     </MessagingDeviceProvider>
   );
 }

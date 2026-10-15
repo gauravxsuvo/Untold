@@ -2,6 +2,17 @@
 
 ## Current status
 
+### Group calls, sharing and message spam controls (2026-10-16, implemented locally)
+
+- [x] Add voice/video rooms for up to eight current group members, approved devices, signed pairwise setup, join/leave, invitations and privacy-safe notifications.
+- [x] Target camera 1280x720 at 30 fps, mono speech audio at 32 kbit/s, and an outgoing camera bitrate budget.
+- [x] Add explicit screen selection and stop-sharing to direct/group video calls, targeting 1280x720 at 60 fps with an outgoing bitrate budget; restore the camera and release capture on stop/end.
+- [x] Preserve approval, account verification, call exclusivity, membership removal, expiry and TURN policy without exposing service secrets.
+- [x] Add shared database limits for message bursts, per-person per-chat traffic and total conversation traffic, with a clear wait-and-retry response.
+- [x] Update migration/deployment notes, compile and lint. Record browser/platform and live-device checks that remain outstanding.
+
+The group panel retains call controls while tiles scroll, and offers explicit rejoining after reopening without automatically activating media. Each join selects one window instance so an older window cannot overwrite the new connections or heartbeats. Camera video has a 1.2 Mbit/s aggregate outgoing target, sharing 2.5 Mbit/s, and speech 32 kbit/s per peer; group video divides its budget between peers. The capture target is a maximum, not guaranteed delivered quality. Screen sharing replaces the camera and depends on browser/OS support. Message limits are 8 requests/5 seconds and 60/minute per account, 6/5 seconds and 30/minute per account per chat, and 180/minute per conversation, shared across devices/replicas. Include new migration 017. Final TypeScript, lint (202 files), production webpack compilation and whitespace checks passed. No automated tests, live call, migration, commit or deployment were performed. See `docs/group-calls-and-media.md` for the remaining live-device checks.
+
 ### Production call setup timeout (2026-10-16)
 
 - [x] Trace the reported Chrome-installed desktop error to the client ICE-gathering deadline before offer submission.

@@ -11,6 +11,10 @@ export type RateLimitRule = { max: number; windowSeconds: number };
 export const rateLimitRules = {
   startConversation: { max: 20, windowSeconds: 60 * 60 },
   sendMessage: { max: 60, windowSeconds: 60 },
+  messageBurst: { max: 8, windowSeconds: 5 },
+  chatMessageBurst: { max: 6, windowSeconds: 5 },
+  chatMessages: { max: 30, windowSeconds: 60 },
+  conversationMessages: { max: 180, windowSeconds: 60 },
   uploadAttachment: { max: 10, windowSeconds: 60 * 60 },
   downloadAttachment: { max: 120, windowSeconds: 60 },
   realtimeToken: { max: 30, windowSeconds: 60 },
@@ -33,7 +37,7 @@ export async function consumeRateLimit(
     .onConflictDoUpdate({
       target: appRateLimits.key,
       set: {
-        count: sql`CASE WHEN ${appRateLimits.windowStartedAt} <= ${expiredBefore} THEN 1 ELSE ${appRateLimits.count} + 1 END`,
+        count: sql`CASE WHEN ${appRateLimits.windowStartedAt} <= ${expiredBefore} THEN 1 ELSE LEAST(${appRateLimits.count} + 1, ${rule.max + 1}) END`,
         windowStartedAt: sql`CASE WHEN ${appRateLimits.windowStartedAt} <= ${expiredBefore} THEN ${now} ELSE ${appRateLimits.windowStartedAt} END`,
       },
     })
@@ -41,6 +45,32 @@ export async function consumeRateLimit(
 
   const retryAfterSeconds = Math.max(1, Math.ceil((row.windowStartedAt + windowMs - now) / 1000));
   return { allowed: row.count <= rule.max, retryAfterSeconds };
+}
+
+export async function consumeMessageLimits(db: Database, userId: string, conversationId: string) {
+  const budgets = [
+    [`send-message-burst:${userId}`, rateLimitRules.messageBurst],
+    [`send-message:${userId}`, rateLimitRules.sendMessage],
+    [`chat-message-burst:${userId}:${conversationId}`, rateLimitRules.chatMessageBurst],
+    [`chat-message:${userId}:${conversationId}`, rateLimitRules.chatMessages],
+    [`conversation-message:${conversationId}`, rateLimitRules.conversationMessages],
+  ] as const;
+  for (const [key, rule] of budgets) {
+    const limit = await consumeRateLimit(db, key, rule);
+    if (!limit.allowed)
+      return Response.json(
+        {
+          code: "message_rate_limited",
+          message: `Messages are being sent too quickly. Try again in ${limit.retryAfterSeconds} seconds.`,
+          retryAfterSeconds: limit.retryAfterSeconds,
+        },
+        {
+          status: 429,
+          headers: { "Cache-Control": "no-store", "Retry-After": String(limit.retryAfterSeconds) },
+        },
+      );
+  }
+  return null;
 }
 
 export function rateLimitedResponse(retryAfterSeconds: number): Response {

@@ -49,6 +49,8 @@ If setup still fails after deploying the fix, capture only the `/api/ice` HTTP s
 
 ## Call behavior and privacy
 
+Group voice/video rooms, direct/group screen sharing and camera/screen bandwidth targets are documented in [group calls and media](group-calls-and-media.md). Include migration 017 after the group migration. The original `/api/calls` endpoint below remains the direct-call API; `/api/group-calls` handles group rooms.
+
 - One voice or video call per account at a time. An incoming call can be answered on any approved device, and the first answer wins. Other devices stop ringing. Connection details for an established call are returned only to its selected devices.
 - Device signatures cover the call ID, conversation ID, sender, device, media kind, description type, and complete SDP, including the DTLS fingerprint. Clients check the signature against a locally verified account and approved device before accepting a remote description. Calls require existing safety-code verification.
 - Camera and microphone are requested only after choosing Call or Answer. Audio recording uses a separate explicit permission action. All media tracks stop when a call ends, on connection failure, device approval loss, navigation away, or cancellation after a delayed permission response.

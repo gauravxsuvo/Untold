@@ -28,6 +28,7 @@ import { callingEnabled } from "@/lib/server/call-config";
 import { maxCallDurationMs } from "@/lib/messaging/call-policy";
 import { after } from "next/server";
 import { notifyIncomingCall } from "@/lib/server/call-push";
+import { hasGroupCall } from "@/lib/server/group-calls";
 export const dynamic = "force-dynamic";
 const noStore = { "Cache-Control": "no-store" };
 const fail = (message: string, status = 400) =>
@@ -235,7 +236,7 @@ export async function POST(request: Request) {
             ),
           )
           .limit(1);
-        if (busy)
+        if (busy || (await hasGroupCall(tx, participants)))
           return fail("You or your contact is already in a call. Try again in a moment.", 409);
         if (!directory.some((d) => d.userId !== user.id && d.approved && !d.revoked))
           return fail("Your contact needs to approve a device first.", 409);

@@ -1,8 +1,16 @@
 import "server-only";
-import { and, eq, gt } from "drizzle-orm";
+import { and, eq, gt, inArray, isNull } from "drizzle-orm";
 import webpush from "web-push";
 import { getDatabase } from "./database";
-import { authSession, calls, memberships, pushSubscriptions } from "./schema";
+import {
+  authSession,
+  calls,
+  callRooms,
+  callParticipants,
+  conversationMembers,
+  memberships,
+  pushSubscriptions,
+} from "./schema";
 import { getPushKeys, isAllowedPushEndpoint } from "./push";
 export async function notifyIncomingCall(id: string) {
   const { db } = getDatabase();
@@ -12,6 +20,46 @@ export async function notifyIncomingCall(id: string) {
     .where(and(eq(calls.id, id), eq(calls.status, "ringing"), gt(calls.expiresAt, new Date())))
     .limit(1);
   if (!call) return;
+  await sendIncomingCall(call, [call.calleeId]);
+}
+export async function notifyGroupIncomingCall(id: string) {
+  const { db } = getDatabase();
+  const [room] = await db
+    .select()
+    .from(callRooms)
+    .where(
+      and(
+        eq(callRooms.id, id),
+        eq(callRooms.status, "active"),
+        gt(callRooms.ringUntil, new Date()),
+        gt(callRooms.expiresAt, new Date()),
+      ),
+    )
+    .limit(1);
+  if (!room) return;
+  const people = await db
+    .select({ id: callParticipants.userId })
+    .from(callParticipants)
+    .innerJoin(
+      conversationMembers,
+      and(
+        eq(conversationMembers.conversationId, room.conversationId),
+        eq(conversationMembers.userId, callParticipants.userId),
+        isNull(conversationMembers.leftAt),
+      ),
+    )
+    .where(and(eq(callParticipants.roomId, id), eq(callParticipants.status, "invited")));
+  if (people.length)
+    await sendIncomingCall(
+      { ...room, expiresAt: room.ringUntil },
+      people.map((p) => p.id),
+    );
+}
+async function sendIncomingCall(
+  call: { id: string; conversationId: string; expiresAt: Date },
+  userIds: string[],
+) {
+  const { db } = getDatabase();
   const subscriptions = await db
     .select({ subscription: pushSubscriptions })
     .from(pushSubscriptions)
@@ -19,12 +67,13 @@ export async function notifyIncomingCall(id: string) {
     .innerJoin(memberships, eq(memberships.userId, pushSubscriptions.userId))
     .where(
       and(
-        eq(pushSubscriptions.userId, call.calleeId),
+        inArray(pushSubscriptions.userId, userIds),
+        eq(authSession.userId, pushSubscriptions.userId),
         eq(memberships.status, "approved"),
         gt(authSession.expiresAt, new Date()),
       ),
     )
-    .limit(20);
+    .limit(160);
   if (!subscriptions.length) return;
   const keys = await getPushKeys();
   await Promise.allSettled(

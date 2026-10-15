@@ -14,7 +14,9 @@ import {
   memberships,
   conversations,
   conversationMembers,
+  callRooms,
 } from "@/lib/server/schema";
+import { removeRoomParticipant } from "@/lib/server/group-calls";
 import { findUserByEmail, listConversationsForUser } from "@/lib/server/conversations";
 import { consumeRateLimit, rateLimitedResponse } from "@/lib/server/rate-limit";
 import { maxGroupMembers, normalizeGroupName } from "@/lib/messaging/groups";
@@ -152,6 +154,11 @@ export async function POST(request: Request, context: Context) {
             ),
           );
         const nextOwner = members.find((m) => m.userId !== removedId);
+        const rooms = await tx
+          .select({ id: callRooms.id })
+          .from(callRooms)
+          .where(and(eq(callRooms.conversationId, conversationId), eq(callRooms.status, "active")));
+        for (const room of rooms) await removeRoomParticipant(tx, room.id, removedId);
         if (removedId === group.groupOwnerId && nextOwner)
           await tx
             .update(conversations)
