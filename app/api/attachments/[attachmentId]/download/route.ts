@@ -5,7 +5,7 @@ import {
   unauthorizedResponse,
 } from "@/lib/server/http";
 import { getDatabase } from "@/lib/server/database";
-import { isConversationMember } from "@/lib/server/conversations";
+import { isConversationMember, messageAudience } from "@/lib/server/conversations";
 import { createAttachmentDownloadUrl, getObjectStorage } from "@/lib/server/object-storage";
 import { consumeRateLimit, rateLimitedResponse, rateLimitRules } from "@/lib/server/rate-limit";
 import { messageAttachments, messageEnvelopes } from "@/lib/server/schema";
@@ -37,6 +37,7 @@ export async function GET(request: Request, context: RouteContext): Promise<Resp
       .where(and(
         eq(messageAttachments.id, attachmentId),
         eq(messageEnvelopes.attachmentId, attachmentId),
+        messageAudience(db, user.id),
         eq(messageEnvelopes.conversationId, messageAttachments.conversationId),
       ))
       .limit(1);

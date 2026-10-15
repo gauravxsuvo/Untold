@@ -1,6 +1,6 @@
 import "server-only";
 
-import { and, eq, exists, inArray, isNotNull, or, sql } from "drizzle-orm";
+import { and, eq, exists, inArray, isNotNull, isNull, or, sql } from "drizzle-orm";
 import type { getDatabase } from "@/lib/server/database";
 import {
   conversationMembers,
@@ -8,9 +8,13 @@ import {
   authUser,
   messageEnvelopes,
   profilePhotos,
+  memberships,
+  groupPhotos,
+  messageRecipients,
 } from "@/lib/server/schema";
 import { profilePhotoUrl } from "@/lib/profile/photos";
-import type { ConversationSummary, Person } from "@/lib/messaging/people";
+import { groupPhotoUrl } from "@/lib/messaging/groups";
+import { conversationActivityAt, type ConversationSummary, type Person } from "@/lib/messaging/people";
 
 type Database = ReturnType<typeof getDatabase>["db"];
 
@@ -26,17 +30,41 @@ export async function isConversationMember(
       and(
         eq(conversationMembers.conversationId, conversationId),
         eq(conversationMembers.userId, userId),
+        isNull(conversationMembers.leftAt),
       ),
     )
     .limit(1);
   return rows.length > 0;
 }
 
+export function messageAudience(db: Pick<Database, "select">, userId: string) {
+  return or(
+    eq(messageEnvelopes.senderId, userId),
+    exists(
+      db
+        .select({ id: messageRecipients.messageId })
+        .from(messageRecipients)
+        .where(
+          and(
+            eq(messageRecipients.messageId, messageEnvelopes.id),
+            eq(messageRecipients.userId, userId),
+          ),
+        ),
+    ),
+  );
+}
+
 export async function findUserByEmail(db: Database, email: string): Promise<Person | null> {
   const [user] = await db
     .select({ id: authUser.id, name: authUser.name, email: authUser.email })
     .from(authUser)
-    .where(sql`lower(${authUser.email}) = ${email.trim().toLowerCase()}`)
+    .innerJoin(memberships, eq(memberships.userId, authUser.id))
+    .where(
+      and(
+        sql`lower(${authUser.email}) = ${email.trim().toLowerCase()}`,
+        eq(memberships.status, "approved"),
+      ),
+    )
     .limit(1);
   return user ?? null;
 }
@@ -111,13 +139,23 @@ export async function listConversationsForUser(
   conversationIds?: string[],
 ): Promise<ConversationSummary[]> {
   const memberships = await db
-    .select({ id: conversations.id, createdAt: conversations.createdAt })
+    .select({
+      id: conversations.id,
+      createdAt: conversations.createdAt,
+      groupName: conversations.groupName,
+      groupOwnerId: conversations.groupOwnerId,
+      groupPhotoVersion: groupPhotos.version,
+      viewerJoinedAt: conversationMembers.joinedAt,
+    })
     .from(conversationMembers)
     .innerJoin(conversations, eq(conversations.id, conversationMembers.conversationId))
+    .leftJoin(groupPhotos, eq(groupPhotos.conversationId, conversations.id))
     .where(
       and(
         eq(conversationMembers.userId, userId),
+        isNull(conversationMembers.leftAt),
         or(
+          isNotNull(conversations.groupName),
           eq(conversations.createdBy, userId),
           isNotNull(conversationMembers.initiatedAt),
           exists(
@@ -133,6 +171,16 @@ export async function listConversationsForUser(
   if (memberships.length === 0) return [];
 
   const ids = memberships.map(({ id }) => id);
+  const visibleSenders = await db
+    .selectDistinct({
+      conversationId: messageEnvelopes.conversationId,
+      userId: messageEnvelopes.senderId,
+    })
+    .from(messageEnvelopes)
+    .where(and(inArray(messageEnvelopes.conversationId, ids), messageAudience(db, userId)));
+  const earlierSenders = new Set(
+    visibleSenders.map((sender) => `${sender.conversationId}:${sender.userId}`),
+  );
   const members = await db
     .select({
       conversationId: conversationMembers.conversationId,
@@ -140,6 +188,7 @@ export async function listConversationsForUser(
       name: authUser.name,
       email: authUser.email,
       photoVersion: profilePhotos.version,
+      leftAt: conversationMembers.leftAt,
     })
     .from(conversationMembers)
     .innerJoin(authUser, eq(authUser.id, conversationMembers.userId))
@@ -153,6 +202,9 @@ export async function listConversationsForUser(
       SELECT m.sender_id, m.created_at, m.attachment_id
       FROM untold_app.message_envelope AS m
       WHERE m.conversation_id = c.id
+        AND (m.sender_id = ${userId} OR EXISTS (
+          SELECT 1 FROM untold_app.message_recipient mr WHERE mr.message_id = m.id AND mr.user_id = ${userId}
+        ))
       ORDER BY m.created_at DESC, m.id DESC
       LIMIT 1
     ) AS latest ON true
@@ -166,13 +218,30 @@ export async function listConversationsForUser(
   );
 
   return memberships
-    .map(({ id, createdAt }) => {
+    .map(({ id, createdAt, groupName, groupOwnerId, groupPhotoVersion, viewerJoinedAt }) => {
       const last = lastByConversation.get(id);
       return {
         id,
         createdAt: createdAt.toISOString(),
+        joinedAt: viewerJoinedAt.toISOString(),
+        groupName,
+        groupOwnerId,
+        groupImage: groupPhotoVersion ? groupPhotoUrl(id, groupPhotoVersion) : null,
+        formerMembers: members
+          .filter(
+            (member) =>
+              member.conversationId === id &&
+              member.leftAt !== null &&
+              earlierSenders.has(`${id}:${member.id}`),
+          )
+          .map(({ id, name, email, photoVersion }) => ({
+            id,
+            name,
+            email,
+            image: photoVersion ? profilePhotoUrl(id, photoVersion) : null,
+          })),
         members: members
-          .filter((member) => member.conversationId === id)
+          .filter((member) => member.conversationId === id && member.leftAt === null)
           .map(({ id: memberId, name, email, photoVersion }) => ({
             id: memberId,
             name,
@@ -191,7 +260,6 @@ export async function listConversationsForUser(
     })
     .sort(
       (first, second) =>
-        Date.parse(second.lastMessage?.createdAt ?? second.createdAt) -
-        Date.parse(first.lastMessage?.createdAt ?? first.createdAt),
+        Date.parse(conversationActivityAt(second)) - Date.parse(conversationActivityAt(first)),
     );
 }

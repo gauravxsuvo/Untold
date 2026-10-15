@@ -1,5 +1,7 @@
 "use client";
 
+import { CreateGroupButton, GroupSettings } from "@/components/messaging/group-controls";
+import { useDesktopComposer } from "@/components/messaging/use-desktop-composer";
 import { SafetyQr } from "@/components/messaging/safety-qr";
 import { LoadingSkeleton } from "@/components/ui/loading-skeleton";
 
@@ -15,7 +17,19 @@ import {
 } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
-import { ArrowLeft, ChevronDown, FileText, Paperclip, Search, Send } from "lucide-react";
+import {
+  ArrowLeft,
+  ChevronDown,
+  FileText,
+  Paperclip,
+  Search,
+  Send,
+  Phone,
+  Video,
+} from "lucide-react";
+import { VoiceRecorder } from "@/components/messaging/voice-recorder";
+import { useCalls } from "@/components/messaging/call-provider";
+import { AttachmentViewer } from "@/components/messaging/attachment-viewer";
 import { useAccountSession } from "@/components/auth/account-session-provider";
 import { ContactAvatar } from "@/components/messaging/contact-avatar";
 import { StartConversationForm } from "@/components/messaging/start-conversation-form";
@@ -59,7 +73,15 @@ function ConversationRow({
   disabled?: boolean;
   onSelect: () => void;
 }) {
-  const [person] = otherMembers(conversation, viewerId);
+  const [directPerson] = otherMembers(conversation, viewerId);
+  const person = conversation.groupName
+    ? {
+        id: conversation.id,
+        name: conversation.groupName,
+        email: "",
+        image: conversation.groupImage,
+      }
+    : directPerson;
   const last = conversation.lastMessage;
   const preview = last
     ? `${last.senderId === viewerId ? "You: " : ""}${last.hasAttachment ? "Attachment" : (last.text ?? "Encrypted message")}`
@@ -75,7 +97,7 @@ function ConversationRow({
         onClick={onSelect}
         type="button"
       >
-        {person ? <ContactAvatar person={person} /> : null}
+        {person ? <ContactAvatar person={person} group={Boolean(conversation.groupName)} /> : null}
         <span className="conversation-row__body">
           <span className="conversation-row__topline">
             <strong>{conversationTitle(conversation, viewerId)}</strong>
@@ -99,6 +121,7 @@ function AttachmentMessage({
   const [mediaUrl, setMediaUrl] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  const [viewerOpen, setViewerOpen] = useState(false);
   const attachmentRef = useRef<HTMLDivElement>(null);
   const mediaUrlRef = useRef<string | null>(null);
   const aliveRef = useRef(true);
@@ -188,6 +211,11 @@ function AttachmentMessage({
     }
   }
 
+  async function openViewer() {
+    if (!mediaUrlRef.current) await loadMedia();
+    if (aliveRef.current && mediaUrlRef.current) setViewerOpen(true);
+  }
+
   if (!attachment) return null;
 
   async function download() {
@@ -219,24 +247,40 @@ function AttachmentMessage({
 
   return (
     <div className="message-attachment" ref={attachmentRef}>
+      {viewerOpen && mediaUrl && previewKind ? (
+        <AttachmentViewer
+          url={mediaUrl}
+          name={attachment.name}
+          kind={previewKind}
+          onClose={() => setViewerOpen(false)}
+          onDownload={() => void download()}
+        />
+      ) : null}
       {previewKind === "image" ? (
         mediaUrl ? (
-          <Image
-            alt={attachment.name}
-            className="message-attachment__image"
-            height={320}
-            src={mediaUrl}
-            unoptimized
-            width={340}
-          />
+          <button
+            className="message-attachment__open-image"
+            aria-label={`Open ${attachment.name}`}
+            onClick={() => void openViewer()}
+            type="button"
+          >
+            <Image
+              alt={attachment.name}
+              className="message-attachment__image"
+              height={320}
+              src={mediaUrl}
+              unoptimized
+              width={340}
+            />
+          </button>
         ) : (
           <button
             className="message-attachment__preview-button"
             disabled={busy}
-            onClick={() => void loadMedia()}
+            onClick={() => void openViewer()}
             type="button"
           >
-            {busy ? "Opening photo…" : "Load photo preview"}
+            {busy ? "Opening photo…" : "Open photo"}
           </button>
         )
       ) : null}
@@ -306,6 +350,11 @@ function AttachmentMessage({
               : ""}
           </small>
         </span>
+        {previewKind ? (
+          <button disabled={busy} onClick={() => void openViewer()} type="button">
+            {busy ? "Opening…" : "Open"}
+          </button>
+        ) : null}
         <button disabled={busy} onClick={() => void download()} type="button">
           {busy ? "Preparing…" : "Download"}
         </button>
@@ -324,11 +373,13 @@ function MessageBubble({
   isOutgoing,
   conversationId,
   onRetry,
+  senderName,
 }: {
   message: ThreadMessage;
   isOutgoing: boolean;
   conversationId: string;
   onRetry: () => void;
+  senderName?: string;
 }) {
   return (
     <li
@@ -336,6 +387,9 @@ function MessageBubble({
       data-receipt-id={!isOutgoing && message.encryption === "encrypted" ? message.id : undefined}
     >
       <article className="message-bubble">
+        {senderName && !isOutgoing ? (
+          <strong className="message-bubble__sender">{senderName}</strong>
+        ) : null}
         {message.attachment ? (
           <AttachmentMessage conversationId={conversationId} message={message} />
         ) : (
@@ -391,6 +445,8 @@ function ConversationDetails({
   devices,
   onVerifyDevice,
   localDevice,
+  onChanged,
+  onRefresh,
 }: {
   conversation: ConversationSummary;
   viewerId: string;
@@ -398,6 +454,8 @@ function ConversationDetails({
   devices: DeviceTrust[] | null;
   onVerifyDevice: (device: PublicDevice) => Promise<void>;
   localDevice: import("@/crypto/src/protocol").LocalDevice | null;
+  onChanged: (conversation: ConversationSummary | null) => void;
+  onRefresh: () => void;
 }) {
   return (
     <details className="conversation-details">
@@ -408,19 +466,45 @@ function ConversationDetails({
       <div className="conversation-details__popover">
         <h3>About this conversation</h3>
         <ConversationPrivacyNote />
-        {localDevice && devices ? (
-          <SafetyQr
-            conversationId={conversation.id}
-            devices={devices}
+        {conversation.groupName ? (
+          <GroupSettings
             key={conversation.id}
-            localDevice={localDevice}
-            onVerify={onVerifyDevice}
+            conversation={conversation}
+            viewerId={viewerId}
+            onChanged={onChanged}
+            onRefresh={onRefresh}
           />
         ) : null}
+        {localDevice && devices ? (
+          conversation.groupName ? (
+            otherMembers(conversation, viewerId)
+              .filter((member) => member.id !== viewerId)
+              .map((member) => (
+                <details className="group-safety" key={member.id}>
+                  <summary>Safety code with {member.name}</summary>
+                  <SafetyQr
+                    conversationId={conversation.id}
+                    devices={devices.filter(
+                      (device) => device.userId === viewerId || device.userId === member.id,
+                    )}
+                    localDevice={localDevice}
+                    onVerify={onVerifyDevice}
+                  />
+                </details>
+              ))
+          ) : (
+            <SafetyQr
+              conversationId={conversation.id}
+              devices={devices}
+              localDevice={localDevice}
+              onVerify={onVerifyDevice}
+            />
+          )
+        ) : null}
         <dl>
-          {otherMembers(conversation, viewerId).map((member) => (
+          {(conversation.groupName ? [] : otherMembers(conversation, viewerId)).map((member) => (
             <div className="conversation-details__row" key={member.id}>
-              <dt>Contact</dt>
+              <dt>{conversation.groupName ? "Member" : "Contact"}</dt>
               <dd>
                 {member.name} · {member.email}
               </dd>
@@ -437,6 +521,7 @@ function ConversationDetails({
 }
 
 export function ConversationWorkspace({ initialSelectedId }: { initialSelectedId: string | null }) {
+  const calls = useCalls();
   const router = useRouter();
   const { session } = useAccountSession();
   const viewerId = session?.id ?? "";
@@ -446,6 +531,7 @@ export function ConversationWorkspace({ initialSelectedId }: { initialSelectedId
   const listHeadingRef = useRef<HTMLHeadingElement>(null);
   const threadHeadingRef = useRef<HTMLHeadingElement>(null);
   const historyRef = useRef<HTMLOListElement>(null);
+  const composerRef = useRef<HTMLTextAreaElement>(null);
   const attachmentInputRef = useRef<HTMLInputElement>(null);
   const attachmentPickerId = useId();
   const [selectedId, setSelectedId] = useState<string | null>(initialSelectedId);
@@ -469,6 +555,14 @@ export function ConversationWorkspace({ initialSelectedId }: { initialSelectedId
   const directory = useConversationDeviceDirectory(selectedId, viewerId, localDevice.device);
   const trustedDevices = directory.state === "ready" ? directory.devices : null;
   const selectedMemberIds = selectedConversation?.members.map(({ id }) => id) ?? [];
+  const memberKey = JSON.stringify([selectedId, [...selectedMemberIds].sort()]);
+  const previousMembers = useRef("");
+  useEffect(() => {
+    if (previousMembers.current !== memberKey) {
+      previousMembers.current = memberKey;
+      void directory.refresh();
+    }
+  }, [memberKey, directory.refresh]);
   const missingMemberDevice = selectedConversation?.members.find(
     ({ id }) =>
       !directory.devices?.some(
@@ -513,6 +607,11 @@ export function ConversationWorkspace({ initialSelectedId }: { initialSelectedId
     setDraft("");
     if (window.matchMedia("(max-width: 1000px)").matches) {
       window.requestAnimationFrame(() => threadHeadingRef.current?.focus());
+    } else if (window.matchMedia("(hover: hover) and (pointer: fine)").matches) {
+      window.requestAnimationFrame(() => {
+        if (!document.querySelector("dialog[open]"))
+          composerRef.current?.focus({ preventScroll: true });
+      });
     }
     router.replace(`/app/conversations?conversation=${encodeURIComponent(conversationId)}`, {
       scroll: false,
@@ -534,6 +633,8 @@ export function ConversationWorkspace({ initialSelectedId }: { initialSelectedId
     if (!selectedConversation || text === null) return;
     thread.send(text);
     setDraft("");
+    if (window.matchMedia("(hover: hover) and (pointer: fine)").matches)
+      composerRef.current?.focus({ preventScroll: true });
   }
 
   function handleComposerKeyDown(event: KeyboardEvent<HTMLTextAreaElement>) {
@@ -561,7 +662,15 @@ export function ConversationWorkspace({ initialSelectedId }: { initialSelectedId
   const selectedTitle = selectedConversation
     ? conversationTitle(selectedConversation, viewerId)
     : "";
-  const [selectedPerson] = selectedConversation ? otherMembers(selectedConversation, viewerId) : [];
+  const [directPerson] = selectedConversation ? otherMembers(selectedConversation, viewerId) : [];
+  const selectedPerson = selectedConversation?.groupName
+    ? {
+        id: selectedConversation.id,
+        name: selectedConversation.groupName,
+        email: "",
+        image: selectedConversation.groupImage,
+      }
+    : directPerson;
   const currentAttachmentUpload =
     thread.attachmentUpload?.conversationId === selectedId ? thread.attachmentUpload : null;
   const canSend =
@@ -576,8 +685,11 @@ export function ConversationWorkspace({ initialSelectedId }: { initialSelectedId
         ),
     ) &&
     !directory.devices?.some(
-      ({ trust, revoked, approved }) => !revoked && approved !== false && trust !== "verified",
+      ({ trust, revoked, approved, conversationMember }) =>
+        !revoked && approved !== false && conversationMember !== false && trust !== "verified",
     );
+
+  useDesktopComposer(composerRef, canSend && Boolean(selectedConversation), selectedId);
 
   return (
     <section
@@ -594,6 +706,14 @@ export function ConversationWorkspace({ initialSelectedId }: { initialSelectedId
           </div>
           <span className="conversation-count">{list.conversations.length}</span>
         </header>
+
+        <CreateGroupButton
+          disabled={Boolean(thread.attachmentUpload)}
+          onCreated={(conversation) => {
+            list.upsert(conversation);
+            selectConversation(conversation.id);
+          }}
+        />
 
         <StartConversationForm
           onStarted={(conversation) => {
@@ -669,7 +789,9 @@ export function ConversationWorkspace({ initialSelectedId }: { initialSelectedId
 
       {selectedConversation ? (
         <section aria-label={`Conversation with ${selectedTitle}`} className="conversation-panel">
-          <header className="conversation-header">
+          <header
+            className={`conversation-header${selectedConversation.groupName ? " conversation-header--group" : ""}`}
+          >
             <button
               aria-label="Back to conversations"
               className="conversation-back"
@@ -681,14 +803,46 @@ export function ConversationWorkspace({ initialSelectedId }: { initialSelectedId
               <span className="sr-only">Back to conversations</span>
             </button>
             <div className="conversation-header__person">
-              {selectedPerson ? <ContactAvatar large person={selectedPerson} /> : null}
+              {selectedPerson ? (
+                <ContactAvatar
+                  large
+                  person={selectedPerson}
+                  group={Boolean(selectedConversation.groupName)}
+                />
+              ) : null}
               <div>
-                <p className="messaging-kicker">{selectedPerson?.email}</p>
+                <p className="messaging-kicker">
+                  {selectedConversation.groupName
+                    ? `${selectedConversation.members.length} members`
+                    : selectedPerson?.email}
+                </p>
                 <h2 ref={threadHeadingRef} tabIndex={-1}>
                   {selectedTitle}
                 </h2>
               </div>
             </div>
+            {!selectedConversation.groupName ? (
+              <div className="conversation-call-actions">
+                <button
+                  type="button"
+                  aria-label="Start voice call"
+                  title={calls.available === false ? "Calls aren’t available yet" : "Voice call"}
+                  disabled={!canSend || calls.active || calls.available === false}
+                  onClick={() => void calls.start(selectedConversation.id, selectedTitle, "voice")}
+                >
+                  <Phone size={19} aria-hidden="true" />
+                </button>
+                <button
+                  type="button"
+                  aria-label="Start video call"
+                  title={calls.available === false ? "Calls aren’t available yet" : "Video call"}
+                  disabled={!canSend || calls.active || calls.available === false}
+                  onClick={() => void calls.start(selectedConversation.id, selectedTitle, "video")}
+                >
+                  <Video size={20} aria-hidden="true" />
+                </button>
+              </div>
+            ) : null}
             <ConversationDetails
               localDevice={localDevice.device}
               devices={directory.state === "ready" ? directory.devices : null}
@@ -696,6 +850,16 @@ export function ConversationWorkspace({ initialSelectedId }: { initialSelectedId
               isRealtimeConnected={list.isRealtimeConnected}
               onVerifyDevice={directory.verify}
               viewerId={viewerId}
+              onRefresh={() => void list.refresh()}
+              onChanged={(conversation) => {
+                if (conversation) {
+                  list.upsert(conversation);
+                  void directory.refresh();
+                } else {
+                  returnToConversationList();
+                  void list.refresh();
+                }
+              }}
             />
           </header>
 
@@ -711,8 +875,11 @@ export function ConversationWorkspace({ initialSelectedId }: { initialSelectedId
                 {directory.error}
               </p>
             ) : directory.devices?.some(
-                ({ trust, revoked, approved }) =>
-                  !revoked && approved !== false && trust !== "verified",
+                ({ trust, revoked, approved, conversationMember }) =>
+                  !revoked &&
+                  approved !== false &&
+                  conversationMember !== false &&
+                  trust !== "verified",
               ) ? (
               <p className="messaging-device-status messaging-device-status--warning">
                 Compare your account safety code with your contact in Details before sharing.
@@ -756,6 +923,15 @@ export function ConversationWorkspace({ initialSelectedId }: { initialSelectedId
                   isOutgoing={message.senderId === viewerId}
                   key={message.clientMessageId}
                   message={message}
+                  senderName={
+                    selectedConversation.groupName
+                      ? ([
+                          ...selectedConversation.members,
+                          ...(selectedConversation.formerMembers ?? []),
+                        ].find((member) => member.id === message.senderId)?.name ??
+                        "Earlier member")
+                      : undefined
+                  }
                   onRetry={() => thread.retry(message.clientMessageId)}
                 />
               ))}
@@ -773,11 +949,17 @@ export function ConversationWorkspace({ initialSelectedId }: { initialSelectedId
           ) : null}
 
           <form className="message-composer" onSubmit={submitMessage}>
+            <VoiceRecorder
+              key={selectedConversation.id}
+              disabled={!canSend || Boolean(currentAttachmentUpload)}
+              onSend={thread.sendAttachment}
+            />
             <label className="sr-only" htmlFor={composerId}>
               Write a message
             </label>
             <textarea
               id={composerId}
+              ref={composerRef}
               maxLength={maxMessageLength}
               onChange={(event) => setDraft(event.target.value)}
               onKeyDown={handleComposerKeyDown}

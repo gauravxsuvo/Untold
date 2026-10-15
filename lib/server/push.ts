@@ -3,13 +3,14 @@ import "server-only";
 import { createHash, ECDH } from "node:crypto";
 import webpush from "web-push";
 import { symmetricDecrypt, symmetricEncrypt } from "better-auth/crypto";
-import { and, eq, gt, inArray, lte, ne, sql } from "drizzle-orm";
+import { and, eq, gt, inArray, lte, ne, sql, isNull, exists } from "drizzle-orm";
 import { getAuth } from "@/lib/auth/server";
 import { getDatabase } from "@/lib/server/database";
 import {
   authSession,
   conversationMembers,
   messageEnvelopes,
+  messageRecipients,
   messageReceipts,
   pushDeliveries,
   pushKeys,
@@ -151,10 +152,12 @@ export async function deliverPushOutbox() {
       .where(
         and(
           ne(pushSubscriptions.userId, message.senderId),
+          isNull(conversationMembers.leftAt),
+          exists(db.select({ id: messageRecipients.messageId }).from(messageRecipients).where(and(eq(messageRecipients.messageId, message.id), eq(messageRecipients.userId, pushSubscriptions.userId)))),
           lte(pushSubscriptions.updatedAt, message.createdAt),
         ),
       )
-      .limit(40);
+      .limit(160);
     const delivered = new Set(
       (
         await db

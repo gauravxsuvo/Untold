@@ -59,7 +59,7 @@ export async function POST(request: Request): Promise<Response> {
     const otherUser = await findUserByEmail(db, email);
     if (!otherUser) {
       return Response.json(
-        { message: "No Untold account uses that email. Ask them to sign up first." },
+        { message: "This person isn’t available on Untold yet. Check their email or ask them to request access." },
         { status: 404 },
       );
     }

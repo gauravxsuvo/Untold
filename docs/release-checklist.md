@@ -68,3 +68,8 @@ Ready to commit the local implementation after reviewing the complete working-tr
 - One-to-one conversations only. Attachments are limited to 20 MiB each; there are no group chats, calls, editing, or deletion. Opt-in push notifications and cross-conversation Received receipts are implemented locally and still need real-device verification. See [readability, delivery, and notifications](readability-delivery-and-notifications.md).
 - Starting a conversation reveals whether an email has an account (rate limited to 20 attempts per hour per user).
 - Only the most recent 100 messages of a conversation are shown.
+# Membership, attachments, and calls release gate
+
+For group chats and desktop typing, include migration 016 after 015 and follow [the group rollout notes](groups-and-desktop-typing.md). Refresh the app on all participants' devices after deployment. Group membership changes, file access, original-recipient receipts, and desktop typing still need live account/device checks.
+
+Follow [private membership and calls](private-membership-and-calls.md) before deploying migration 015. Configure the admin owner and Node.js 22.13+. Portways managed calls use server-only `TURN_API_URL`/`TURN_TOKEN` through authenticated `/api/ice`. Confirm relay-only connectivity, restore the chosen production policy, check quota/outage fallback, and verify no bearer token reaches the browser. The guide includes pending live-device checks; compilation alone does not complete them.

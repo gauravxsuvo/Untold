@@ -3,6 +3,7 @@ import "server-only";
 import { BackendConfigurationError } from "@/lib/server/database";
 import { getAuth } from "@/lib/auth/server";
 import { readBoundedStream } from "@/lib/messaging/bounded-stream";
+import { MembershipRequiredError, requireMembership } from "@/lib/server/membership";
 
 export async function getAuthenticatedUser(request: Request) {
   const session = await getAuthenticatedSession(request);
@@ -10,10 +11,21 @@ export async function getAuthenticatedUser(request: Request) {
 }
 
 export async function getAuthenticatedSession(request: Request) {
-  return getAuth().api.getSession({ headers: request.headers });
+  const session = await getAuth().api.getSession({ headers: request.headers });
+  if (session?.user) await requireMembership(session.user);
+  return session;
 }
 
 export function backendErrorResponse(error: unknown): Response {
+  if (error instanceof MembershipRequiredError) {
+    return Response.json(
+      {
+        code: "approval_required",
+        message: "Your account needs approval before you can use Untold.",
+      },
+      { status: 403, headers: { "Cache-Control": "no-store" } },
+    );
+  }
   if (error instanceof BackendConfigurationError) {
     return Response.json(
       {
@@ -28,7 +40,10 @@ export function backendErrorResponse(error: unknown): Response {
     errorType: error instanceof Error ? error.name : "UnknownError",
   });
   return Response.json(
-    { code: "service_unavailable", message: "Untold isn’t available right now. Please try again in a moment." },
+    {
+      code: "service_unavailable",
+      message: "Untold isn’t available right now. Please try again in a moment.",
+    },
     { status: 503, headers: { "Cache-Control": "no-store" } },
   );
 }
@@ -47,9 +62,7 @@ export function trustedBrowserOrigin(request: Request): boolean {
   try {
     const requestOrigin = new URL(request.url).origin;
     const configuredOrigin = process.env.BETTER_AUTH_URL?.trim();
-    const trustedOrigin = configuredOrigin
-      ? new URL(configuredOrigin).origin
-      : requestOrigin;
+    const trustedOrigin = configuredOrigin ? new URL(configuredOrigin).origin : requestOrigin;
 
     return new URL(origin).origin === trustedOrigin;
   } catch {
@@ -59,7 +72,10 @@ export function trustedBrowserOrigin(request: Request): boolean {
 
 export function forbiddenOriginResponse(): Response {
   return Response.json(
-    { code: "forbidden_origin", message: "This action couldn’t be completed. Open Untold and try again." },
+    {
+      code: "forbidden_origin",
+      message: "This action couldn’t be completed. Open Untold and try again.",
+    },
     { status: 403, headers: { "Cache-Control": "no-store" } },
   );
 }
@@ -71,7 +87,11 @@ export async function readJsonBody(
   if (!request.body) return { ok: false, status: 400 };
   let bytes: Uint8Array<ArrayBuffer> | undefined;
   try {
-    bytes = await readBoundedStream(request.body, { maxBytes, signal: request.signal, timeoutMs: 15_000 });
+    bytes = await readBoundedStream(request.body, {
+      maxBytes,
+      signal: request.signal,
+      timeoutMs: 15_000,
+    });
     return { ok: true, body: JSON.parse(new TextDecoder("utf-8", { fatal: true }).decode(bytes)) };
   } catch (error) {
     return { ok: false, status: error instanceof RangeError ? 413 : 400 };

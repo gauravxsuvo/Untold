@@ -1,4 +1,4 @@
-import { and, inArray, eq } from "drizzle-orm";
+import { and, inArray, eq, isNull } from "drizzle-orm";
 import {
   getAuthenticatedUser,
   backendErrorResponse,
@@ -57,6 +57,7 @@ export async function POST(request: Request): Promise<Response> {
       .where(
         and(
           eq(conversationMembers.userId, user.id),
+          isNull(conversationMembers.leftAt),
           inArray(conversationMembers.conversationId, uniqueIds),
         ),
       );

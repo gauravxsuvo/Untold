@@ -1,6 +1,6 @@
 import { and, eq, inArray, ne, sql } from "drizzle-orm";
 import { getDatabase } from "@/lib/server/database";
-import { isConversationMember } from "@/lib/server/conversations";
+import { isConversationMember, messageAudience } from "@/lib/server/conversations";
 import { publishReceiptsUpdated } from "@/lib/server/ably";
 import { messageEnvelopes, messageReceipts } from "@/lib/server/schema";
 import { consumeRateLimit, rateLimitedResponse, rateLimitRules } from "@/lib/server/rate-limit";
@@ -67,6 +67,7 @@ export async function POST(request: Request, context: RouteContext): Promise<Res
         and(
           eq(messageEnvelopes.conversationId, conversationId),
           ne(messageEnvelopes.senderId, user.id),
+          messageAudience(db, user.id),
           inArray(messageEnvelopes.id, ids),
         ),
       );

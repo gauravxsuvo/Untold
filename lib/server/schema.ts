@@ -16,6 +16,41 @@ import {
 export const authSchema = pgSchema("untold_auth");
 export const appSchema = pgSchema("untold_app");
 
+export const memberships = appSchema.table("membership", {
+  userId: text("user_id")
+    .primaryKey()
+    .references(() => authUser.id, { onDelete: "cascade" }),
+  status: text("status").notNull().default("pending"),
+  requestedAt: timestamp("requested_at", { withTimezone: true }).notNull().defaultNow(),
+  reviewedAt: timestamp("reviewed_at", { withTimezone: true }),
+  reviewedBy: text("reviewed_by").references(() => authUser.id, { onDelete: "set null" }),
+});
+
+export const calls = appSchema.table("call", {
+  id: uuid("id").primaryKey(),
+  conversationId: uuid("conversation_id")
+    .notNull()
+    .references(() => conversations.id, { onDelete: "cascade" }),
+  callerId: text("caller_id")
+    .notNull()
+    .references(() => authUser.id, { onDelete: "cascade" }),
+  calleeId: text("callee_id")
+    .notNull()
+    .references(() => authUser.id, { onDelete: "cascade" }),
+  callerDeviceId: uuid("caller_device_id")
+    .notNull()
+    .references(() => devices.id),
+  calleeDeviceId: uuid("callee_device_id").references(() => devices.id),
+  kind: text("kind").notNull(),
+  status: text("status").notNull().default("ringing"),
+  offer: jsonb("offer").$type<import("@/lib/messaging/call-types").CallDescription>(),
+  answer: jsonb("answer").$type<import("@/lib/messaging/call-types").CallDescription>(),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  callerSeenAt: timestamp("caller_seen_at", { withTimezone: true }).notNull().defaultNow(),
+  calleeSeenAt: timestamp("callee_seen_at", { withTimezone: true }),
+  expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+});
+
 export const authUser = authSchema.table(
   "user",
   {
@@ -187,6 +222,8 @@ export const conversations = appSchema.table(
       .notNull()
       .references(() => authUser.id, { onDelete: "cascade" }),
     directKey: text("direct_key"),
+    groupName: text("group_name"),
+    groupOwnerId: text("group_owner_id").references(() => authUser.id),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (table) => [uniqueIndex("untold_conversation_direct_key_unique").on(table.directKey)],
@@ -209,6 +246,7 @@ export const conversationMembers = appSchema.table(
       .references(() => authUser.id, { onDelete: "cascade" }),
     joinedAt: timestamp("joined_at", { withTimezone: true }).notNull().defaultNow(),
     initiatedAt: timestamp("initiated_at", { withTimezone: true }),
+    leftAt: timestamp("left_at", { withTimezone: true }),
   },
   (table) => [
     primaryKey({
@@ -295,6 +333,28 @@ const bytea = customType<{ data: Buffer; driverData: Buffer }>({
   toDriver: (value) => value,
   fromDriver: (value) => (Buffer.isBuffer(value) ? value : Buffer.from(value)),
 });
+
+export const groupPhotos = appSchema.table("group_photo", {
+  conversationId: uuid("conversation_id")
+    .primaryKey()
+    .references(() => conversations.id, { onDelete: "cascade" }),
+  version: uuid("version").notNull(),
+  image: bytea("image").notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+export const messageRecipients = appSchema.table(
+  "message_recipient",
+  {
+    messageId: uuid("message_id")
+      .notNull()
+      .references(() => messageEnvelopes.id, { onDelete: "cascade" }),
+    userId: text("user_id")
+      .notNull()
+      .references(() => authUser.id, { onDelete: "cascade" }),
+  },
+  (table) => [primaryKey({ columns: [table.messageId, table.userId] })],
+);
 
 export const profilePhotos = appSchema.table("profile_photo", {
   userId: text("user_id")

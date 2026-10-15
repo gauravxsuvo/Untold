@@ -117,8 +117,11 @@ export function openMessageContent(
   };
 }
 
-export function attachmentPreviewKind(contentType: string): "image" | "video" | "audio" | null {
-  // Complex/active image formats remain download-only. Never embed SVG, HTML, or PDFs.
+export function attachmentPreviewKind(
+  contentType: string,
+): "image" | "video" | "audio" | "pdf" | null {
+  // SVG and HTML stay download-only. PDFs use a canvas renderer with no scripts or links.
+  if (contentType === "application/pdf") return "pdf";
   if (["image/jpeg", "image/png", "image/webp"].includes(contentType)) return "image";
   if (["video/mp4", "video/ogg", "video/webm"].includes(contentType)) return "video";
   if (

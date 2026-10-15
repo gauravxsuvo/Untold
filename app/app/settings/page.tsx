@@ -12,6 +12,7 @@ import { ReadabilitySettings } from "@/components/theme/readability-settings";
 import { NotificationSettings } from "@/components/pwa/notification-settings";
 import { LoadingSkeleton } from "@/components/ui/loading-skeleton";
 import { SignOutSettings } from "@/components/auth/sign-out-settings";
+import { AdminAccessLink } from "@/components/auth/membership-access";
 
 export default function SettingsPage() {
   const { session, isSessionPending } = useAccountSession();
@@ -36,6 +37,7 @@ export default function SettingsPage() {
         title="Settings"
       />
       <section aria-label="Account settings" className="account-settings-preview">
+        <AdminAccessLink />
         <MfaSettings key={session?.id ?? "loading"} />
         <ReadabilitySettings />
         <NotificationSettings key={`notifications:${session?.id ?? "loading"}`} />

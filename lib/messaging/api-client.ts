@@ -148,6 +148,43 @@ export async function removeProfilePhoto(): Promise<void> {
   await request<{ image: null }>("/api/profile/photo", { method: "DELETE" });
 }
 
+export async function createGroup(name: string, emails: string[]): Promise<ConversationSummary> {
+  const result = await request<{ conversation: ConversationSummary }>("/api/groups", {
+    method: "POST",
+    body: JSON.stringify({ name, emails }),
+  });
+  return result.conversation;
+}
+export async function changeGroup(
+  conversationId: string,
+  change: {
+    action: "rename" | "add" | "remove" | "leave" | "transfer";
+    name?: string;
+    email?: string;
+    userId?: string;
+  },
+) {
+  const result = await request<{ conversation: ConversationSummary | null }>(
+    `/api/groups/${encodeURIComponent(conversationId)}`,
+    { method: "POST", body: JSON.stringify(change) },
+  );
+  return result.conversation;
+}
+export async function uploadGroupPhoto(
+  conversationId: string,
+  photo: Blob,
+  signal?: AbortSignal,
+): Promise<string> {
+  const result = await request<{ image: string }>(
+    `/api/groups/${encodeURIComponent(conversationId)}/photo`,
+    { method: "PUT", headers: { "Content-Type": photo.type }, body: photo, signal },
+  );
+  return result.image;
+}
+export async function removeGroupPhoto(conversationId: string) {
+  await request(`/api/groups/${encodeURIComponent(conversationId)}/photo`, { method: "DELETE" });
+}
+
 export async function fetchConversations(signal?: AbortSignal): Promise<ConversationSummary[]> {
   const { conversations } = await request<{ conversations: ConversationSummary[] }>(
     "/api/conversations",
