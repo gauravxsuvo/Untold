@@ -26,11 +26,11 @@ import {
 } from "@/crypto/src/protocol";
 import {
   encodeAttachmentMessage,
-  normalizeAttachmentContentType,
   openMessageContent,
   sanitizeAttachmentName,
   type AttachmentManifest,
 } from "@/lib/messaging/attachments";
+import { prepareAttachment } from "@/lib/messaging/prepare-attachment";
 import {
   mergeMessages,
   sortByActivity,
@@ -194,7 +194,7 @@ export type AttachmentUploadStatus = {
   conversationId: string;
   fileName: string;
   progress: number;
-  phase: "preparing" | "uploading" | "failed";
+  phase: "optimizing" | "preparing" | "uploading" | "failed";
   error?: string;
   retryable?: boolean;
 };
@@ -313,6 +313,11 @@ export function useConversationThread(
   const [error, setError] = useState("");
   const [attachmentUpload, setAttachmentUpload] = useState<AttachmentUploadStatus | null>(null);
   const attachmentRetryRef = useRef<AttachmentRetryData | null>(null);
+  const attachmentPreparationRef = useRef<AbortController | null>(null);
+  useEffect(() => () => {
+    attachmentPreparationRef.current?.abort();
+    attachmentRetryRef.current?.ciphertext.fill(0);
+  }, []);
   const activeIdRef = useRef(conversationId);
   activeIdRef.current = conversationId;
   const localDeviceRef = useRef(localDevice);
@@ -546,7 +551,7 @@ export function useConversationThread(
   }, [deliver]);
 
   const sendAttachment = useCallback(async (file: File): Promise<boolean> => {
-    if (attachmentUpload || !conversationId || !localDevice || !deviceDirectory) return false;
+    if (attachmentUpload || attachmentPreparationRef.current || !conversationId || !localDevice || !deviceDirectory) return false;
     if (file.size > maxAttachmentBytes) {
       setError(`${sanitizeAttachmentName(file.name)} is over the 20 MiB file limit.`);
       return false;
@@ -575,13 +580,21 @@ export function useConversationThread(
     const attachmentId = crypto.randomUUID();
     const context = { conversationId: targetId, messageId, senderId: viewerId };
     setError("");
-    setAttachmentUpload({ conversationId: targetId, fileName: sanitizeAttachmentName(file.name), progress: 0, phase: "preparing" });
+    const preparation = new AbortController();
+    attachmentPreparationRef.current = preparation;
+    setAttachmentUpload({ conversationId: targetId, fileName: sanitizeAttachmentName(file.name), progress: 0, phase: "optimizing" });
 
     let ciphertext: Uint8Array<ArrayBuffer> | null = null;
     try {
-      const clearFile = new Uint8Array(await file.arrayBuffer());
+      const prepared = await prepareAttachment(file, {
+        signal: preparation.signal,
+        onProgress: (progress) => setAttachmentUpload({ conversationId: targetId, fileName: sanitizeAttachmentName(file.name), progress, phase: "optimizing" }),
+      });
+      const clearFile = prepared.bytes;
       let encryptedFile: Awaited<ReturnType<typeof encryptAttachmentBytes>>;
       try {
+        preparation.signal.throwIfAborted();
+        setAttachmentUpload({ conversationId: targetId, fileName: prepared.name, progress: 0, phase: "preparing" });
         encryptedFile = await encryptAttachmentBytes(clearFile, context, localDevice, attachmentId);
       } finally {
         clearFile.fill(0);
@@ -589,11 +602,12 @@ export function useConversationThread(
       ciphertext = encryptedFile.ciphertext;
       const manifest: AttachmentManifest = {
         kind: "untold-attachment",
-        version: 1,
+        version: prepared.compression ? 2 : 1,
         id: attachmentId,
-        name: sanitizeAttachmentName(file.name),
-        contentType: normalizeAttachmentContentType(file.type),
-        size: file.size,
+        name: prepared.name,
+        contentType: prepared.contentType,
+        size: prepared.bytes.byteLength,
+        ...(prepared.compression ? { compression: prepared.compression } : {}),
         key: encryptedFile.key,
         nonce: encryptedFile.nonce,
       };
@@ -603,6 +617,7 @@ export function useConversationThread(
         localDevice,
         activeDevices,
       );
+      preparation.signal.throwIfAborted();
       const retryData: AttachmentRetryData = {
         targetId,
         context,
@@ -624,7 +639,9 @@ export function useConversationThread(
           progress,
           phase: "uploading",
         }),
+        preparation.signal,
       );
+      preparation.signal.throwIfAborted();
       queueAttachmentMessage(retryData, envelope);
       attachmentRetryRef.current = null;
       ciphertext.fill(0);
@@ -632,6 +649,10 @@ export function useConversationThread(
       setAttachmentUpload(null);
       return true;
     } catch (caught) {
+      if (preparation.signal.aborted) {
+        setAttachmentUpload(null);
+        return false;
+      }
       const message = caught instanceof Error ? caught.message : "The encrypted file could not be sent.";
       setError(message);
       setAttachmentUpload((current) => current?.conversationId === targetId
@@ -639,6 +660,7 @@ export function useConversationThread(
         : current);
       return false;
     } finally {
+      if (attachmentPreparationRef.current === preparation) attachmentPreparationRef.current = null;
       if (ciphertext && attachmentRetryRef.current?.ciphertext !== ciphertext) ciphertext.fill(0);
     }
   }, [attachmentUpload, conversationId, deviceDirectory, localDevice, memberUserIds, queueAttachmentMessage, viewerId]);
@@ -647,7 +669,7 @@ export function useConversationThread(
     const retryData = attachmentRetryRef.current;
     const local = localDeviceRef.current;
     const directory = deviceDirectoryRef.current;
-    if (!retryData || !local || !directory || conversationId !== retryData.targetId) return false;
+    if (!retryData || !local || !directory || conversationId !== retryData.targetId || attachmentPreparationRef.current) return false;
     if (local.deviceId !== retryData.deviceId) {
       setError("This browser’s encryption device changed. Select the file again to send it.");
       return false;
@@ -664,6 +686,8 @@ export function useConversationThread(
 
     setError("");
     setAttachmentUpload({ conversationId: retryData.targetId, fileName: retryData.manifest.name, progress: 0, phase: "uploading" });
+    const preparation = new AbortController();
+    attachmentPreparationRef.current = preparation;
     try {
       const envelope = await encryptMessageForDevices(
         encodeAttachmentMessage(retryData.manifest),
@@ -671,6 +695,7 @@ export function useConversationThread(
         local,
         activeDevices,
       );
+      preparation.signal.throwIfAborted();
       await uploadEncryptedAttachment(
         retryData.targetId,
         retryData.attachmentId,
@@ -682,13 +707,16 @@ export function useConversationThread(
           progress,
           phase: "uploading",
         }),
+        preparation.signal,
       );
+      preparation.signal.throwIfAborted();
       queueAttachmentMessage(retryData, envelope);
       attachmentRetryRef.current = null;
       retryData.ciphertext.fill(0);
       setAttachmentUpload(null);
       return true;
     } catch (caught) {
+      if (preparation.signal.aborted) return false;
       const message = caught instanceof Error ? caught.message : "The encrypted file could not be sent.";
       setError(message);
       setAttachmentUpload({
@@ -700,10 +728,13 @@ export function useConversationThread(
         retryable: true,
       });
       return false;
+    } finally {
+      if (attachmentPreparationRef.current === preparation) attachmentPreparationRef.current = null;
     }
   }, [conversationId, memberUserIds, queueAttachmentMessage]);
 
   const discardAttachmentUpload = useCallback(async (): Promise<boolean> => {
+    attachmentPreparationRef.current?.abort();
     const retryData = attachmentRetryRef.current;
     if (retryData && retryData.targetId === conversationId) {
       try {

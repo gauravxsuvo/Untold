@@ -114,14 +114,20 @@ export async function uploadEncryptedAttachment(
   deviceId: string,
   ciphertext: Uint8Array<ArrayBuffer>,
   onProgress: (percent: number) => void,
+  signal?: AbortSignal,
 ): Promise<void> {
   return new Promise((resolve, reject) => {
+    if (signal?.aborted) { reject(signal.reason); return; }
     const xhr = new XMLHttpRequest();
+    const abort = () => xhr.abort();
+    signal?.addEventListener("abort", abort, { once: true });
+    xhr.onloadend = () => signal?.removeEventListener("abort", abort);
     xhr.open(
       "PUT",
       `/api/conversations/${encodeURIComponent(conversationId)}/attachments/${encodeURIComponent(attachmentId)}`,
     );
     xhr.withCredentials = true;
+    xhr.timeout = 60_000;
     xhr.responseType = "json";
     xhr.setRequestHeader("Content-Type", "application/octet-stream");
     xhr.setRequestHeader("X-Untold-Device-Id", deviceId);
@@ -132,6 +138,7 @@ export async function uploadEncryptedAttachment(
     };
     xhr.onerror = () => reject(new ApiError("Untold could not be reached. Check your connection.", 0));
     xhr.onabort = () => reject(new ApiError("File upload was cancelled.", 0));
+    xhr.ontimeout = () => reject(new ApiError("File upload timed out. Check your connection and retry.", 0));
     xhr.onload = () => {
       const body = xhr.response as { message?: string } | null;
       if (xhr.status >= 200 && xhr.status < 300) {

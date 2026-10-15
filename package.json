@@ -15,6 +15,7 @@
     "start": "node scripts/migrate-on-start.mjs && next start --hostname 0.0.0.0",
     "test": "tsc -p tsconfig.tests.json && node --test .test-build/tests/*.test.js",
     "test:encryption": "npm --prefix encryption test",
+    "test:attachments:browser": "node scripts/test-attachment-browser.mjs",
     "test:all": "npm test && npm run test:encryption",
     "lint": "biome lint",
     "db:migrate": "node --env-file=.env.local scripts/migrate.mjs",

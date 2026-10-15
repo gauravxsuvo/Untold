@@ -173,6 +173,7 @@ export const messageAttachments = appSchema.table(
   },
   (table) => [
     uniqueIndex("untold_message_attachment_object_key_unique").on(table.objectKey),
+    index("untold_message_attachment_sender_idx").on(table.senderId),
     index("untold_message_attachment_conversation_created_idx").on(
       table.conversationId,
       table.createdAt,

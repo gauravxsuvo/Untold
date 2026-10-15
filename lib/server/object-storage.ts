@@ -90,8 +90,9 @@ export async function storeEncryptedAttachment(
     Body: ciphertext,
     ContentLength: ciphertext.byteLength,
     ContentType: "application/octet-stream",
+    ContentDisposition: "attachment",
     CacheControl: "private, no-store",
-  }));
+  }), { abortSignal: AbortSignal.timeout(30_000) });
 }
 
 export async function removeEncryptedAttachment(objectKey: string): Promise<void> {
@@ -100,7 +101,7 @@ export async function removeEncryptedAttachment(objectKey: string): Promise<void
   await storage.dataClient.send(new DeleteObjectCommand({
     Bucket: storage.bucket,
     Key: objectKey,
-  }));
+  }), { abortSignal: AbortSignal.timeout(15_000) });
 }
 
 export async function createAttachmentDownloadUrl(objectKey: string): Promise<string> {

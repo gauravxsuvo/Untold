@@ -1,16 +1,17 @@
-import { maxAttachmentBytes } from "@/crypto/src/protocol";
+import { maxProcessedAttachmentBytes } from "./attachment-policy";
 
 export const attachmentMessagePrefix = "untold-attachment:v1\n";
 
 export type AttachmentManifest = Readonly<{
   kind: "untold-attachment";
-  version: 1;
+  version: 1 | 2;
   id: string;
   name: string;
   contentType: string;
   size: number;
   key: string;
   nonce: string;
+  compression?: Readonly<{ algorithm: "gzip"; originalSize: number }>;
 }>;
 
 export type OpenedMessageContent =
@@ -23,17 +24,17 @@ const base64UrlKeyPattern = /^[A-Za-z0-9_-]{43}$/;
 const base64UrlNoncePattern = /^[A-Za-z0-9_-]{16}$/;
 
 export function sanitizeAttachmentName(value: string): string {
-  const name = value.normalize("NFC")
-    .replaceAll("/", "_")
-    .replaceAll("\\", "_")
-    .split("")
-    .map((character) => {
-      const code = character.charCodeAt(0);
-      return code < 0x20 || code === 0x7f ? "_" : character;
-    })
-    .join("")
+  let name = value
+    .normalize("NFC")
+    .replace(
+      // biome-ignore lint/suspicious/noControlCharactersInRegex: These characters must be removed from untrusted filenames.
+      /[<>:"/\\|?*\u0000-\u001f\u007f-\u009f\u061c\u200b-\u200f\u2028-\u202e\u2066-\u2069\ufeff]/gu,
+      "_",
+    )
     .trim()
-    .slice(0, 180);
+    .slice(0, 180)
+    .replace(/[.\s]+$/g, "");
+  if (/^(?:con|prn|aux|nul|com[0-9]|lpt[0-9])(?:\.|$)/i.test(name)) name = `_${name}`;
   return name || "File";
 }
 
@@ -48,7 +49,10 @@ export function encodeAttachmentMessage(attachment: AttachmentManifest): string 
   return `${attachmentMessagePrefix}${JSON.stringify(attachment)}`;
 }
 
-export function openMessageContent(plaintext: string, attachmentId: string | null | undefined): OpenedMessageContent {
+export function openMessageContent(
+  plaintext: string,
+  attachmentId: string | null | undefined,
+): OpenedMessageContent {
   if (!attachmentId) return { kind: "text", text: plaintext };
   if (!plaintext.startsWith(attachmentMessagePrefix)) return { kind: "invalid-attachment" };
 
@@ -62,7 +66,7 @@ export function openMessageContent(plaintext: string, attachmentId: string | nul
   const candidate = value as Partial<AttachmentManifest>;
   if (
     candidate.kind !== "untold-attachment" ||
-    candidate.version !== 1 ||
+    (candidate.version !== 1 && candidate.version !== 2) ||
     candidate.id !== attachmentId ||
     !uuidPattern.test(candidate.id) ||
     typeof candidate.name !== "string" ||
@@ -73,7 +77,7 @@ export function openMessageContent(plaintext: string, attachmentId: string | nul
     typeof candidate.size !== "number" ||
     !Number.isSafeInteger(candidate.size) ||
     candidate.size < 0 ||
-    candidate.size > maxAttachmentBytes ||
+    candidate.size > maxProcessedAttachmentBytes ||
     typeof candidate.key !== "string" ||
     !base64UrlKeyPattern.test(candidate.key) ||
     typeof candidate.nonce !== "string" ||
@@ -81,16 +85,48 @@ export function openMessageContent(plaintext: string, attachmentId: string | nul
   ) {
     return { kind: "invalid-attachment" };
   }
+  const compression = candidate.compression;
+  if (candidate.version === 2) {
+    if (
+      compression?.algorithm !== "gzip" ||
+      !Number.isSafeInteger(compression.originalSize) ||
+      compression.originalSize <= candidate.size ||
+      compression.originalSize > maxProcessedAttachmentBytes ||
+      candidate.size < 18
+    ) {
+      return { kind: "invalid-attachment" };
+    }
+  } else if (compression !== undefined) {
+    return { kind: "invalid-attachment" };
+  }
   return {
     kind: "attachment",
-    attachment: { ...candidate, name: sanitizeAttachmentName(candidate.name) } as AttachmentManifest,
+    attachment: {
+      kind: "untold-attachment",
+      version: candidate.version,
+      id: candidate.id,
+      name: sanitizeAttachmentName(candidate.name),
+      contentType: candidate.contentType,
+      size: candidate.size,
+      key: candidate.key,
+      nonce: candidate.nonce,
+      ...(compression
+        ? { compression: { algorithm: "gzip", originalSize: compression.originalSize } }
+        : {}),
+    },
   };
 }
 
 export function attachmentPreviewKind(contentType: string): "image" | "video" | "audio" | null {
-  if (["image/avif", "image/gif", "image/jpeg", "image/png", "image/webp"].includes(contentType)) return "image";
+  // Complex/active image formats remain download-only. Never embed SVG, HTML, or PDFs.
+  if (["image/jpeg", "image/png", "image/webp"].includes(contentType)) return "image";
   if (["video/mp4", "video/ogg", "video/webm"].includes(contentType)) return "video";
-  if (["audio/aac", "audio/mp4", "audio/mpeg", "audio/ogg", "audio/wav", "audio/webm"].includes(contentType)) return "audio";
+  if (
+    ["audio/aac", "audio/mp4", "audio/mpeg", "audio/ogg", "audio/wav", "audio/webm"].includes(
+      contentType,
+    )
+  )
+    return "audio";
   return null;
 }
 
