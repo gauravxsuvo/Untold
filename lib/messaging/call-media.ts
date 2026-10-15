@@ -2,7 +2,7 @@
 export const callMedia = {
   cameraBitrate: 1_200_000,
   screenBitrate: 2_500_000,
-  audioBitrate: 32_000,
+  audioBitrate: 96_000,
   camera: {
     facingMode: "user",
     width: { ideal: 1280, max: 1280 },

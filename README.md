@@ -1,5 +1,7 @@
 # Untold
 
+Calls now offer movable windows, fullscreen video/screen views, floating windows on supported browsers, and microphone/camera/output selection. Live audio targets up to 96 kbit/s per peer. See [call windows and devices](docs/call-window-and-devices.md) for browser support and rollout checks.
+
 Group chats support names, compressed photos, owner/member controls, and existing account safety checks. Desktop typing focuses the open chat's composer. See [groups and desktop typing](docs/groups-and-desktop-typing.md) for migration 016 and rollout details.
 
 Group voice/video calls and direct/group screen sharing use the existing Portways TURN integration. Cameras target 720p at 30 fps, screen sharing targets 720p at 60 fps, and outgoing video has a bitrate budget. Shared database limits protect direct/group messages against bursts. Include migration 017 and see [group calls and media](docs/group-calls-and-media.md) for limits and deployment checks.

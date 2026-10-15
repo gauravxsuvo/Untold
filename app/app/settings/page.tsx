@@ -13,9 +13,12 @@ import { NotificationSettings } from "@/components/pwa/notification-settings";
 import { LoadingSkeleton } from "@/components/ui/loading-skeleton";
 import { SignOutSettings } from "@/components/auth/sign-out-settings";
 import { AdminAccessLink } from "@/components/auth/membership-access";
+import { CallDeviceSettings } from "@/components/messaging/call-devices";
+import { useCalls } from "@/components/messaging/call-provider";
 
 export default function SettingsPage() {
   const { session, isSessionPending } = useAccountSession();
+  const calls = useCalls();
 
   if (isSessionPending)
     return (
@@ -40,6 +43,18 @@ export default function SettingsPage() {
         <AdminAccessLink />
         <MfaSettings key={session?.id ?? "loading"} />
         <ReadabilitySettings />
+        <article className="account-settings-preview__call-devices">
+          <div>
+            <p className="messaging-kicker">Calls</p>
+            <h2>Audio and video</h2>
+            <p>
+              {calls.active
+                ? "Change devices in your call window while a call is open."
+                : "Choose devices for your next call. Device names appear after you allow access."}
+            </p>
+            <CallDeviceSettings video sharing={false} disabled={calls.active} />
+          </div>
+        </article>
         <NotificationSettings key={`notifications:${session?.id ?? "loading"}`} />
         <article className="account-settings-preview__appearance">
           <div>

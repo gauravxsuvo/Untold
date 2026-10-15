@@ -28,7 +28,7 @@ Previously camera capture requested 960 by 540 pixels without an explicit frame-
 
 | Source | Capture/sending target | Payload bitrate target |
 | --- | --- | --- |
-| Microphone | Mono, preferred 48 kHz capture, echo cancellation and noise suppression; prefer Opus where supported | Up to 32 kbit/s per peer |
+| Microphone | Mono, preferred 48 kHz capture, echo cancellation and noise suppression; prefer Opus where supported | Up to 96 kbit/s per peer |
 | Camera | Up to 1280 by 720, 30 fps | Up to 1.2 Mbit/s outgoing video |
 | Shared screen | Up to 1280 by 720, 60 fps, preserving the chosen surface's aspect ratio | Up to 2.5 Mbit/s outgoing video |
 
@@ -51,6 +51,8 @@ The server applies these database-backed fixed windows to every authenticated me
 Counters are atomic PostgreSQL upserts shared by replicas and devices. Denied requests do not create messages or notifications. Existing client message IDs still prevent duplicate stored messages, and retries also count toward the request budget. The server returns HTTP 429 with a bounded wait time and `Retry-After`; the interface explains when to retry. No plaintext message inspection is needed. Normal browser clients cannot disable these limits; sufficiently many approved accounts can still coordinate abuse, so membership approval remains relevant.
 
 ## Checks still needed on real devices
+
+The subsequent [call window and device controls](call-window-and-devices.md) follow-up adds fullscreen, draggable windows, floating windows and microphone/camera/output selection. Its live-device checks also apply.
 
 Local TypeScript, lint and production compilation are separate from live behavior. No automated tests, live migration, live call or production deployment were performed during this implementation. Before treating this release as verified, check:
 

@@ -27,7 +27,7 @@ const nextConfig: NextConfig = {
           {
             key: "Permissions-Policy",
             value:
-              "camera=(self), microphone=(self), display-capture=(self), geolocation=(), browsing-topics=()",
+              "camera=(self), microphone=(self), display-capture=(self), speaker-selection=(self), picture-in-picture=(self), fullscreen=(self), geolocation=(), browsing-topics=()",
           },
           { key: "X-DNS-Prefetch-Control", value: "off" },
         ],
