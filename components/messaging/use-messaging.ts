@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
   ApiError,
+  userFacingError,
   fetchConversations,
   fetchConversationDevices,
   fetchMessages,
@@ -153,7 +154,7 @@ export function useConversationList(
       setState("ready");
       setError("");
     } catch (caught) {
-      setError(caught instanceof Error ? caught.message : "Conversations could not load.");
+      setError(userFacingError(caught, "Conversations could not load."));
       setState((current) => (current === "ready" ? "ready" : "error"));
     }
   }, []);
@@ -233,7 +234,7 @@ export function useLocalMessagingDevice(accountId: string) {
       });
       setState("ready");
     } catch (caught) {
-      setError(caught instanceof Error ? caught.message : "This browser could not set up encryption.");
+      setError(userFacingError(caught, "We couldn’t get this browser ready. Refresh the page and try again."));
       setState("error");
     }
   }, [accountId]);
@@ -279,7 +280,7 @@ export function useConversationDeviceDirectory(
       setError("");
     } catch (caught) {
       if (activeConversationRef.current !== requestedId) return;
-      setError(caught instanceof Error ? caught.message : "Device keys could not be loaded.");
+      setError(userFacingError(caught, "We couldn’t load the safety codes. Please try again."));
       setState("error");
     }
   }, [accountId, conversationId, localDevice]);
@@ -334,7 +335,7 @@ export function useConversationThread(
     const local = localDeviceRef.current;
     const directory = deviceDirectoryRef.current;
     if (!local || !directory) {
-      return { ...messageWithEnvelope, text: null, encryption: "unavailable", issue: "Device keys are not ready.", delivery: "sent" };
+      return { ...messageWithEnvelope, text: null, encryption: "unavailable", issue: "This browser is still getting ready. Try again in a moment.", delivery: "sent" };
     }
     let senderDeviceId: string;
     try {
@@ -344,7 +345,7 @@ export function useConversationThread(
         ...messageWithEnvelope,
         text: null,
         encryption: "unavailable",
-        issue: caught instanceof Error ? caught.message : "Encrypted message format is invalid.",
+        issue: userFacingError(caught, "This message couldn’t be opened safely."),
         delivery: "sent",
       };
     }
@@ -357,8 +358,8 @@ export function useConversationThread(
         text: null,
         encryption: "unverified",
         issue: senderDevice?.trust === "changed"
-          ? "The sender device key changed. Verify it before reading this message."
-          : "Verify the sender device safety code before reading this message.",
+          ? "The sender’s safety code has changed. Compare it with them before opening this message."
+          : "Compare the sender’s safety code with them before opening this message.",
         delivery: "sent",
       };
     }
@@ -395,7 +396,7 @@ export function useConversationThread(
         ...messageWithEnvelope,
         text: null,
         encryption: "unavailable",
-        issue: caught instanceof Error ? caught.message : "This encrypted message could not be opened.",
+        issue: userFacingError(caught, "This message can’t be opened on this device. Try the browser you used before."),
         delivery: "sent",
       };
     }
@@ -423,7 +424,7 @@ export function useConversationThread(
       setError("");
     } catch (caught) {
       if (activeIdRef.current !== requestedId) return;
-      setError(caught instanceof Error ? caught.message : "Messages could not load.");
+      setError(userFacingError(caught, "Messages could not load."));
       setState((current) => (current === "ready" ? "ready" : "error"));
     }
   }, [decryptFetched]);
@@ -474,7 +475,7 @@ export function useConversationThread(
             : message,
         ),
       );
-      setError(caught instanceof Error ? caught.message : "Your message was not sent.");
+      setError(userFacingError(caught, "Your message was not sent."));
       if (caught instanceof ApiError && caught.status === 409) refreshDeviceDirectory();
     }
   }, [refreshDeviceDirectory]);
@@ -486,7 +487,7 @@ export function useConversationThread(
         (memberId) => !deviceDirectory.some((device) => device.userId === memberId && !device.revoked),
       );
       if (missingMember) {
-        setError("Your contact needs to sign in on a browser once to register an encryption device.");
+        setError("Your contact needs to open Untold before you can send them messages.");
         return;
       }
       const activeDevices = deviceDirectory.filter(({ revoked }) => !revoked);
@@ -494,7 +495,7 @@ export function useConversationThread(
       if (unverified) {
         setError(
           unverified.trust === "changed"
-            ? `The key for ${unverified.userName}'s device changed. Stop and verify it before sending.`
+            ? `The safety code for ${unverified.userName}'s device changed. Compare it with them before sending.`
             : `Verify the safety code for ${unverified.userName}'s device before sending.`,
         );
         return;
@@ -509,7 +510,7 @@ export function useConversationThread(
           activeDevices,
         );
       } catch (caught) {
-        setError(caught instanceof Error ? caught.message : "Message could not be encrypted.");
+        setError(userFacingError(caught, "We couldn’t prepare your message safely. Please try again."));
         return;
       }
       const pending: ThreadMessage = {
@@ -561,7 +562,7 @@ export function useConversationThread(
       (memberId) => !deviceDirectory.some((device) => device.userId === memberId && !device.revoked),
     );
     if (missingMember) {
-      setError("Your contact needs to sign in on a browser once to register an encryption device.");
+      setError("Your contact needs to open Untold before you can send them messages.");
       return false;
     }
     const activeDevices = deviceDirectory.filter(({ revoked }) => !revoked);
@@ -569,7 +570,7 @@ export function useConversationThread(
     if (unverified) {
       setError(
         unverified.trust === "changed"
-          ? `The key for ${unverified.userName}'s device changed. Stop and verify it before sending.`
+          ? `The safety code for ${unverified.userName}'s device changed. Compare it with them before sending.`
           : `Verify the safety code for ${unverified.userName}'s device before sending.`,
       );
       return false;
@@ -653,7 +654,7 @@ export function useConversationThread(
         setAttachmentUpload(null);
         return false;
       }
-      const message = caught instanceof Error ? caught.message : "The encrypted file could not be sent.";
+      const message = userFacingError(caught, "The file couldn’t be sent. Please try again.");
       setError(message);
       setAttachmentUpload((current) => current?.conversationId === targetId
         ? { ...current, phase: "failed", error: message, retryable: Boolean(attachmentRetryRef.current) }
@@ -717,7 +718,7 @@ export function useConversationThread(
       return true;
     } catch (caught) {
       if (preparation.signal.aborted) return false;
-      const message = caught instanceof Error ? caught.message : "The encrypted file could not be sent.";
+      const message = userFacingError(caught, "The file couldn’t be sent. Please try again.");
       setError(message);
       setAttachmentUpload({
         conversationId: retryData.targetId,
@@ -740,7 +741,7 @@ export function useConversationThread(
       try {
         await discardEncryptedAttachment(retryData.targetId, retryData.attachmentId);
       } catch (caught) {
-        setError(caught instanceof Error ? caught.message : "The unfinished upload could not be removed.");
+        setError(userFacingError(caught, "The unfinished upload could not be removed."));
         return false;
       }
       retryData.ciphertext.fill(0);
@@ -778,7 +779,7 @@ export function useConversationThread(
           activeDevices,
         );
       } catch (caught) {
-        setError(caught instanceof Error ? caught.message : "Message could not be encrypted again.");
+        setError(userFacingError(caught, "We couldn’t prepare your message again. Please try again."));
         return;
       }
       const pending = { ...failed, envelope, delivery: "sending" as const };

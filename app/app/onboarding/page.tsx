@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { OnboardingPreview } from "@/components/auth/onboarding-preview";
 
 export const metadata: Metadata = {
-  title: "Getting started — Untold",
+  title: "Getting started | Untold",
   description: "Learn about account identity, privacy, and future contact verification.",
 };
 

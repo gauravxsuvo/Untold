@@ -9,13 +9,13 @@ async function handle(request: Request): Promise<Response> {
   try {
     const handlers = toNextJsHandler(getAuth());
     const method = request.method as keyof typeof handlers;
-    return handlers[method](request);
+    return await handlers[method](request);
   } catch (error) {
     if (error instanceof BackendConfigurationError) {
       return Response.json(
         {
-          code: "service_not_configured",
-          message: "The account service is not configured yet. Please try again later.",
+          code: "service_unavailable",
+          message: "Untold isn’t available right now. Please try again in a moment.",
         },
         { status: 503, headers: { "Cache-Control": "no-store" } },
       );
@@ -23,7 +23,7 @@ async function handle(request: Request): Promise<Response> {
 
     console.error("Untold authentication request failed", error);
     return Response.json(
-      { code: "service_unavailable", message: "The service could not complete this request." },
+      { code: "service_unavailable", message: "Untold isn’t available right now. Please try again in a moment." },
       { status: 503, headers: { "Cache-Control": "no-store" } },
     );
   }

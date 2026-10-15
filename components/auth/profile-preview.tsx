@@ -25,7 +25,7 @@ export function ProfilePreview() {
             <h2 id="profile-preview-title">{session.displayName}</h2>
             <p>{session.email}</p>
             <span className="profile-preview-card__status">
-              {session.emailVerified ? "Email verified" : "Email not verified"}
+              Your account
             </span>
           </div>
           <p className="profile-preview-card__note">
@@ -46,8 +46,8 @@ export function ProfilePreview() {
       )}
 
       <p className="profile-preview-footnote">
-        Display names are self-chosen and are not proof of identity. Compare a contact’s device
-        safety code with them over a separate trusted channel before sending messages.
+        A name alone doesn’t confirm who someone is. Compare your contact’s safety code
+        by phone or in person before sharing anything sensitive.
       </p>
     </div>
   );

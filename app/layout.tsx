@@ -5,10 +5,23 @@ import { InstallPromptProvider } from "@/components/pwa/install-prompt-provider"
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Untold — Some things are just between us.",
+  metadataBase: new URL("https://untold.portways.app"),
+  title: "Untold | Some things are just between us.",
   description:
-    "Untold is a calm home for the conversations that matter. Sign up, add a friend by email, and start talking.",
+    "A quiet place for your conversations. Add a friend, share a moment, and keep in touch with Untold.",
   applicationName: "Untold",
+  openGraph: {
+    type: "website",
+    locale: "en_US",
+    siteName: "Untold",
+    title: "Some things are just between us.",
+    description: "A quiet place for your conversations. Add a friend, share a moment, and keep in touch.",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Some things are just between us.",
+    description: "A quiet place for your conversations. Add a friend, share a moment, and keep in touch.",
+  },
   appleWebApp: {
     capable: true,
     statusBarStyle: "default",
@@ -16,17 +29,17 @@ export const metadata: Metadata = {
   },
   icons: {
     icon: [
-      { url: "/brand/untold-mark.svg", type: "image/svg+xml" },
-      { url: "/icons/untold-192.png", sizes: "192x192", type: "image/png" },
+      { url: "/icons/untold-app-icon.svg?v=2", type: "image/svg+xml" },
+      { url: "/icons/untold-192.png?v=2", sizes: "192x192", type: "image/png" },
     ],
     apple: [
-      { url: "/icons/apple-touch-icon.png", sizes: "180x180", type: "image/png" },
+      { url: "/icons/apple-touch-icon.png?v=2", sizes: "180x180", type: "image/png" },
     ],
   },
 };
 
 export const viewport: Viewport = {
-  themeColor: "#f6f6f2",
+  themeColor: "#f7f8f4",
 };
 
 export default async function RootLayout({

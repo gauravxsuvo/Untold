@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Shield } from "lucide-react";
+import { MessageCircle } from "lucide-react";
 import { Wordmark } from "@/components/brand/wordmark";
 import { SessionControl } from "@/components/auth/session-control";
 import { ApplicationNavigation } from "@/components/app/application-navigation";
@@ -17,7 +17,7 @@ export function ApplicationShell({ children }: { children: React.ReactNode }) {
           <Wordmark />
         </Link>
 
-        <div className="app-sidebar__label">Workspace</div>
+        <div className="app-sidebar__label">Your space</div>
         <ApplicationNavigation placement="sidebar" />
 
         <SessionControl placement="sidebar" />
@@ -36,19 +36,19 @@ export function ApplicationShell({ children }: { children: React.ReactNode }) {
 
         <main className="app-main" id="app-content" tabIndex={-1}>
           <div className="app-topbar">
-            <span className="app-topbar__title">Your workspace</span>
+            <span className="app-topbar__title">Your conversations</span>
             <div className="app-topbar__actions">
               <InstallAppButton />
               <span className="app-preview-pill">
-                <Shield aria-hidden="true" size={14} strokeWidth={1.8} />
-                Prototype encryption
+                <MessageCircle aria-hidden="true" size={14} strokeWidth={1.8} />
+                Early access
               </span>
             </div>
           </div>
           {children}
           <footer className="app-main__footer">
             <span>Some things are just between us.</span>
-            <span>New messages and files use prototype device encryption. Verify safety codes before trusting a device.</span>
+            <span>Check your contact’s safety code before sharing anything sensitive.</span>
           </footer>
         </main>
       </div>

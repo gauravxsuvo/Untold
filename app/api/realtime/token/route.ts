@@ -26,14 +26,14 @@ export async function POST(request: Request): Promise<Response> {
     const parsed = await readJsonBody(request, 8 * 1024);
     if (!parsed.ok) {
       return Response.json(
-        { message: parsed.status === 413 ? "Request is too large." : "Send a valid JSON request." },
+        { message: parsed.status === 413 ? "Request is too large." : "We couldn’t complete that action. Refresh the page and try again." },
         { status: parsed.status },
       );
     }
     const { body } = parsed;
 
     if (!body || typeof body !== "object" || !("conversationIds" in body)) {
-      return Response.json({ message: "Choose at least one conversation." }, { status: 400 });
+      return Response.json({ message: "Choose a conversation first." }, { status: 400 });
     }
 
     const conversationIds = (body as { conversationIds?: unknown }).conversationIds;
@@ -43,7 +43,7 @@ export async function POST(request: Request): Promise<Response> {
       conversationIds.length > 25 ||
       !conversationIds.every((id): id is string => typeof id === "string" && uuidPattern.test(id))
     ) {
-      return Response.json({ message: "Conversation IDs are invalid." }, { status: 400 });
+      return Response.json({ message: "We couldn’t open these conversations. Refresh the page and try again." }, { status: 400 });
     }
 
     const uniqueIds = [...new Set(conversationIds)];

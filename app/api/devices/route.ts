@@ -24,7 +24,7 @@ export async function POST(request: Request): Promise<Response> {
     if (!trustedBrowserOrigin(request)) return forbiddenOriginResponse();
 
     const parsed = await readJsonBody(request, 4 * 1024);
-    if (!parsed.ok) return Response.json({ message: "Send a valid device registration." }, { status: parsed.status });
+    if (!parsed.ok) return Response.json({ message: "We couldn’t set up this browser. Refresh the page and try again." }, { status: parsed.status });
     const input = parsed.body as {
       deviceId?: unknown;
       name?: unknown;
@@ -43,7 +43,7 @@ export async function POST(request: Request): Promise<Response> {
       typeof input.signingKey !== "string" ||
       !publicKeyPattern.test(input.signingKey)
     ) {
-      return Response.json({ message: "Device registration fields are invalid." }, { status: 400 });
+      return Response.json({ message: "We couldn’t set up this browser. Refresh the page and try again." }, { status: 400 });
     }
 
     const { db } = getDatabase();
@@ -56,7 +56,7 @@ export async function POST(request: Request): Promise<Response> {
       !accountDevices.some(({ id }) => id === input.deviceId)
     ) {
       return Response.json(
-        { message: `This account already has ${maxDevicesPerAccount} registered devices. Remove an old device first.` },
+        { message: `This account already has ${maxDevicesPerAccount} devices. Remove an old device in Settings first.` },
         { status: 409 },
       );
     }
@@ -95,13 +95,13 @@ export async function POST(request: Request): Promise<Response> {
           {
             code: "device_revoked",
             message:
-              "This browser's encryption device was revoked. Clear Untold's site data and sign in again to create a new device. Older messages addressed to the revoked keys will not open on the new device.",
+              "This browser was removed from your account. Sign in from a new browser to continue. Older messages may not be readable there.",
           },
           { status: 409 },
         );
       }
       return Response.json(
-        { message: "This device ID is already registered with different keys. Keep the existing local keys." },
+        { message: "We couldn’t recognize this browser. Keep your browser data and try another browser to continue." },
         { status: 409 },
       );
     }

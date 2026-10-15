@@ -2,12 +2,12 @@
 
 :root {
   color-scheme: light;
-  --paper: #f6f6f2;
+  --paper: #f7f8f4;
   --surface: #ffffff;
   --ink: #202825;
   --muted: #68736d;
   --line: rgba(32, 40, 37, 0.13);
-  --green: #315c4e;
+  --green: #254b3e;
   --green-deep: #23483d;
   --green-soft: #e9f0eb;
   --gold: #c99761;
@@ -69,6 +69,11 @@ button {
   border: 0;
 }
 
+.auth-page__footer svg {
+  display: inline-block;
+  vertical-align: middle;
+}
+
 .site-header {
   position: relative;
   z-index: 2;
@@ -98,6 +103,7 @@ button {
 }
 
 .wordmark__symbol {
+  flex-shrink: 0;
   width: 34px;
   height: 34px;
   color: var(--green);
@@ -279,7 +285,8 @@ button {
   letter-spacing: 0.1px;
 }
 
-.hero__note span {
+.hero__note svg {
+  flex-shrink: 0;
   color: var(--gold);
   font-size: 14px;
 }
@@ -604,6 +611,8 @@ button {
 }
 
 .mock-check {
+  display: inline-flex;
+  vertical-align: middle;
   color: #58816b;
   font-weight: 700;
 }
@@ -656,7 +665,9 @@ button {
   text-align: right;
 }
 
-.hero__visual-note span {
+.hero__visual-note svg {
+  display: inline-block;
+  vertical-align: middle;
   margin-right: 5px;
   color: var(--gold);
   font-family: var(--font-body);
@@ -844,7 +855,7 @@ button {
   justify-content: center;
   overflow: hidden;
   padding: 54px 24px;
-  background: #315c4e;
+  background: #254b3e;
   color: white;
   text-align: center;
 }
@@ -1441,7 +1452,7 @@ button {
   --app-ink: #26312b;
   --app-muted: #77817a;
   --app-line: rgba(38, 49, 43, 0.1);
-  --app-accent: #315c4e;
+  --app-accent: #254b3e;
   --app-accent-wash: #edf2ee;
   min-height: 100vh;
   display: grid;
@@ -1710,7 +1721,7 @@ button {
 
 .state-panel__mark i:nth-child(2) {
   height: 20px;
-  background: #315c4e;
+  background: #254b3e;
 }
 
 .state-panel__mark i:nth-child(3) {
@@ -2070,7 +2081,7 @@ button {
   padding: 0;
   border: 0;
   background: transparent;
-  color: #315c4e;
+  color: #254b3e;
   cursor: pointer;
   font: inherit;
   font-size: 10px;
@@ -2092,7 +2103,7 @@ button {
 .app-preview-pill--action {
   border-color: rgba(49, 92, 78, 0.18);
   background: #edf2ee;
-  color: #315c4e;
+  color: #254b3e;
   cursor: pointer;
   font: inherit;
   font-size: 9px;
@@ -2102,7 +2113,7 @@ button {
   --auth-ink: #26312b;
   --auth-muted: #768078;
   --auth-line: rgba(38, 49, 43, 0.13);
-  --auth-accent: #315c4e;
+  --auth-accent: #254b3e;
   min-height: 100svh;
   display: flex;
   flex-direction: column;
@@ -2173,7 +2184,7 @@ button {
 
 .auth-kicker {
   margin: 0 0 13px;
-  color: var(--auth-accent, #315c4e);
+  color: var(--auth-accent, #254b3e);
   font-size: 10px;
   font-weight: 720;
   letter-spacing: 1.15px;
@@ -2328,8 +2339,8 @@ button {
 
 .auth-submit {
   margin-top: 2px;
-  border: 1px solid #315c4e;
-  background: #315c4e;
+  border: 1px solid #254b3e;
+  background: #254b3e;
   color: #fff;
 }
 
@@ -2412,7 +2423,7 @@ button {
   border: 1px solid rgba(49, 92, 78, 0.14);
   border-radius: 50%;
   background: #edf2ed;
-  color: #315c4e;
+  color: #254b3e;
   font-size: 18px;
 }
 
@@ -2592,7 +2603,7 @@ button {
   border: 1px solid rgba(49, 92, 78, 0.14);
   border-radius: 50%;
   background: #f9fbf8;
-  color: #315c4e;
+  color: #254b3e;
   font-size: 17px;
 }
 
@@ -2703,7 +2714,7 @@ button {
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  color: #315c4e;
+  color: #254b3e;
   font-size: 11px;
   font-weight: 650;
   white-space: nowrap;
@@ -2727,7 +2738,7 @@ button {
   min-height: 43px;
   padding: 0 14px;
   border-radius: 4px;
-  background: #315c4e;
+  background: #254b3e;
   color: #fff;
 }
 
@@ -2763,7 +2774,7 @@ button {
   border: 1px solid rgba(49, 92, 78, 0.13);
   border-radius: 50%;
   background: #e8f0ea;
-  color: #315c4e;
+  color: #254b3e;
   font-size: 16px;
   font-weight: 650;
 }
@@ -2855,7 +2866,7 @@ button {
 .account-settings-preview article > a,
 .account-settings-preview__status {
   flex: 0 0 auto;
-  color: #315c4e;
+  color: #254b3e;
   font-size: 10px;
   font-weight: 650;
 }
@@ -5590,9 +5601,9 @@ main.app-main .app-main__footer > span:first-child {
 .account-settings-preview__install .pwa-install__button {
   min-height: 38px;
   padding-inline: 15px;
-  border-color: #315c4e;
+  border-color: #254b3e;
   border-radius: 10px;
-  background: #315c4e;
+  background: #254b3e;
   color: #fff;
   font-size: 11px;
 }

@@ -19,7 +19,7 @@ export async function DELETE(request: Request, context: RouteContext): Promise<R
   try {
     const { deviceId } = await context.params;
     if (!uuidPattern.test(deviceId)) {
-      return Response.json({ message: "Device ID is invalid." }, { status: 400 });
+      return Response.json({ message: "We couldn’t find that device. Refresh the page and try again." }, { status: 400 });
     }
     const session = await getAuthenticatedSession(request);
     if (!session) return unauthorizedResponse();
@@ -44,7 +44,7 @@ export async function DELETE(request: Request, context: RouteContext): Promise<R
       return true;
     });
     if (!didRevoke) {
-      return Response.json({ message: "Device was not found on this account." }, { status: 404 });
+      return Response.json({ message: "That device isn’t on your account." }, { status: 404 });
     }
     return Response.json({ revoked: true }, { headers: { "Cache-Control": "no-store" } });
   } catch (error) {

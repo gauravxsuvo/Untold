@@ -11,6 +11,42 @@ export class ApiError extends Error {
   }
 }
 
+// Only known, useful local errors may reach the interface. Browser and crypto
+// exceptions can contain implementation details and must use the fallback.
+const localErrorMessages = new Map([
+  ["Files must be 20 MiB or smaller.", "Choose a file that’s 20 MB or smaller."],
+  ["Executable files, scripts, shortcuts, and macro-enabled documents cannot be shared.", "Apps, scripts, shortcuts, and documents with macros can’t be shared."],
+  ["Executable files and scripts cannot be shared.", "Apps and scripts can’t be shared."],
+  ["This image or video is too large to process safely. Use a smaller resolution.", "This photo or video is too large to open safely. Try a smaller version."],
+  ["The file contents do not match its media type.", "This file doesn’t match its file type. Try another copy."],
+  ["The image header is invalid or unsupported.", "We can’t open this photo. Try another copy or file type."],
+  ["Update your browser to open this compressed file.", "Update your browser to open this file."],
+  ["Unsupported file format. Update Untold and try again.", "Update Untold to open this file."],
+  ["This image is available as a download only.", "This photo can only be downloaded. A preview isn’t available."],
+  ["Media processing timed out.", "Preparing this file took too long. Try a smaller version."],
+  ["This browser does not provide secure Web Crypto. Open Untold over HTTPS.", "This browser can’t protect your messages. Use an up-to-date browser and open Untold from its secure web address."],
+  ["This device was added after the message was sent and cannot open it.", "This message was sent before you added this device. Open it in the browser you used before."],
+  ["This device key changed. Stop and verify the account with its owner.", "This safety code has changed. Check with your contact before continuing."],
+  ["Message signature is invalid. The message may have been changed.", "This message may have been changed. Ask your contact to send it again."],
+  ["File authentication failed. Its encrypted bytes may have changed.", "This file may have been changed. Ask your contact to send it again."],
+  ["Message exceeds the encrypted text limit.", "This message is too long. Try a shorter message."],
+]);
+
+export function userFacingError(error: unknown, fallback: string): string {
+  if (error instanceof ApiError) return error.message;
+  if (error instanceof Error) return localErrorMessages.get(error.message) ?? fallback;
+  return fallback;
+}
+
+function requestErrorMessage(status: number, message: unknown): string {
+  if (status >= 500) return "Untold isn’t available right now. Please try again in a moment.";
+  if (status === 401) return "Sign in again to continue.";
+  if (status === 429) return "Please wait a moment before trying again.";
+  if (typeof message !== "string") return "Something went wrong. Please try again.";
+  // Our messaging endpoints return fixed, user-facing validation messages.
+  return localErrorMessages.get(message) ?? message;
+}
+
 export type AccountDevice = {
   deviceId: string;
   deviceName: string;
@@ -35,7 +71,7 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
 
   const body = (await response.json().catch(() => null)) as { message?: string } | null;
   if (!response.ok) {
-    throw new ApiError(body?.message ?? "Something went wrong. Please try again.", response.status);
+    throw new ApiError(requestErrorMessage(response.status, body?.message), response.status);
   }
   return body as T;
 }
@@ -146,7 +182,7 @@ export async function uploadEncryptedAttachment(
         resolve();
         return;
       }
-      reject(new ApiError(body?.message ?? "The encrypted file could not be uploaded.", xhr.status));
+      reject(new ApiError(requestErrorMessage(xhr.status, body?.message), xhr.status));
     };
     xhr.send(ciphertext);
   });

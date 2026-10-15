@@ -23,7 +23,7 @@ import {
   attachmentPreviewKind,
   formatAttachmentSize,
 } from "@/lib/messaging/attachments";
-import { fetchAttachmentDownloadUrl } from "@/lib/messaging/api-client";
+import { fetchAttachmentDownloadUrl, userFacingError } from "@/lib/messaging/api-client";
 import { decryptAttachmentBytes, maxAttachmentBytes } from "@/crypto/src/protocol";
 import { decodeAttachmentBytes } from "@/lib/messaging/attachment-compression";
 import { readBoundedStream } from "@/lib/messaging/bounded-stream";
@@ -161,7 +161,7 @@ function AttachmentMessage({
       mediaUrlRef.current = url;
       setMediaUrl(url);
     } catch (caught) {
-      if (aliveRef.current) setError(caught instanceof Error ? caught.message : "File could not be opened.");
+      if (aliveRef.current) setError(userFacingError(caught, "File could not be opened."));
     } finally {
       cleartext?.fill(0);
       loadingRef.current = false;
@@ -190,7 +190,7 @@ function AttachmentMessage({
       link.remove();
       window.setTimeout(() => URL.revokeObjectURL(url), 1000);
     } catch (caught) {
-      if (aliveRef.current) setError(caught instanceof Error ? caught.message : "The file could not be downloaded.");
+      if (aliveRef.current) setError(userFacingError(caught, "The file could not be downloaded."));
     } finally {
       cleartext?.fill(0);
       loadingRef.current = false;
@@ -344,7 +344,7 @@ function ConversationDetails({
             <dd>{isRealtimeConnected ? "Live" : "Refreshing every few seconds"}</dd>
           </div>
           <div className="conversation-details__row">
-            <dt>Encryption devices</dt>
+            <dt>Safety codes</dt>
             <dd>
               <DeviceSafetyList devices={devices ?? []} onVerify={onVerifyDevice} />
             </dd>
@@ -362,10 +362,10 @@ function DeviceSafetyList({
   devices: DeviceTrust[];
   onVerify: (device: PublicDevice) => Promise<void>;
 }) {
-  if (devices.length === 0) return <span>No registered devices yet.</span>;
+  if (devices.length === 0) return <span>No devices to check yet.</span>;
   return (
     <div className="device-safety-list">
-      <p>Compare each new safety code with its owner over a separate trusted channel.</p>
+      <p>Compare each new safety code with its owner by phone or in person.</p>
       {devices.map((device) => (
         <DeviceSafetyCode device={device} key={device.deviceId} onVerify={onVerify} />
       ))}
@@ -407,7 +407,7 @@ function DeviceSafetyCode({
       await onVerify(device);
       setFeedback("Device verified on this browser");
     } catch (caught) {
-      setFeedback(caught instanceof Error ? caught.message : "Device could not be verified.");
+      setFeedback(userFacingError(caught, "Device could not be verified."));
     }
   }
 
@@ -417,11 +417,11 @@ function DeviceSafetyCode({
         <strong>{device.userName} · {device.deviceName}</strong>
         <span>
           {device.revoked
-            ? "Removed · history key"
+            ? "Removed device"
             : device.trust === "verified"
               ? "Verified here"
               : device.trust === "changed"
-                ? "Key changed"
+                ? "Safety code changed"
                 : "New device"}
         </span>
       </div>
@@ -431,7 +431,7 @@ function DeviceSafetyCode({
         {device.trust === "new" ? (
           <button onClick={verify} type="button">I compared this code</button>
         ) : device.trust === "changed" ? (
-          <span>Sending and reading are blocked for this changed key.</span>
+          <span>Messages are paused because this safety code changed. Check with your contact before continuing.</span>
         ) : null}
         {feedback ? <span aria-live="polite">{feedback}</span> : null}
       </div>
@@ -588,7 +588,7 @@ export function ConversationWorkspace({ initialSelectedId }: { initialSelectedId
         />
 
         {localDevice.state === "loading" ? (
-          <p className="device-setup-note" role="status">Setting up this browser’s encryption keys…</p>
+          <p className="device-setup-note" role="status">Getting this browser ready…</p>
         ) : localDevice.state === "error" ? (
           <div className="device-setup-note device-setup-note--error" role="alert">
             <span>{localDevice.error}</span>
@@ -646,7 +646,7 @@ export function ConversationWorkspace({ initialSelectedId }: { initialSelectedId
         )}
 
         <p className="conversation-list-panel__note">
-          {list.isRealtimeConnected ? "Live updates on" : "Refreshes automatically"} · device encryption
+          {list.isRealtimeConnected ? "Live updates on" : "Refreshes automatically"}
         </p>
       </aside>
 
@@ -676,14 +676,13 @@ export function ConversationWorkspace({ initialSelectedId }: { initialSelectedId
           </header>
 
           <p className="conversation-disclaimer">
-            <span>Encrypted on devices</span>
-            New messages and files are encrypted before storage. Verify each device safety code first.
-            Protocol v1 has no forward secrecy or independent review. Someone who gains access to
-            an unlocked device may be able to read its messages.
+            <span>Before you share</span>
+            Compare safety codes with your contact by phone or in person.
+            Privacy features are still being tested and haven’t been independently checked.
           </p>
 
           {directory.state === "loading" ? (
-            <p className="messaging-device-status" role="status">Loading and checking conversation device keys…</p>
+            <p className="messaging-device-status" role="status">Checking safety codes…</p>
           ) : directory.state === "error" ? (
             <p className="messaging-error" role="alert">{directory.error}</p>
           ) : directory.devices?.some(({ trust, revoked }) => !revoked && trust !== "verified") ? (
@@ -692,7 +691,7 @@ export function ConversationWorkspace({ initialSelectedId }: { initialSelectedId
             </p>
           ) : missingMemberDevice ? (
             <p className="messaging-device-status messaging-device-status--warning">
-              Ask {missingMemberDevice.name} to sign in on a browser once so Untold can register their encryption device.
+              Ask {missingMemberDevice.name} to open Untold before you start sharing messages.
             </p>
           ) : null}
 
@@ -751,13 +750,13 @@ export function ConversationWorkspace({ initialSelectedId }: { initialSelectedId
                   <span>
                     {currentAttachmentUpload.phase === "optimizing"
                       ? currentAttachmentUpload.progress > 0
-                        ? `Optimizing video · ${currentAttachmentUpload.progress}% · Keep this tab open`
-                        : "Optimizing file on this device…"
+                        ? `Making video smaller · ${currentAttachmentUpload.progress}% · Keep this tab open`
+                        : "Preparing your file…"
                       : currentAttachmentUpload.phase === "preparing"
-                      ? "Encrypting on this device…"
+                      ? "Getting ready to send…"
                       : currentAttachmentUpload.phase === "failed"
                         ? currentAttachmentUpload.error ?? "Upload failed."
-                        : `Uploading encrypted file · ${currentAttachmentUpload.progress}%`}
+                        : `Uploading · ${currentAttachmentUpload.progress}%`}
                   </span>
                 </div>
                 {currentAttachmentUpload.phase === "failed" ? (
@@ -789,7 +788,7 @@ export function ConversationWorkspace({ initialSelectedId }: { initialSelectedId
               type="file"
             />
             <div className="message-composer__footer">
-              <span>Enter to send · Shift+Enter for a new line · Files up to 20 MiB</span>
+              <span>Enter to send · Shift+Enter for a new line · Files up to 20 MB</span>
               <div>
                 <span className="message-composer__count">
                   {draft.length}/{maxMessageLength}

@@ -1,7 +1,7 @@
 "use client";
 
 import { useId, useState, type FormEvent } from "react";
-import { startConversation } from "@/lib/messaging/api-client";
+import { startConversation, userFacingError } from "@/lib/messaging/api-client";
 import type { ConversationSummary } from "@/lib/messaging/people";
 
 export function StartConversationForm({
@@ -27,7 +27,7 @@ export function StartConversationForm({
     } catch (caught) {
       setFeedback({
         kind: "error",
-        text: caught instanceof Error ? caught.message : "That conversation could not be started.",
+        text: userFacingError(caught, "That conversation could not be started."),
       });
     } finally {
       setIsSubmitting(false);

@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { ArrowDown, ArrowUpRight, CornerDownRight, MessageCircle } from "lucide-react";
 import { Wordmark } from "@/components/brand/wordmark";
 import { ConceptPreview } from "@/components/landing/concept-preview";
 
@@ -6,20 +7,20 @@ const principles = [
   {
     number: "01",
     title: "Private conversations",
-    text: "A focused home for the people and conversations that matter, without a public feed competing for your attention.",
+    text: "Talk with the people you choose. No public feed to scroll through, just your conversations.",
     status: "Available now",
   },
   {
     number: "02",
-    title: "Encryption, done carefully",
-    text: "A first end-to-end encryption flow is connected. Device verification is required, and the protocol still needs independent security review.",
-    status: "Early protocol",
+    title: "Know who you’re talking to",
+    text: "Compare safety codes with your friend by phone or in person before you start sharing.",
+    status: "Check together",
   },
   {
     number: "03",
-    title: "Room to grow thoughtfully",
-    text: "Future capabilities will be considered alongside their effects on identity, recovery, metadata, and everyday usability.",
-    status: "Still being explored",
+    title: "Share more than words",
+    text: "Send photos, videos, and files in your conversations. When possible, Untold makes them smaller to save space.",
+    status: "Available now",
   },
 ];
 
@@ -35,7 +36,7 @@ export function LandingPage() {
             <a href="#privacy">Our approach</a>
             <a href="#building">What we’re building</a>
             <Link className="site-nav__cta" href="/auth/sign-in">
-              Sign in <span aria-hidden="true">↗</span>
+              Sign in <ArrowUpRight aria-hidden="true" size={16} />
             </Link>
           </nav>
         </div>
@@ -50,19 +51,18 @@ export function LandingPage() {
             Some things are just <em>between us.</em>
           </h1>
           <p className="hero__description">
-            Untold is a quieter home for the conversations that matter—thoughtful by
-            design, and honest about what is and isn’t ready.
+            A quiet place to catch up, share a moment, and stay close to the people who matter.
           </p>
           <div className="hero__actions">
             <Link className="button button--primary" href="/auth/sign-up">
-              Create an account <span aria-hidden="true">↗</span>
+              Create an account <ArrowUpRight aria-hidden="true" size={16} />
             </Link>
             <a className="text-link" href="#building">
-              What we’re making <span aria-hidden="true">↓</span>
+              Take a look <ArrowDown aria-hidden="true" size={16} />
             </a>
           </div>
           <p className="hero__note">
-            <span aria-hidden="true">✳</span> Early access · Verify device codes before messaging
+            <MessageCircle aria-hidden="true" size={15} /> Early access. A little space for your conversations.
           </p>
         </div>
         <div className="hero__visual">
@@ -70,7 +70,7 @@ export function LandingPage() {
           <span className="hero__orbit hero__orbit--two" aria-hidden="true" />
           <ConceptPreview />
           <p className="hero__visual-note">
-            <span aria-hidden="true">↳</span> A conversation, without the noise.
+            <CornerDownRight aria-hidden="true" size={16} /> A conversation, without the noise.
           </p>
         </div>
       </section>
@@ -78,11 +78,10 @@ export function LandingPage() {
       <section className="privacy" id="privacy" aria-labelledby="privacy-title">
         <div className="page-width privacy__inner">
           <div className="privacy__intro">
-            <p className="eyebrow eyebrow--light">A promise we have to earn</p>
-            <h2 id="privacy-title">Privacy should feel like part of the conversation.</h2>
+            <p className="eyebrow eyebrow--light">Your conversations</p>
+            <h2 id="privacy-title">A little more room for the people you choose.</h2>
             <p className="privacy__lead">
-              It starts with clear choices, careful engineering, and plain language about the
-              limits. The interface is only the beginning.
+              Untold keeps things simple, with clear information to help you decide what to share.
             </p>
           </div>
           <div className="privacy__points">
@@ -91,10 +90,9 @@ export function LandingPage() {
                 01
               </span>
               <div>
-                <h3>Thoughtful by default</h3>
+                <h3>Just your conversations</h3>
                 <p>
-                  A calm, uncluttered experience for the people you choose. There is no public
-                  feed.
+                  Add a friend by email and start talking. Your messages don’t appear in a public feed.
                 </p>
               </div>
             </article>
@@ -103,11 +101,10 @@ export function LandingPage() {
                 02
               </span>
               <div>
-                <h3>Clear about today</h3>
+                <h3>Check before you share</h3>
                 <p>
-                  Messages and shared files are encrypted on the sending device and stored as ciphertext.
-                  Migration 006 removes earlier unencrypted message rows from the live database;
-                  backups may retain copies. Untold still sees account and conversation metadata.
+                  Compare a contact’s safety code by phone or in person. This helps you check that
+                  you’re talking to the right person. Untold still knows who has an account and who talks to whom.
                 </p>
               </div>
             </article>
@@ -116,10 +113,10 @@ export function LandingPage() {
                 03
               </span>
               <div>
-                <h3>Careful with every claim</h3>
+                <h3>Still in early access</h3>
                 <p>
-                  Security promises should follow implementation, testing, and independent
-                  review—not come before them.
+                  Privacy features are still being tested and haven’t been independently checked.
+                  Keep that in mind before sharing anything sensitive.
                 </p>
               </div>
             </article>
@@ -131,17 +128,16 @@ export function LandingPage() {
         <div className="building__heading">
           <div>
             <p className="eyebrow">
-              <span aria-hidden="true" /> The direction
+              <span aria-hidden="true" /> Make yourself at home
             </p>
             <h2 id="building-title">
-              A considered start.
+              Less to get in the way.
               <br />
-              <em>More, only when it’s ready.</em>
+              <em>More room to talk.</em>
             </h2>
           </div>
           <p className="building__summary">
-            The product is at the beginning. Here’s what guides it today—and what still needs to be
-            worked out.
+            Start with a friend. Send a thought, a photo, or something that made your day.
           </p>
         </div>
         <div className="principles-list">
@@ -165,16 +161,16 @@ export function LandingPage() {
       <section className="closing page-width" aria-labelledby="closing-title">
         <div className="closing__panel">
           <Wordmark compact />
-          <p className="eyebrow eyebrow--light">Still at the beginning</p>
+          <p className="eyebrow eyebrow--light">Stay close</p>
           <h2 id="closing-title">
             The best conversations
             <br />
             deserve a little <em>care.</em>
           </h2>
-          <p>Follow the idea as it takes shape, one considered step at a time.</p>
-          <a className="button button--light" href="#top">
-            Back to the beginning <span aria-hidden="true">↑</span>
-          </a>
+          <p>Make a little room for someone you’ve been meaning to catch up with.</p>
+          <Link className="button button--light" href="/auth/sign-up">
+            Create an account <ArrowUpRight aria-hidden="true" size={16} />
+          </Link>
           <span className="closing__detail closing__detail--left" aria-hidden="true" />
           <span className="closing__detail closing__detail--right" aria-hidden="true" />
         </div>
@@ -185,7 +181,7 @@ export function LandingPage() {
           <Wordmark />
         </a>
         <p>Some things are just between us.</p>
-        <span>Untold is in early access. The first device encryption protocol needs independent review.</span>
+        <span>Early access. Privacy features haven’t been independently checked yet.</span>
       </footer>
     </main>
   );

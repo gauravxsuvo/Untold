@@ -2,8 +2,8 @@ import type { Metadata } from "next";
 import { RecoveryOverview } from "@/components/auth/recovery-overview";
 
 export const metadata: Metadata = {
-  title: "Recovery concepts — Untold",
-  description: "Review account recovery approaches and their privacy tradeoffs.",
+  title: "Help with signing in | Untold",
+  description: "Help with signing in to Untold and keeping access to your conversations.",
 };
 
 export default function RecoveryPage() {
