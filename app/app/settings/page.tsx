@@ -7,9 +7,26 @@ import { useAccountSession } from "@/components/auth/account-session-provider";
 import { DeviceManagement } from "@/components/messaging/device-management";
 import { InstallAppButton } from "@/components/pwa/install-app-button";
 import { ThemeSwitcher } from "@/components/theme/theme-switcher";
+import { MfaSettings } from "@/components/auth/mfa-settings";
+import { ReadabilitySettings } from "@/components/theme/readability-settings";
+import { NotificationSettings } from "@/components/pwa/notification-settings";
+import { LoadingSkeleton } from "@/components/ui/loading-skeleton";
+import { SignOutSettings } from "@/components/auth/sign-out-settings";
 
 export default function SettingsPage() {
-  const { session } = useAccountSession();
+  const { session, isSessionPending } = useAccountSession();
+
+  if (isSessionPending)
+    return (
+      <div className="app-page">
+        <PageHeading
+          description="Manage your account, devices, and privacy."
+          eyebrow="Account and privacy"
+          title="Settings"
+        />
+        <LoadingSkeleton kind="page" label="Loading account settings…" />
+      </div>
+    );
 
   return (
     <div className="app-page">
@@ -19,6 +36,9 @@ export default function SettingsPage() {
         title="Settings"
       />
       <section aria-label="Account settings" className="account-settings-preview">
+        <MfaSettings key={session?.id ?? "loading"} />
+        <ReadabilitySettings />
+        <NotificationSettings key={`notifications:${session?.id ?? "loading"}`} />
         <article className="account-settings-preview__appearance">
           <div>
             <p className="messaging-kicker">Make it yours</p>
@@ -42,8 +62,8 @@ export default function SettingsPage() {
             <p className="messaging-kicker">Your devices</p>
             <h2>Install Untold</h2>
             <p>
-              Add Untold to your iPhone, iPad, Android home screen, or your computer.
-              Open it straight from its own icon.
+              Add Untold to your iPhone, iPad, Android home screen, or your computer. Open it
+              straight from its own icon.
             </p>
           </div>
           <InstallAppButton placement="settings" />
@@ -53,13 +73,11 @@ export default function SettingsPage() {
           <div>
             <p className="messaging-kicker">Your account</p>
             <h2>{session ? "Signed in" : "Loading your account…"}</h2>
-            <p>
-              {session
-                ? session.email
-                : "This only takes a moment."}
-            </p>
+            <p>{session ? session.email : "This only takes a moment."}</p>
           </div>
-          <span className="account-settings-preview__status">{session ? "Signed in" : "Loading"}</span>
+          <span className="account-settings-preview__status">
+            {session ? "Signed in" : "Loading"}
+          </span>
         </article>
         <article>
           <div>
@@ -67,11 +85,19 @@ export default function SettingsPage() {
             <h2>Before you share</h2>
             <p>What to know before you send a message.</p>
             <ul className="account-privacy-notes">
-              <li>Your contacts can see when you’ve received a message and when it’s been visible in your active conversation.</li>
+              <li>
+                Your contacts can see when you’ve received a message and when it’s been visible in
+                your active conversation.
+              </li>
               <li>Messages and files are encrypted on your device before you send them.</li>
               <li>Compare safety codes with your contact by phone or in person before sharing.</li>
-              <li>Privacy features are still being tested and haven’t been independently checked.</li>
-              <li>If someone gets your browser’s saved security information, past messages may be exposed.</li>
+              <li>
+                Privacy features are still being tested and haven’t been independently checked.
+              </li>
+              <li>
+                If someone gets your browser’s saved security information, past messages may be
+                exposed.
+              </li>
               <li>Messages sent before encryption was added may not have the same protection.</li>
               <li>Untold still knows who has an account and who talks to whom.</li>
               <li>Someone with access to an unlocked device can read its messages.</li>
@@ -81,13 +107,17 @@ export default function SettingsPage() {
         <article>
           <div>
             <p className="messaging-kicker">Recovery</p>
-            <h2>Keep your password safe</h2>
-            <p>Password resets aren’t available yet. Save your password in a password manager.</p>
+            <h2>Keep a way back in</h2>
+            <p>
+              Set up two-factor authentication and save your recovery codes. Password resets require
+              an unused recovery code from your MFA setup.
+            </p>
           </div>
           <Link href="/auth/recovery">
-            Help with signing in <ArrowUpRight aria-hidden="true" size={14} strokeWidth={1.8} />
+            Reset password <ArrowUpRight aria-hidden="true" size={14} strokeWidth={1.8} />
           </Link>
         </article>
+        <SignOutSettings />
       </section>
     </div>
   );

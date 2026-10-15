@@ -5,13 +5,16 @@
 The existing app manifest, standalone display mode, and Apple touch icon are reused.
 The install button provides platform-specific instructions when a native install prompt is
 unavailable. iPhone and iPad instructions include Safari’s Share menu, Add to Home Screen,
-and Open as Web App when that switch is present. Mac Safari instructions use File or Share,
+and Open as Web App. iOS 26 instructions cover More, Share, and the Edit Actions fallback when
+Add to Home Screen is missing from the list. Mac Safari instructions use File or Share,
 then Add to Dock, which needs macOS Sonoma or later.
 
 Instructions can be dismissed with the close button, Escape, or a click outside. Installed
 standalone windows hide the install button. No service worker caches account or message data.
+The landing page and all sign-in/recovery headers also show Install app, so installation help
+is available before signing in. The signed-in mobile header and Settings retain their buttons.
 
-Sources: [Apple’s iPhone guide](https://support.apple.com/guide/iphone/open-as-web-app-iphea86e5236/27/ios/27),
+Sources: [Apple’s iOS 26 iPhone guide](https://support.apple.com/guide/iphone/open-as-web-app-iphea86e5236/26/ios/26),
 [Apple’s Mac guide](https://support.apple.com/en-ca/104996).
 
 ## Appearance

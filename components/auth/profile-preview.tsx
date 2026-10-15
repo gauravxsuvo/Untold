@@ -1,5 +1,7 @@
 "use client";
 
+import { LoadingSkeleton } from "@/components/ui/loading-skeleton";
+
 import { PageHeading } from "@/components/app/page-heading";
 import { useAccountSession } from "@/components/auth/account-session-provider";
 import { useState } from "react";
@@ -36,13 +38,13 @@ export function ProfilePreview() {
               Your account
             </span>
           </div>
-          <ProfilePhotoEditor hasPhoto={Boolean(image)} key={session.id} onChange={handlePhotoChange} />
+          <ProfilePhotoEditor hasPhoto={Boolean(image)} image={image} key={session.id} onChange={handlePhotoChange} />
           <p className="profile-preview-card__note">
             People who start a conversation with you, or whom you start one with, see your display
             name, profile photo, and email address.
           </p>
         </section>
-      ) : (
+      ) : isSessionPending ? <LoadingSkeleton kind="profile" label="Loading your profile…" rows={1} /> : (
         <section
           aria-labelledby="profile-preview-title"
           className="profile-preview-card profile-preview-card--empty"

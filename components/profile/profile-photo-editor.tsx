@@ -1,7 +1,7 @@
 "use client";
 
-import { Camera, Trash2, Upload, X } from "lucide-react";
-import { useEffect, useId, useRef, useState, type ChangeEvent } from "react";
+import { Camera, Crop, RotateCcw, Trash2, Upload, X } from "lucide-react";
+import { useEffect, useId, useRef, useState, type ChangeEvent, type PointerEvent } from "react";
 import { compressProfilePhoto, openProfilePhoto } from "@/lib/profile/prepare-photo";
 import { ProfilePhotoError } from "@/lib/profile/photos";
 import {
@@ -12,9 +12,11 @@ import {
 
 export function ProfilePhotoEditor({
   hasPhoto,
+  image,
   onChange,
 }: {
   hasPhoto: boolean;
+  image?: string | null;
   onChange: (image: string | null) => void;
 }) {
   const id = useId();
@@ -29,6 +31,65 @@ export function ProfilePhotoEditor({
   const [feedback, setFeedback] = useState("");
   const [isError, setIsError] = useState(false);
   const [cropReady, setCropReady] = useState(false);
+  const pointers = useRef(new Map<number, { x: number; y: number }>());
+  const gesture = useRef({ x: 0, y: 0, horizontal: 0, vertical: 0, zoom: 1, distance: 0 });
+
+  function beginGesture() {
+    const points = [...pointers.current.values()];
+    gesture.current = {
+      x: points[0]?.x ?? 0,
+      y: points[0]?.y ?? 0,
+      horizontal,
+      vertical,
+      zoom,
+      distance:
+        points.length > 1 ? Math.hypot(points[0].x - points[1].x, points[0].y - points[1].y) : 0,
+    };
+  }
+  function movePhoto(event: PointerEvent<HTMLCanvasElement>) {
+    if (!bitmap || busy || !pointers.current.has(event.pointerId)) return;
+    pointers.current.set(event.pointerId, { x: event.clientX, y: event.clientY });
+    const points = [...pointers.current.values()];
+    const initial = gesture.current;
+    if (points.length > 1 && initial.distance > 0) {
+      setZoom(
+        Math.max(
+          1,
+          Math.min(
+            3,
+            (initial.zoom * Math.hypot(points[0].x - points[1].x, points[0].y - points[1].y)) /
+              initial.distance,
+          ),
+        ),
+      );
+      return;
+    }
+    const side = Math.min(bitmap.width, bitmap.height) / initial.zoom;
+    const width = event.currentTarget.getBoundingClientRect().width;
+    const horizontalRange = bitmap.width - side;
+    const verticalRange = bitmap.height - side;
+    if (horizontalRange > 0)
+      setHorizontal(
+        Math.max(
+          -1,
+          Math.min(
+            1,
+            initial.horizontal -
+              ((event.clientX - initial.x) * side * 2) / (width * horizontalRange),
+          ),
+        ),
+      );
+    if (verticalRange > 0)
+      setVertical(
+        Math.max(
+          -1,
+          Math.min(
+            1,
+            initial.vertical - ((event.clientY - initial.y) * side * 2) / (width * verticalRange),
+          ),
+        ),
+      );
+  }
 
   useEffect(() => () => operationRef.current?.abort(), []);
   useEffect(() => () => bitmap?.close(), [bitmap]);
@@ -74,6 +135,11 @@ export function ProfilePhotoEditor({
     const file = event.currentTarget.files?.[0];
     event.currentTarget.value = "";
     if (!file) return;
+    await preparePhoto(file);
+  }
+
+  async function preparePhoto(file: File) {
+    pointers.current.clear();
     operationRef.current?.abort();
     const operation = new AbortController();
     operationRef.current = operation;
@@ -95,6 +161,30 @@ export function ProfilePhotoEditor({
       if (!operation.signal.aborted) showError(error);
     } finally {
       if (!operation.signal.aborted) setBusy(null);
+    }
+  }
+
+  async function cropCurrent() {
+    if (!image || busy) return;
+    const operation = new AbortController();
+    operationRef.current?.abort();
+    operationRef.current = operation;
+    setBusy("opening");
+    setFeedback("");
+    try {
+      const response = await fetch(image, {
+        cache: "no-store",
+        credentials: "same-origin",
+        signal: operation.signal,
+      });
+      if (!response.ok) throw new Error("Photo unavailable");
+      const blob = await response.blob();
+      if (operation.signal.aborted) return;
+      await preparePhoto(new File([blob], "profile.webp", { type: blob.type }));
+    } catch (error) {
+      if (!operation.signal.aborted) showError(error);
+    } finally {
+      if (operationRef.current === operation) setBusy(null);
     }
   }
 
@@ -144,15 +234,25 @@ export function ProfilePhotoEditor({
           {busy === "opening" ? "Opening photo…" : hasPhoto ? "Change photo" : "Add photo"}
         </button>
         {hasPhoto && !bitmap ? (
-          <button
-            className="profile-photo-editor__remove"
-            disabled={Boolean(busy)}
-            onClick={() => void remove()}
-            type="button"
-          >
-            <Trash2 aria-hidden="true" size={14} />
-            {busy === "removing" ? "Removing…" : "Remove"}
-          </button>
+          <>
+            <button
+              disabled={Boolean(busy) || !image}
+              onClick={() => void cropCurrent()}
+              type="button"
+            >
+              <Crop aria-hidden="true" size={15} />
+              Crop photo
+            </button>
+            <button
+              className="profile-photo-editor__remove"
+              disabled={Boolean(busy)}
+              onClick={() => void remove()}
+              type="button"
+            >
+              <Trash2 aria-hidden="true" size={14} />
+              {busy === "removing" ? "Removing…" : "Remove"}
+            </button>
+          </>
         ) : null}
         <input
           accept="image/jpeg,image/png,image/webp"
@@ -170,16 +270,40 @@ export function ProfilePhotoEditor({
       </p>
       {bitmap ? (
         <fieldset className="profile-photo-crop">
-          <legend className="sr-only">Adjust your photo</legend>
-          <canvas
-            aria-label="Preview of your profile photo"
-            className="profile-photo-crop__preview"
-            height={512}
-            ref={canvasRef}
-            role="img"
-            width={512}
-          />
+          <legend>Crop your photo</legend>
+          <div className="profile-photo-crop__frame">
+            <canvas
+              aria-label="Preview of your profile photo"
+              className="profile-photo-crop__preview"
+              height={512}
+              ref={canvasRef}
+              role="img"
+              width={512}
+              onPointerDown={(event) => {
+                if (busy) return;
+                event.currentTarget.setPointerCapture(event.pointerId);
+                pointers.current.set(event.pointerId, { x: event.clientX, y: event.clientY });
+                beginGesture();
+              }}
+              onPointerMove={movePhoto}
+              onPointerUp={(event) => {
+                pointers.current.delete(event.pointerId);
+                if (event.currentTarget.hasPointerCapture(event.pointerId))
+                  event.currentTarget.releasePointerCapture(event.pointerId);
+                beginGesture();
+              }}
+              onPointerCancel={(event) => {
+                pointers.current.delete(event.pointerId);
+                beginGesture();
+              }}
+            />
+            <span aria-hidden="true" className="profile-photo-crop__guide" />
+          </div>
           <div className="profile-photo-crop__controls">
+            <p>
+              Drag to position your photo. Pinch or use the slider to zoom. The circle shows your
+              profile picture.
+            </p>
             <label htmlFor={`${id}-zoom`}>Zoom</label>
             <input
               disabled={Boolean(busy)}
@@ -214,6 +338,18 @@ export function ProfilePhotoEditor({
               value={vertical}
             />
             <div className="profile-photo-editor__actions">
+              <button
+                disabled={Boolean(busy)}
+                onClick={() => {
+                  setZoom(1);
+                  setHorizontal(0);
+                  setVertical(0);
+                }}
+                type="button"
+              >
+                <RotateCcw aria-hidden="true" size={14} />
+                Reset crop
+              </button>
               <button
                 disabled={Boolean(busy) || !cropReady}
                 onClick={() => void save()}

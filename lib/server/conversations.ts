@@ -1,8 +1,14 @@
 import "server-only";
 
-import { and, eq, inArray, sql } from "drizzle-orm";
+import { and, eq, exists, inArray, isNotNull, or, sql } from "drizzle-orm";
 import type { getDatabase } from "@/lib/server/database";
-import { conversationMembers, conversations, authUser, profilePhotos } from "@/lib/server/schema";
+import {
+  conversationMembers,
+  conversations,
+  authUser,
+  messageEnvelopes,
+  profilePhotos,
+} from "@/lib/server/schema";
 import { profilePhotoUrl } from "@/lib/profile/photos";
 import type { ConversationSummary, Person } from "@/lib/messaging/people";
 
@@ -72,6 +78,18 @@ export async function startDirectConversation(
       ])
       .onConflictDoNothing();
 
+    // Starting an existing chat is an explicit action by this person too.
+    // Do not change the other member's visibility or create a duplicate chat.
+    await tx
+      .update(conversationMembers)
+      .set({ initiatedAt: sql`coalesce(${conversationMembers.initiatedAt}, now())` })
+      .where(
+        and(
+          eq(conversationMembers.conversationId, conversationId),
+          eq(conversationMembers.userId, userId),
+        ),
+      );
+
     return conversationId;
   });
 }
@@ -97,12 +115,20 @@ export async function listConversationsForUser(
     .from(conversationMembers)
     .innerJoin(conversations, eq(conversations.id, conversationMembers.conversationId))
     .where(
-      conversationIds
-        ? and(
-            eq(conversationMembers.userId, userId),
-            inArray(conversationMembers.conversationId, conversationIds),
-          )
-        : eq(conversationMembers.userId, userId),
+      and(
+        eq(conversationMembers.userId, userId),
+        or(
+          eq(conversations.createdBy, userId),
+          isNotNull(conversationMembers.initiatedAt),
+          exists(
+            db
+              .select({ id: messageEnvelopes.id })
+              .from(messageEnvelopes)
+              .where(eq(messageEnvelopes.conversationId, conversations.id)),
+          ),
+        ),
+        conversationIds ? inArray(conversationMembers.conversationId, conversationIds) : undefined,
+      ),
     );
   if (memberships.length === 0) return [];
 
@@ -148,7 +174,10 @@ export async function listConversationsForUser(
         members: members
           .filter((member) => member.conversationId === id)
           .map(({ id: memberId, name, email, photoVersion }) => ({
-            id: memberId, name, email, image: photoVersion ? profilePhotoUrl(memberId, photoVersion) : null,
+            id: memberId,
+            name,
+            email,
+            image: photoVersion ? profilePhotoUrl(memberId, photoVersion) : null,
           })),
         lastMessage: last
           ? {

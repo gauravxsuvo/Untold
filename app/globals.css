@@ -12,7 +12,7 @@
   --green-soft: var(--ui-accent-wash);
   --gold: var(--ui-warm-ink);
   --page-width: 1240px;
-  --font-body: -apple-system, BlinkMacSystemFont, "Segoe UI", "Helvetica Neue", sans-serif;
+  --font-body: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Noto Sans", "Helvetica Neue", sans-serif;
 }
 
 * {
@@ -110,7 +110,7 @@ button {
 }
 
 .wordmark__name {
-  font-size: 23px;
+  font-size: calc(23px * var(--text-scale, 1));
   font-weight: 650;
   letter-spacing: -1.6px;
   line-height: 1;
@@ -127,7 +127,7 @@ button {
   align-items: center;
   gap: clamp(22px, 3.7vw, 52px);
   color: var(--ui-muted);
-  font-size: 13px;
+  font-size: calc(13px * var(--text-scale, 1));
   font-weight: 550;
 }
 
@@ -179,7 +179,7 @@ button {
   gap: 9px;
   margin: 0;
   color: var(--green);
-  font-size: 10px;
+  font-size: calc(12px * var(--text-scale, 1));
   font-weight: 700;
   letter-spacing: 1.35px;
   line-height: 1.5;
@@ -220,7 +220,7 @@ button {
   max-width: 470px;
   margin: 0;
   color: var(--ui-muted);
-  font-size: 16px;
+  font-size: calc(16px * var(--text-scale, 1));
   line-height: 1.8;
 }
 
@@ -241,7 +241,7 @@ button {
   padding: 0 19px;
   border: 1px solid transparent;
   border-radius: 5px;
-  font-size: 13px;
+  font-size: calc(13px * var(--text-scale, 1));
   font-weight: 620;
 }
 
@@ -267,7 +267,7 @@ button {
   align-items: center;
   gap: 11px;
   color: var(--ui-text);
-  font-size: 13px;
+  font-size: calc(13px * var(--text-scale, 1));
   font-weight: 570;
 }
 
@@ -281,14 +281,14 @@ button {
   gap: 8px;
   margin: 29px 0 0;
   color: var(--ui-muted);
-  font-size: 11px;
+  font-size: calc(12px * var(--text-scale, 1));
   letter-spacing: 0.1px;
 }
 
 .hero__note svg {
   flex-shrink: 0;
   color: var(--gold);
-  font-size: 14px;
+  font-size: calc(14px * var(--text-scale, 1));
 }
 
 .hero__visual {
@@ -344,7 +344,7 @@ button {
   gap: 8px;
   padding-inline: 7px;
   color: var(--ui-muted);
-  font-size: 10px;
+  font-size: calc(12px * var(--text-scale, 1));
 }
 
 .concept__caption-dot {
@@ -357,7 +357,7 @@ button {
 .concept__caption-note {
   margin-left: auto;
   color: var(--ui-faint);
-  font-size: 9px;
+  font-size: calc(12px * var(--text-scale, 1));
   letter-spacing: 0.65px;
   text-transform: uppercase;
 }
@@ -389,7 +389,7 @@ button {
 
 .mock-sidebar__label {
   color: var(--ui-faint);
-  font-size: 8px;
+  font-size: calc(12px * var(--text-scale, 1));
   font-weight: 700;
   letter-spacing: 1px;
 }
@@ -403,7 +403,7 @@ button {
   border: 1px solid var(--ui-border);
   border-radius: 50%;
   color: var(--ui-accent);
-  font-size: 15px;
+  font-size: calc(15px * var(--text-scale, 1));
 }
 
 .mock-search {
@@ -416,7 +416,7 @@ button {
   border: 1px solid var(--ui-border);
   border-radius: 4px;
   color: var(--ui-faint);
-  font-size: 8px;
+  font-size: calc(12px * var(--text-scale, 1));
 }
 
 .mock-search svg {
@@ -456,7 +456,7 @@ button {
   background: var(--ui-subtle);
   color: var(--ui-accent);
   font-family: Georgia, "Times New Roman", serif;
-  font-size: 13px;
+  font-size: calc(13px * var(--text-scale, 1));
 }
 
 .mock-avatar--m {
@@ -474,7 +474,7 @@ button {
   height: 23px;
   background: var(--ui-accent-wash);
   font-family: var(--font-body);
-  font-size: 9px;
+  font-size: calc(12px * var(--text-scale, 1));
 }
 
 .mock-thread__copy,
@@ -486,14 +486,14 @@ button {
 
 .mock-thread__name {
   color: var(--ui-text);
-  font-size: 9px;
+  font-size: calc(12px * var(--text-scale, 1));
   font-weight: 650;
 }
 
 .mock-thread__detail {
   overflow: hidden;
   color: var(--ui-faint);
-  font-size: 7px;
+  font-size: calc(12px * var(--text-scale, 1));
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -506,12 +506,12 @@ button {
   padding: 10px 3px 0;
   border-top: 1px solid var(--ui-border);
   color: var(--ui-muted);
-  font-size: 8px;
+  font-size: calc(12px * var(--text-scale, 1));
 }
 
 .mock-more {
   margin-left: auto;
-  font-size: 15px;
+  font-size: calc(15px * var(--text-scale, 1));
   letter-spacing: 1px;
 }
 
@@ -538,13 +538,13 @@ button {
 
 .mock-chat__person strong {
   color: var(--ui-text);
-  font-size: 10px;
+  font-size: calc(12px * var(--text-scale, 1));
   font-weight: 650;
 }
 
 .mock-chat__person > span {
   color: var(--ui-faint);
-  font-size: 7px;
+  font-size: calc(12px * var(--text-scale, 1));
 }
 
 .mock-more-button {
@@ -556,7 +556,7 @@ button {
   border: 0;
   background: transparent;
   color: var(--ui-muted);
-  font-size: 17px;
+  font-size: calc(17px * var(--text-scale, 1));
 }
 
 .mock-chat__history {
@@ -572,7 +572,7 @@ button {
   align-self: center;
   margin: 0 0 3px;
   color: var(--ui-faint);
-  font-size: 7px;
+  font-size: calc(12px * var(--text-scale, 1));
   font-weight: 650;
   letter-spacing: 0.8px;
 }
@@ -598,7 +598,7 @@ button {
 
 .mock-message p {
   margin: 0;
-  font-size: 9px;
+  font-size: calc(12px * var(--text-scale, 1));
   line-height: 1.55;
 }
 
@@ -606,7 +606,7 @@ button {
   display: block;
   margin-top: 5px;
   color: var(--ui-faint);
-  font-size: 7px;
+  font-size: calc(12px * var(--text-scale, 1));
   text-align: right;
 }
 
@@ -626,13 +626,13 @@ button {
   border: 1px solid var(--ui-border);
   border-radius: 5px;
   color: var(--ui-faint);
-  font-size: 8px;
+  font-size: calc(12px * var(--text-scale, 1));
 }
 
 .mock-composer__plus {
   width: 22px;
   height: 22px;
-  font-size: 13px;
+  font-size: calc(13px * var(--text-scale, 1));
 }
 
 .mock-composer__send {
@@ -644,13 +644,13 @@ button {
   border-radius: 4px;
   background: var(--green);
   color: var(--ui-on-accent);
-  font-size: 13px;
+  font-size: calc(13px * var(--text-scale, 1));
 }
 
 .concept__disclaimer {
   padding: 10px 4px 0;
   color: var(--ui-faint);
-  font-size: 9px;
+  font-size: calc(12px * var(--text-scale, 1));
   line-height: 1.5;
 }
 
@@ -660,7 +660,7 @@ button {
   margin: 20px 18px 0 0;
   color: var(--ui-muted);
   font-family: Georgia, "Times New Roman", serif;
-  font-size: 15px;
+  font-size: calc(15px * var(--text-scale, 1));
   font-style: italic;
   text-align: right;
 }
@@ -704,7 +704,7 @@ button {
   max-width: 360px;
   margin: 20px 0 0;
   color: var(--ui-on-feature);
-  font-size: 14px;
+  font-size: calc(14px * var(--text-scale, 1));
   line-height: 1.8;
 }
 
@@ -733,14 +733,14 @@ button {
 .privacy-point__mark {
   padding-top: 3px;
   color: var(--ui-feature-muted);
-  font-size: 10px;
+  font-size: calc(12px * var(--text-scale, 1));
   letter-spacing: 0.7px;
 }
 
 .privacy-point h3 {
   margin: 0;
   color: var(--ui-on-feature);
-  font-size: 15px;
+  font-size: calc(15px * var(--text-scale, 1));
   font-weight: 590;
   letter-spacing: -0.2px;
 }
@@ -749,7 +749,7 @@ button {
   max-width: 425px;
   margin: 7px 0 0;
   color: var(--ui-feature-muted);
-  font-size: 12px;
+  font-size: calc(12px * var(--text-scale, 1));
   line-height: 1.7;
 }
 
@@ -780,7 +780,7 @@ button {
   max-width: 320px;
   margin: 0 0 6px;
   color: var(--ui-muted);
-  font-size: 13px;
+  font-size: calc(13px * var(--text-scale, 1));
   line-height: 1.8;
 }
 
@@ -802,13 +802,13 @@ button {
   align-self: start;
   padding-top: 4px;
   color: var(--ui-faint);
-  font-size: 10px;
+  font-size: calc(12px * var(--text-scale, 1));
   letter-spacing: 0.7px;
 }
 
 .principle__body h3 {
   margin: 0;
-  font-size: 18px;
+  font-size: calc(18px * var(--text-scale, 1));
   font-weight: 590;
   letter-spacing: -0.4px;
 }
@@ -817,7 +817,7 @@ button {
   max-width: 600px;
   margin: 7px 0 0;
   color: var(--ui-muted);
-  font-size: 12px;
+  font-size: calc(12px * var(--text-scale, 1));
   line-height: 1.7;
 }
 
@@ -827,7 +827,7 @@ button {
   justify-self: end;
   gap: 8px;
   color: var(--ui-muted);
-  font-size: 10px;
+  font-size: calc(12px * var(--text-scale, 1));
   white-space: nowrap;
 }
 
@@ -887,7 +887,7 @@ button {
   z-index: 1;
   margin: 13px 0 20px;
   color: var(--ui-on-feature);
-  font-size: 12px;
+  font-size: calc(12px * var(--text-scale, 1));
   line-height: 1.7;
 }
 
@@ -898,7 +898,7 @@ button {
   padding-inline: 15px;
   background: var(--ui-subtle);
   color: var(--ui-accent);
-  font-size: 11px;
+  font-size: calc(12px * var(--text-scale, 1));
 }
 
 .button--light:hover {
@@ -950,21 +950,21 @@ button {
 }
 
 .site-footer .wordmark__name {
-  font-size: 19px;
+  font-size: calc(19px * var(--text-scale, 1));
 }
 
 .site-footer p {
   margin: 0;
   color: var(--ui-muted);
   font-family: Georgia, "Times New Roman", serif;
-  font-size: 14px;
+  font-size: calc(14px * var(--text-scale, 1));
   font-style: italic;
 }
 
 .site-footer > span {
   max-width: 345px;
   color: var(--ui-muted);
-  font-size: 10px;
+  font-size: calc(12px * var(--text-scale, 1));
   line-height: 1.55;
   text-align: right;
 }
@@ -1009,7 +1009,7 @@ button {
 
   .site-nav {
     gap: 20px;
-    font-size: 12px;
+    font-size: calc(12px * var(--text-scale, 1));
   }
 
   .site-nav__cta {
@@ -1118,7 +1118,7 @@ button {
   }
 
   .wordmark__name {
-    font-size: 21px;
+    font-size: calc(21px * var(--text-scale, 1));
   }
 
   .site-nav {
@@ -1130,7 +1130,7 @@ button {
     margin-top: 14px;
     padding-block: 12px;
     border-top: 1px solid var(--ui-border);
-    font-size: 10px;
+    font-size: calc(12px * var(--text-scale, 1));
   }
 
   .site-nav__cta {
@@ -1138,7 +1138,7 @@ button {
     min-height: 32px;
     gap: 6px;
     padding-inline: 9px;
-    font-size: 9px;
+    font-size: calc(12px * var(--text-scale, 1));
   }
 
   .hero {
@@ -1146,7 +1146,7 @@ button {
   }
 
   .eyebrow {
-    font-size: 9px;
+    font-size: calc(12px * var(--text-scale, 1));
     letter-spacing: 1px;
   }
 
@@ -1162,7 +1162,7 @@ button {
   }
 
   .hero__description {
-    font-size: 14px;
+    font-size: calc(14px * var(--text-scale, 1));
     line-height: 1.75;
   }
 
@@ -1175,7 +1175,7 @@ button {
 
   .hero__note {
     align-items: flex-start;
-    font-size: 10px;
+    font-size: calc(12px * var(--text-scale, 1));
   }
 
   .hero__visual {
@@ -1192,11 +1192,11 @@ button {
 
   .concept__caption {
     min-height: 30px;
-    font-size: 8px;
+    font-size: calc(12px * var(--text-scale, 1));
   }
 
   .concept__caption-note {
-    font-size: 7px;
+    font-size: calc(12px * var(--text-scale, 1));
   }
 
   .mock-app {
@@ -1209,14 +1209,14 @@ button {
   }
 
   .mock-sidebar__label {
-    font-size: 6px;
+    font-size: calc(12px * var(--text-scale, 1));
     letter-spacing: 0.6px;
   }
 
   .mock-add {
     width: 18px;
     height: 18px;
-    font-size: 12px;
+    font-size: calc(12px * var(--text-scale, 1));
   }
 
   .mock-search {
@@ -1224,7 +1224,7 @@ button {
     gap: 4px;
     margin-top: 13px;
     padding-inline: 5px;
-    font-size: 6px;
+    font-size: calc(12px * var(--text-scale, 1));
   }
 
   .mock-search svg {
@@ -1240,26 +1240,26 @@ button {
   .mock-avatar {
     width: 24px;
     height: 24px;
-    font-size: 11px;
+    font-size: calc(12px * var(--text-scale, 1));
   }
 
   .mock-thread__name {
-    font-size: 8px;
+    font-size: calc(12px * var(--text-scale, 1));
   }
 
   .mock-thread__detail {
-    font-size: 6px;
+    font-size: calc(12px * var(--text-scale, 1));
   }
 
   .mock-sidebar__foot {
     gap: 4px;
-    font-size: 6px;
+    font-size: calc(12px * var(--text-scale, 1));
   }
 
   .mock-avatar--you {
     width: 19px;
     height: 19px;
-    font-size: 8px;
+    font-size: calc(12px * var(--text-scale, 1));
   }
 
   .mock-chat {
@@ -1277,11 +1277,11 @@ button {
   }
 
   .mock-chat__person strong {
-    font-size: 9px;
+    font-size: calc(12px * var(--text-scale, 1));
   }
 
   .mock-chat__person > span {
-    font-size: 6px;
+    font-size: calc(12px * var(--text-scale, 1));
   }
 
   .mock-chat__history {
@@ -1295,18 +1295,18 @@ button {
   }
 
   .mock-message p {
-    font-size: 7px;
+    font-size: calc(12px * var(--text-scale, 1));
   }
 
   .mock-message > span {
-    font-size: 6px;
+    font-size: calc(12px * var(--text-scale, 1));
   }
 
   .mock-composer {
     height: 33px;
     gap: 5px;
     padding: 4px;
-    font-size: 7px;
+    font-size: calc(12px * var(--text-scale, 1));
   }
 
   .mock-composer__plus {
@@ -1320,12 +1320,12 @@ button {
   }
 
   .concept__disclaimer {
-    font-size: 8px;
+    font-size: calc(12px * var(--text-scale, 1));
   }
 
   .hero__visual-note {
     margin-top: 13px;
-    font-size: 13px;
+    font-size: calc(13px * var(--text-scale, 1));
   }
 
   .hero__orbit--one {
@@ -1349,13 +1349,13 @@ button {
   .privacy h2,
   .building h2,
   .closing h2 {
-    font-size: 38px;
+    font-size: calc(38px * var(--text-scale, 1));
     letter-spacing: -1.9px;
   }
 
   .privacy__lead {
     margin-top: 14px;
-    font-size: 13px;
+    font-size: calc(13px * var(--text-scale, 1));
   }
 
   .privacy-point {
@@ -1365,11 +1365,11 @@ button {
   }
 
   .privacy-point h3 {
-    font-size: 14px;
+    font-size: calc(14px * var(--text-scale, 1));
   }
 
   .privacy-point p {
-    font-size: 11px;
+    font-size: calc(12px * var(--text-scale, 1));
   }
 
   .building {
@@ -1377,11 +1377,11 @@ button {
   }
 
   .building h2 {
-    font-size: 39px;
+    font-size: calc(39px * var(--text-scale, 1));
   }
 
   .building__summary {
-    font-size: 12px;
+    font-size: calc(12px * var(--text-scale, 1));
   }
 
   .principle {
@@ -1393,11 +1393,11 @@ button {
   }
 
   .principle__body h3 {
-    font-size: 16px;
+    font-size: calc(16px * var(--text-scale, 1));
   }
 
   .principle__body p {
-    font-size: 11px;
+    font-size: calc(12px * var(--text-scale, 1));
   }
 
   .principle__status {
@@ -1417,12 +1417,12 @@ button {
   }
 
   .closing h2 {
-    font-size: 38px;
+    font-size: calc(38px * var(--text-scale, 1));
   }
 
   .closing__panel > p:not(.eyebrow) {
     max-width: 300px;
-    font-size: 11px;
+    font-size: calc(12px * var(--text-scale, 1));
   }
 
   .site-footer {
@@ -1432,11 +1432,11 @@ button {
   }
 
   .site-footer p {
-    font-size: 12px;
+    font-size: calc(12px * var(--text-scale, 1));
   }
 
   .site-footer > span {
-    font-size: 9px;
+    font-size: calc(12px * var(--text-scale, 1));
   }
 }
 
@@ -1478,7 +1478,7 @@ button {
   border-radius: 4px;
   background: var(--app-ink);
   color: var(--ui-inverse-text);
-  font-size: 13px;
+  font-size: calc(13px * var(--text-scale, 1));
 }
 
 .app-skip-link:focus {
@@ -1508,13 +1508,13 @@ button {
 }
 
 .app-brand .wordmark__name {
-  font-size: 21px;
+  font-size: calc(21px * var(--text-scale, 1));
 }
 
 .app-sidebar__label {
   margin: 49px 12px 12px;
   color: var(--ui-faint);
-  font-size: 10px;
+  font-size: calc(12px * var(--text-scale, 1));
   font-weight: 700;
   letter-spacing: 1.3px;
   text-transform: uppercase;
@@ -1538,7 +1538,7 @@ button {
   padding: 0 12px;
   border-radius: 5px;
   color: var(--ui-muted);
-  font-size: 13px;
+  font-size: calc(13px * var(--text-scale, 1));
   font-weight: 540;
   transition:
     color 150ms ease,
@@ -1582,13 +1582,13 @@ button {
 }
 
 .app-sidebar__foot strong {
-  font-size: 11px;
+  font-size: calc(12px * var(--text-scale, 1));
   font-weight: 630;
 }
 
 .app-sidebar__foot > div small {
   color: var(--app-muted);
-  font-size: 10px;
+  font-size: calc(12px * var(--text-scale, 1));
 }
 
 .app-status-dot {
@@ -1629,7 +1629,7 @@ button {
   justify-content: space-between;
   border-bottom: 1px solid var(--app-line);
   color: var(--ui-muted);
-  font-size: 11px;
+  font-size: calc(12px * var(--text-scale, 1));
   letter-spacing: 0.1px;
 }
 
@@ -1643,7 +1643,7 @@ button {
   border-radius: 99px;
   background: var(--ui-subtle);
   color: var(--ui-warm-ink);
-  font-size: 10px;
+  font-size: calc(12px * var(--text-scale, 1));
   font-weight: 600;
   letter-spacing: 0.1px;
 }
@@ -1663,7 +1663,7 @@ button {
 .app-eyebrow {
   margin: 0 0 13px;
   color: var(--app-accent);
-  font-size: 10px;
+  font-size: calc(12px * var(--text-scale, 1));
   font-weight: 700;
   letter-spacing: 1.25px;
   text-transform: uppercase;
@@ -1681,7 +1681,7 @@ button {
   max-width: 470px;
   margin: 14px 0 0;
   color: var(--app-muted);
-  font-size: 14px;
+  font-size: calc(14px * var(--text-scale, 1));
   line-height: 1.7;
 }
 
@@ -1761,7 +1761,7 @@ button {
 .state-panel__label {
   margin: 0;
   color: var(--ui-muted);
-  font-size: 10px;
+  font-size: calc(12px * var(--text-scale, 1));
   font-weight: 650;
   letter-spacing: 0.85px;
   text-transform: uppercase;
@@ -1782,7 +1782,7 @@ button {
   max-width: 460px;
   margin: 12px 0 0;
   color: var(--app-muted);
-  font-size: 13px;
+  font-size: calc(13px * var(--text-scale, 1));
   line-height: 1.75;
 }
 
@@ -1796,7 +1796,7 @@ button {
   border: 1px solid var(--ui-border);
   border-radius: 4px;
   color: var(--app-accent);
-  font-size: 12px;
+  font-size: calc(12px * var(--text-scale, 1));
   font-weight: 620;
   transition:
     background-color 150ms ease,
@@ -1814,7 +1814,7 @@ button {
   gap: 8px;
   margin: 20px 0 0;
   color: var(--ui-muted);
-  font-size: 10px;
+  font-size: calc(12px * var(--text-scale, 1));
 }
 
 .app-main__footer {
@@ -1825,7 +1825,7 @@ button {
   gap: 20px;
   border-top: 1px solid var(--app-line);
   color: var(--ui-faint);
-  font-size: 10px;
+  font-size: calc(12px * var(--text-scale, 1));
 }
 
 .app-mobile-header,
@@ -1877,7 +1877,7 @@ button {
   background: transparent;
   color: var(--app-accent);
   cursor: pointer;
-  font-size: 12px;
+  font-size: calc(12px * var(--text-scale, 1));
   font-weight: 650;
   text-decoration: underline;
   text-underline-offset: 3px;
@@ -1939,7 +1939,7 @@ button {
   }
 
   .app-mobile-header .wordmark__name {
-    font-size: 19px;
+    font-size: calc(19px * var(--text-scale, 1));
   }
 
   .app-main {
@@ -1956,12 +1956,12 @@ button {
   }
 
   .app-page-heading h1 {
-    font-size: 39px;
+    font-size: calc(39px * var(--text-scale, 1));
   }
 
   .app-page-heading__description {
     max-width: 340px;
-    font-size: 13px;
+    font-size: calc(13px * var(--text-scale, 1));
   }
 
   .state-panel {
@@ -1970,11 +1970,11 @@ button {
   }
 
   .state-panel h2 {
-    font-size: 24px;
+    font-size: calc(24px * var(--text-scale, 1));
   }
 
   .state-panel__description {
-    font-size: 12px;
+    font-size: calc(12px * var(--text-scale, 1));
   }
 
   .app-main__footer {
@@ -1984,7 +1984,7 @@ button {
     justify-content: center;
     gap: 6px;
     padding-block: 16px;
-    font-size: 9px;
+    font-size: calc(12px * var(--text-scale, 1));
   }
 
   .app-navigation--mobile {
@@ -2010,7 +2010,7 @@ button {
     gap: 3px;
     padding: 4px 1px;
     border-radius: 4px;
-    font-size: 9px;
+    font-size: calc(12px * var(--text-scale, 1));
   }
 
   .app-navigation--mobile .app-navigation__link svg {
@@ -2029,7 +2029,7 @@ button {
 
   .app-preview-note {
     align-items: center;
-    font-size: 9px;
+    font-size: calc(12px * var(--text-scale, 1));
   }
 }
 
@@ -2047,7 +2047,7 @@ button {
   }
 
   .app-navigation--mobile .app-navigation__link {
-    font-size: 8px;
+    font-size: calc(12px * var(--text-scale, 1));
   }
 }
 
@@ -2084,7 +2084,7 @@ button {
   color: var(--ui-accent);
   cursor: pointer;
   font: inherit;
-  font-size: 10px;
+  font-size: calc(12px * var(--text-scale, 1));
   font-weight: 650;
   text-align: left;
 }
@@ -2106,7 +2106,7 @@ button {
   color: var(--ui-accent);
   cursor: pointer;
   font: inherit;
-  font-size: 9px;
+  font-size: calc(12px * var(--text-scale, 1));
 }
 
 .auth-page {
@@ -2137,7 +2137,7 @@ button {
 }
 
 .auth-page__header .wordmark__name {
-  font-size: 21px;
+  font-size: calc(21px * var(--text-scale, 1));
 }
 
 .auth-preview-badge {
@@ -2150,7 +2150,7 @@ button {
   border-radius: 99px;
   background: var(--ui-subtle);
   color: var(--ui-warm-ink);
-  font-size: 10px;
+  font-size: calc(12px * var(--text-scale, 1));
   font-weight: 600;
 }
 
@@ -2185,7 +2185,7 @@ button {
 .auth-kicker {
   margin: 0 0 13px;
   color: var(--auth-accent, var(--ui-accent));
-  font-size: 10px;
+  font-size: calc(12px * var(--text-scale, 1));
   font-weight: 720;
   letter-spacing: 1.15px;
   text-transform: uppercase;
@@ -2203,7 +2203,7 @@ button {
 .auth-card__intro {
   margin: 15px 0 25px;
   color: var(--auth-muted);
-  font-size: 13px;
+  font-size: calc(13px * var(--text-scale, 1));
   line-height: 1.7;
 }
 
@@ -2214,7 +2214,7 @@ button {
   border-radius: 4px;
   background: var(--ui-subtle);
   color: var(--ui-accent);
-  font-size: 12px;
+  font-size: calc(12px * var(--text-scale, 1));
   line-height: 1.55;
 }
 
@@ -2230,7 +2230,7 @@ button {
 
 .auth-field > label {
   color: var(--ui-text);
-  font-size: 11px;
+  font-size: calc(12px * var(--text-scale, 1));
   font-weight: 650;
 }
 
@@ -2243,7 +2243,7 @@ button {
   background: var(--ui-surface);
   color: var(--auth-ink);
   font: inherit;
-  font-size: 13px;
+  font-size: calc(13px * var(--text-scale, 1));
   transition:
     border-color 140ms ease,
     box-shadow 140ms ease;
@@ -2282,14 +2282,14 @@ button {
   color: var(--auth-accent);
   cursor: pointer;
   font: inherit;
-  font-size: 10px;
+  font-size: calc(12px * var(--text-scale, 1));
   font-weight: 650;
 }
 
 .auth-field__hint,
 .auth-field__error {
   color: var(--auth-muted);
-  font-size: 10px;
+  font-size: calc(12px * var(--text-scale, 1));
   line-height: 1.5;
 }
 
@@ -2304,7 +2304,7 @@ button {
   gap: 14px;
   margin-top: -3px;
   color: var(--auth-muted);
-  font-size: 10px;
+  font-size: calc(12px * var(--text-scale, 1));
 }
 
 .auth-form__utility a,
@@ -2333,7 +2333,7 @@ button {
   border-radius: 4px;
   cursor: pointer;
   font: inherit;
-  font-size: 12px;
+  font-size: calc(12px * var(--text-scale, 1));
   font-weight: 650;
 }
 
@@ -2352,7 +2352,7 @@ button {
   min-height: 0;
   margin: -8px 0 0;
   color: var(--ui-accent);
-  font-size: 11px;
+  font-size: calc(12px * var(--text-scale, 1));
   line-height: 1.5;
 }
 
@@ -2369,7 +2369,7 @@ button {
   gap: 12px;
   margin: 19px 0;
   color: var(--ui-faint);
-  font-size: 10px;
+  font-size: calc(12px * var(--text-scale, 1));
 }
 
 .auth-divider::before,
@@ -2394,7 +2394,7 @@ button {
 .auth-demo-note {
   margin: 9px 0 0;
   color: var(--auth-muted);
-  font-size: 9px;
+  font-size: calc(12px * var(--text-scale, 1));
   line-height: 1.55;
   text-align: center;
 }
@@ -2404,7 +2404,7 @@ button {
   padding-top: 17px;
   border-top: 1px solid var(--auth-line);
   color: var(--auth-muted);
-  font-size: 11px;
+  font-size: calc(12px * var(--text-scale, 1));
   text-align: center;
 }
 
@@ -2424,12 +2424,12 @@ button {
   border-radius: 50%;
   background: var(--ui-subtle);
   color: var(--ui-accent);
-  font-size: 18px;
+  font-size: calc(18px * var(--text-scale, 1));
 }
 
 .auth-side-note h2 {
   margin: 0 0 18px;
-  font-size: 25px;
+  font-size: calc(25px * var(--text-scale, 1));
   font-weight: 540;
   letter-spacing: -0.65px;
   line-height: 1.2;
@@ -2441,7 +2441,7 @@ button {
   margin: 0 0 24px;
   padding: 0;
   color: var(--ui-muted);
-  font-size: 12px;
+  font-size: calc(12px * var(--text-scale, 1));
   line-height: 1.6;
   list-style: none;
 }
@@ -2466,7 +2466,7 @@ button {
   display: inline-flex;
   align-items: center;
   gap: 7px;
-  font-size: 11px;
+  font-size: calc(12px * var(--text-scale, 1));
 }
 
 .auth-page__footer {
@@ -2477,7 +2477,7 @@ button {
   gap: 18px;
   border-top: 1px solid var(--auth-line);
   color: var(--ui-faint);
-  font-size: 10px;
+  font-size: calc(12px * var(--text-scale, 1));
 }
 
 .recovery-page__intro {
@@ -2493,7 +2493,7 @@ button {
   max-width: 640px;
   margin: 17px 0 0;
   color: var(--auth-muted);
-  font-size: 14px;
+  font-size: calc(14px * var(--text-scale, 1));
   line-height: 1.75;
 }
 
@@ -2515,7 +2515,7 @@ button {
 
 .recovery-option__number {
   color: var(--ui-faint);
-  font-size: 10px;
+  font-size: calc(12px * var(--text-scale, 1));
   font-weight: 700;
   letter-spacing: 0.8px;
 }
@@ -2523,7 +2523,7 @@ button {
 .recovery-option__label {
   margin: 25px 0 8px;
   color: var(--ui-muted);
-  font-size: 9px;
+  font-size: calc(12px * var(--text-scale, 1));
   font-weight: 700;
   letter-spacing: 1px;
   text-transform: uppercase;
@@ -2531,7 +2531,7 @@ button {
 
 .recovery-option h2 {
   margin: 0;
-  font-size: 17px;
+  font-size: calc(17px * var(--text-scale, 1));
   font-weight: 620;
   letter-spacing: -0.4px;
 }
@@ -2539,7 +2539,7 @@ button {
 .recovery-option > p:last-child {
   margin: 11px 0 0;
   color: var(--ui-muted);
-  font-size: 11px;
+  font-size: calc(12px * var(--text-scale, 1));
   line-height: 1.7;
 }
 
@@ -2554,7 +2554,7 @@ button {
 
 .recovery-key-note h2 {
   margin: 0;
-  font-size: 22px;
+  font-size: calc(22px * var(--text-scale, 1));
   font-weight: 560;
   letter-spacing: -0.6px;
 }
@@ -2563,7 +2563,7 @@ button {
   max-width: 770px;
   margin: 11px 0 0;
   color: var(--ui-muted);
-  font-size: 12px;
+  font-size: calc(12px * var(--text-scale, 1));
   line-height: 1.75;
 }
 
@@ -2571,7 +2571,7 @@ button {
   width: min(100%, 1000px);
   margin: 17px auto 31px;
   color: var(--ui-muted);
-  font-size: 10px;
+  font-size: calc(12px * var(--text-scale, 1));
   line-height: 1.6;
 }
 
@@ -2604,12 +2604,12 @@ button {
   border-radius: 50%;
   background: var(--ui-subtle);
   color: var(--ui-accent);
-  font-size: 17px;
+  font-size: calc(17px * var(--text-scale, 1));
 }
 
 .onboarding-session-card h2 {
   margin: 0;
-  font-size: 19px;
+  font-size: calc(19px * var(--text-scale, 1));
   font-weight: 600;
   letter-spacing: -0.4px;
 }
@@ -2617,7 +2617,7 @@ button {
 .onboarding-session-card__icon + div > p:last-child {
   margin: 5px 0 0;
   color: var(--ui-muted);
-  font-size: 11px;
+  font-size: calc(12px * var(--text-scale, 1));
   line-height: 1.5;
 }
 
@@ -2628,7 +2628,7 @@ button {
   border-radius: 99px;
   background: var(--ui-subtle);
   color: var(--ui-warm-ink);
-  font-size: 9px;
+  font-size: calc(12px * var(--text-scale, 1));
   font-weight: 650;
   white-space: nowrap;
 }
@@ -2643,7 +2643,7 @@ button {
 
 .onboarding-steps__heading h2 {
   margin: 0;
-  font-size: 22px;
+  font-size: calc(22px * var(--text-scale, 1));
   font-weight: 560;
   letter-spacing: -0.6px;
 }
@@ -2664,14 +2664,14 @@ button {
 
 .onboarding-step__number {
   color: var(--ui-faint);
-  font-size: 10px;
+  font-size: calc(12px * var(--text-scale, 1));
   font-weight: 720;
   letter-spacing: 0.7px;
 }
 
 .onboarding-step h3 {
   margin: 22px 0 8px;
-  font-size: 14px;
+  font-size: calc(14px * var(--text-scale, 1));
   font-weight: 650;
   letter-spacing: -0.2px;
 }
@@ -2679,7 +2679,7 @@ button {
 .onboarding-step p {
   margin: 0;
   color: var(--ui-muted);
-  font-size: 10px;
+  font-size: calc(12px * var(--text-scale, 1));
   line-height: 1.7;
 }
 
@@ -2697,14 +2697,14 @@ button {
 
 .onboarding-recovery-card h2 {
   margin: 0;
-  font-size: 17px;
+  font-size: calc(17px * var(--text-scale, 1));
   font-weight: 620;
 }
 
 .onboarding-recovery-card > div > p:last-child {
   margin: 6px 0 0;
   color: var(--app-muted);
-  font-size: 10px;
+  font-size: calc(12px * var(--text-scale, 1));
   line-height: 1.5;
 }
 
@@ -2715,7 +2715,7 @@ button {
   align-items: center;
   gap: 8px;
   color: var(--ui-accent);
-  font-size: 11px;
+  font-size: calc(12px * var(--text-scale, 1));
   font-weight: 650;
   white-space: nowrap;
 }
@@ -2751,7 +2751,7 @@ button {
 .profile-preview-footnote {
   margin: 19px 0 0;
   color: var(--ui-muted);
-  font-size: 10px;
+  font-size: calc(12px * var(--text-scale, 1));
   line-height: 1.6;
 }
 
@@ -2775,13 +2775,13 @@ button {
   border-radius: 50%;
   background: var(--ui-subtle);
   color: var(--ui-accent);
-  font-size: 16px;
+  font-size: calc(16px * var(--text-scale, 1));
   font-weight: 650;
 }
 
 .profile-preview-card h2 {
   margin: 0;
-  font-size: 22px;
+  font-size: calc(22px * var(--text-scale, 1));
   font-weight: 600;
   letter-spacing: -0.55px;
 }
@@ -2789,7 +2789,7 @@ button {
 .profile-preview-card__details > p:not(.messaging-kicker) {
   margin: 5px 0 0;
   color: var(--ui-muted);
-  font-size: 11px;
+  font-size: calc(12px * var(--text-scale, 1));
 }
 
 .profile-preview-card__status {
@@ -2800,7 +2800,7 @@ button {
   border-radius: 99px;
   background: var(--ui-subtle);
   color: var(--ui-warm-ink);
-  font-size: 9px;
+  font-size: calc(12px * var(--text-scale, 1));
   font-weight: 650;
 }
 
@@ -2810,7 +2810,7 @@ button {
   padding-top: 15px;
   border-top: 1px solid var(--app-line);
   color: var(--app-muted);
-  font-size: 10px;
+  font-size: calc(12px * var(--text-scale, 1));
   line-height: 1.6;
 }
 
@@ -2826,7 +2826,7 @@ button {
 .profile-preview-card--empty > p:not(.messaging-kicker) {
   margin: 0 0 18px;
   color: var(--app-muted);
-  font-size: 12px;
+  font-size: calc(12px * var(--text-scale, 1));
   line-height: 1.6;
 }
 
@@ -2851,7 +2851,7 @@ button {
 
 .account-settings-preview h2 {
   margin: 0;
-  font-size: 14px;
+  font-size: calc(14px * var(--text-scale, 1));
   font-weight: 620;
 }
 
@@ -2859,7 +2859,7 @@ button {
   max-width: 480px;
   margin: 5px 0 0;
   color: var(--app-muted);
-  font-size: 10px;
+  font-size: calc(12px * var(--text-scale, 1));
   line-height: 1.55;
 }
 
@@ -2867,7 +2867,7 @@ button {
 .account-settings-preview__status {
   flex: 0 0 auto;
   color: var(--ui-accent);
-  font-size: 10px;
+  font-size: calc(12px * var(--text-scale, 1));
   font-weight: 650;
 }
 
@@ -2886,7 +2886,7 @@ button {
 .account-settings-preview__note {
   margin: 14px 0 0;
   color: var(--app-muted);
-  font-size: 10px;
+  font-size: calc(12px * var(--text-scale, 1));
   line-height: 1.6;
 }
 
@@ -2912,7 +2912,7 @@ button {
   }
 
   .auth-side-note h2 {
-    font-size: 21px;
+    font-size: calc(21px * var(--text-scale, 1));
   }
 
   .auth-side-note ul {
@@ -2961,7 +2961,7 @@ button {
 
   .auth-card h1,
   .recovery-page__intro h1 {
-    font-size: 33px;
+    font-size: calc(33px * var(--text-scale, 1));
   }
 
   .auth-side-note ul {
@@ -2970,7 +2970,7 @@ button {
 
   .auth-page__footer {
     min-height: 58px;
-    font-size: 9px;
+    font-size: calc(12px * var(--text-scale, 1));
   }
 
   .recovery-page__intro {
@@ -2990,7 +2990,7 @@ button {
   }
 
   .recovery-key-note h2 {
-    font-size: 19px;
+    font-size: calc(19px * var(--text-scale, 1));
   }
 
   .onboarding-session-card {
@@ -3048,7 +3048,7 @@ button {
 .messaging-kicker {
   margin: 0;
   color: var(--ui-muted);
-  font-size: 9px;
+  font-size: calc(12px * var(--text-scale, 1));
   font-weight: 700;
   letter-spacing: 1.05px;
   line-height: 1.5;
@@ -3100,7 +3100,7 @@ button {
 
 .conversation-list-panel__header h2 {
   margin: 0;
-  font-size: 19px;
+  font-size: calc(19px * var(--text-scale, 1));
   font-weight: 560;
   letter-spacing: -0.7px;
 }
@@ -3113,7 +3113,7 @@ button {
   border-radius: 50%;
   background: var(--ui-subtle);
   color: var(--ui-muted);
-  font-size: 10px;
+  font-size: calc(12px * var(--text-scale, 1));
   font-weight: 650;
 }
 
@@ -3147,7 +3147,7 @@ button {
   outline: 0;
   background: transparent;
   color: var(--app-ink);
-  font-size: 11px;
+  font-size: calc(12px * var(--text-scale, 1));
 }
 
 .conversation-search input::placeholder {
@@ -3194,7 +3194,7 @@ button {
   align-items: center;
   justify-content: center;
   border-radius: 50%;
-  font-size: 11px;
+  font-size: calc(12px * var(--text-scale, 1));
   font-weight: 650;
   letter-spacing: 0.1px;
 }
@@ -3207,7 +3207,7 @@ button {
   align-items: center;
   justify-content: center;
   border-radius: 50%;
-  font-size: 11px;
+  font-size: calc(12px * var(--text-scale, 1));
   font-weight: 650;
 }
 
@@ -3232,7 +3232,7 @@ button {
 .contact-avatar--large {
   width: 43px;
   height: 43px;
-  font-size: 12px;
+  font-size: calc(12px * var(--text-scale, 1));
 }
 
 .conversation-row__body {
@@ -3252,7 +3252,7 @@ button {
 .conversation-row__topline strong,
 .inbox-conversation__topline strong {
   overflow: hidden;
-  font-size: 11px;
+  font-size: calc(12px * var(--text-scale, 1));
   font-weight: 640;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -3262,14 +3262,14 @@ button {
 .inbox-conversation__topline time {
   flex: 0 0 auto;
   color: var(--ui-faint);
-  font-size: 9px;
+  font-size: calc(12px * var(--text-scale, 1));
 }
 
 .conversation-row__preview {
   display: block;
   overflow: hidden;
   color: var(--ui-muted);
-  font-size: 10px;
+  font-size: calc(12px * var(--text-scale, 1));
   line-height: 1.45;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -3280,7 +3280,7 @@ button {
   padding-top: 12px;
   border-top: 1px solid var(--app-line);
   color: var(--ui-faint);
-  font-size: 9px;
+  font-size: calc(12px * var(--text-scale, 1));
 }
 
 .conversation-list__empty,
@@ -3298,14 +3298,14 @@ button {
 
 .conversation-list__empty strong {
   color: var(--ui-text);
-  font-size: 12px;
+  font-size: calc(12px * var(--text-scale, 1));
   font-weight: 620;
 }
 
 .conversation-list__empty span,
 .message-history__empty p {
   margin: 0;
-  font-size: 11px;
+  font-size: calc(12px * var(--text-scale, 1));
   line-height: 1.6;
 }
 
@@ -3340,7 +3340,7 @@ button {
 
 .conversation-header__person h2 {
   margin: 3px 0 0;
-  font-size: 15px;
+  font-size: calc(15px * var(--text-scale, 1));
   font-weight: 620;
   letter-spacing: -0.35px;
 }
@@ -3363,7 +3363,7 @@ button {
   border-radius: 4px;
   color: var(--ui-muted);
   cursor: pointer;
-  font-size: 10px;
+  font-size: calc(12px * var(--text-scale, 1));
   font-weight: 600;
   list-style: none;
 }
@@ -3376,7 +3376,7 @@ button {
   margin-left: 8px;
   color: var(--ui-faint);
   content: "+";
-  font-size: 13px;
+  font-size: calc(13px * var(--text-scale, 1));
 }
 
 .conversation-details[open] summary::after {
@@ -3397,7 +3397,7 @@ button {
 
 .conversation-details__popover h3 {
   margin: 0 0 13px;
-  font-size: 12px;
+  font-size: calc(12px * var(--text-scale, 1));
   font-weight: 650;
 }
 
@@ -3414,7 +3414,7 @@ button {
 
 .conversation-details__popover dt {
   color: var(--ui-faint);
-  font-size: 9px;
+  font-size: calc(12px * var(--text-scale, 1));
   font-weight: 650;
   letter-spacing: 0.55px;
   text-transform: uppercase;
@@ -3423,7 +3423,7 @@ button {
 .conversation-details__popover dd {
   margin: 0;
   color: var(--ui-text);
-  font-size: 11px;
+  font-size: calc(12px * var(--text-scale, 1));
   line-height: 1.45;
 }
 
@@ -3435,14 +3435,14 @@ button {
   padding: 9px 10px;
   background: var(--ui-subtle);
   color: var(--ui-warm-ink);
-  font-size: 9px;
+  font-size: calc(12px * var(--text-scale, 1));
   line-height: 1.5;
 }
 
 .conversation-disclaimer > span {
   flex: 0 0 auto;
   color: var(--ui-warm-ink);
-  font-size: 8px;
+  font-size: calc(12px * var(--text-scale, 1));
   font-weight: 750;
   letter-spacing: 0.65px;
   text-transform: uppercase;
@@ -3492,7 +3492,7 @@ button {
 .message-bubble > p {
   margin: 0;
   color: var(--ui-text);
-  font-size: 12px;
+  font-size: calc(12px * var(--text-scale, 1));
   line-height: 1.65;
   overflow-wrap: anywhere;
 }
@@ -3528,7 +3528,7 @@ button {
   background: var(--ui-surface-glass);
   color: var(--app-accent);
   cursor: pointer;
-  font-size: 10px;
+  font-size: calc(12px * var(--text-scale, 1));
 }
 
 .message-attachment__details {
@@ -3551,7 +3551,7 @@ button {
   border-radius: 3px;
   background: var(--ui-subtle);
   color: var(--ui-accent);
-  font-size: 14px;
+  font-size: calc(14px * var(--text-scale, 1));
 }
 
 .message-attachment__name {
@@ -3564,7 +3564,7 @@ button {
 .message-attachment__name strong {
   overflow: hidden;
   color: var(--ui-text);
-  font-size: 10px;
+  font-size: calc(12px * var(--text-scale, 1));
   font-weight: 620;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -3572,7 +3572,7 @@ button {
 
 .message-bubble .message-attachment__name small {
   color: var(--ui-muted);
-  font-size: 8px;
+  font-size: calc(12px * var(--text-scale, 1));
 }
 
 .message-attachment__details button,
@@ -3588,7 +3588,7 @@ button {
   background: var(--ui-surface);
   color: var(--ui-accent);
   cursor: pointer;
-  font-size: 9px;
+  font-size: calc(12px * var(--text-scale, 1));
   white-space: nowrap;
 }
 
@@ -3607,13 +3607,13 @@ button {
 .message-attachment__error {
   margin: 0;
   color: var(--ui-danger-ink);
-  font-size: 9px;
+  font-size: calc(12px * var(--text-scale, 1));
   line-height: 1.5;
 }
 
 .message-attachment__caption-note {
   color: var(--ui-muted);
-  font-size: 8px;
+  font-size: calc(12px * var(--text-scale, 1));
   line-height: 1.4;
 }
 
@@ -3623,7 +3623,7 @@ button {
   gap: 8px;
   margin-top: 5px;
   color: var(--ui-faint);
-  font-size: 8px;
+  font-size: calc(12px * var(--text-scale, 1));
 }
 
 .message-bubble__local-status {
@@ -3648,7 +3648,7 @@ button {
   outline: 0;
   background: var(--ui-surface);
   color: var(--app-ink);
-  font-size: 12px;
+  font-size: calc(12px * var(--text-scale, 1));
   line-height: 1.5;
 }
 
@@ -3672,7 +3672,7 @@ button {
   justify-content: space-between;
   gap: 10px;
   color: var(--ui-faint);
-  font-size: 9px;
+  font-size: calc(12px * var(--text-scale, 1));
 }
 
 .message-composer__footer > div {
@@ -3682,7 +3682,7 @@ button {
 
 .message-composer__feedback {
   color: var(--ui-accent);
-  font-size: 9px;
+  font-size: calc(12px * var(--text-scale, 1));
 }
 
 .message-composer__count {
@@ -3701,7 +3701,7 @@ button {
   background: var(--app-accent);
   color: var(--ui-on-accent);
   cursor: pointer;
-  font-size: 10px;
+  font-size: calc(12px * var(--text-scale, 1));
   font-weight: 620;
   transition:
     background-color 140ms ease,
@@ -3743,7 +3743,7 @@ button {
   border-radius: 4px;
   background: var(--ui-subtle);
   color: var(--ui-muted);
-  font-size: 9px;
+  font-size: calc(12px * var(--text-scale, 1));
 }
 
 .message-composer__upload > div:first-child {
@@ -3755,7 +3755,7 @@ button {
 .message-composer__upload strong {
   overflow: hidden;
   color: var(--ui-text);
-  font-size: 10px;
+  font-size: calc(12px * var(--text-scale, 1));
   font-weight: 620;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -3781,13 +3781,13 @@ button {
   background: var(--ui-surface);
   color: var(--ui-accent);
   cursor: pointer;
-  font-size: 9px;
+  font-size: calc(12px * var(--text-scale, 1));
 }
 
 .message-composer__notice {
   margin: 0;
   color: var(--ui-danger-ink);
-  font-size: 9px;
+  font-size: calc(12px * var(--text-scale, 1));
 }
 
 .account-settings-preview .account-device-management {
@@ -3822,13 +3822,13 @@ button {
 
 .account-device-list strong {
   color: var(--ui-text);
-  font-size: 10px;
+  font-size: calc(12px * var(--text-scale, 1));
 }
 
 .account-device-list time,
 .account-device-list__current {
   color: var(--ui-muted);
-  font-size: 9px;
+  font-size: calc(12px * var(--text-scale, 1));
 }
 
 .account-device-list button {
@@ -3839,7 +3839,7 @@ button {
   background: var(--ui-surface);
   color: var(--ui-danger-ink);
   cursor: pointer;
-  font-size: 9px;
+  font-size: calc(12px * var(--text-scale, 1));
   font-weight: 650;
 }
 
@@ -3851,7 +3851,7 @@ button {
 .account-settings-preview article.account-device-management > p:last-child {
   margin: 0;
   color: var(--ui-muted);
-  font-size: 10px;
+  font-size: calc(12px * var(--text-scale, 1));
   line-height: 1.5;
 }
 
@@ -3859,7 +3859,7 @@ button {
   align-items: center;
   justify-content: center;
   color: var(--ui-muted);
-  font-size: 12px;
+  font-size: calc(12px * var(--text-scale, 1));
 }
 
 .conversation-panel--empty p {
@@ -3886,7 +3886,7 @@ button {
 
 .inbox-overview__header h2 {
   margin: 0;
-  font-size: 17px;
+  font-size: calc(17px * var(--text-scale, 1));
   font-weight: 580;
   letter-spacing: -0.55px;
 }
@@ -3900,7 +3900,7 @@ button {
   border: 1px solid var(--ui-border);
   border-radius: 4px;
   color: var(--app-accent);
-  font-size: 10px;
+  font-size: calc(12px * var(--text-scale, 1));
   font-weight: 620;
 }
 
@@ -3945,7 +3945,7 @@ button {
 .inbox-conversation__preview {
   overflow: hidden;
   color: var(--ui-muted);
-  font-size: 11px;
+  font-size: calc(12px * var(--text-scale, 1));
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -3953,14 +3953,14 @@ button {
 .inbox-conversation__arrow {
   flex: 0 0 auto;
   color: var(--ui-muted);
-  font-size: 12px;
+  font-size: calc(12px * var(--text-scale, 1));
 }
 
 .inbox-overview__note {
   margin: 0;
   padding: 13px 22px;
   color: var(--ui-muted);
-  font-size: 10px;
+  font-size: calc(12px * var(--text-scale, 1));
   line-height: 1.6;
 }
 
@@ -3994,19 +3994,19 @@ button {
 }
 
 .contact-directory__identity strong {
-  font-size: 12px;
+  font-size: calc(12px * var(--text-scale, 1));
   font-weight: 630;
 }
 
 .contact-directory__identity > span {
   color: var(--ui-muted);
-  font-size: 10px;
+  font-size: calc(12px * var(--text-scale, 1));
 }
 
 .contact-directory li > a {
   flex: 0 0 auto;
   color: var(--app-accent);
-  font-size: 10px;
+  font-size: calc(12px * var(--text-scale, 1));
   font-weight: 620;
 }
 
@@ -4095,7 +4095,7 @@ button {
     background: transparent;
     color: var(--ui-muted);
     cursor: pointer;
-    font-size: 10px;
+    font-size: calc(12px * var(--text-scale, 1));
     font-weight: 600;
     text-align: left;
   }
@@ -4106,7 +4106,7 @@ button {
   }
 
   .conversation-header__person h2 {
-    font-size: 14px;
+    font-size: calc(14px * var(--text-scale, 1));
   }
 
   .conversation-details summary {
@@ -4116,7 +4116,7 @@ button {
   .conversation-disclaimer {
     align-items: flex-start;
     margin: 10px 10px 0;
-    font-size: 8px;
+    font-size: calc(12px * var(--text-scale, 1));
   }
 
   .message-history {
@@ -4130,7 +4130,7 @@ button {
   }
 
   .message-bubble > p {
-    font-size: 11px;
+    font-size: calc(12px * var(--text-scale, 1));
   }
 
   .message-composer {
@@ -4216,7 +4216,7 @@ button {
   background: var(--app-accent);
   color: var(--ui-on-accent);
   cursor: pointer;
-  font-size: 10px;
+  font-size: calc(12px * var(--text-scale, 1));
   font-weight: 620;
 }
 
@@ -4229,7 +4229,7 @@ button {
   min-height: 14px;
   margin: 0;
   color: var(--ui-accent);
-  font-size: 10px;
+  font-size: calc(12px * var(--text-scale, 1));
   line-height: 1.4;
 }
 
@@ -4253,7 +4253,7 @@ button {
 .messaging-error {
   margin: 0;
   padding: 8px 15px;
-  font-size: 10px;
+  font-size: calc(12px * var(--text-scale, 1));
 }
 
 .contact-directory__start {
@@ -4265,7 +4265,7 @@ button {
   margin: 0;
   padding: 20px;
   color: var(--ui-muted);
-  font-size: 11px;
+  font-size: calc(12px * var(--text-scale, 1));
   line-height: 1.6;
 }
 
@@ -4276,7 +4276,7 @@ button {
   border: 1px solid var(--ui-border);
   background: var(--ui-subtle);
   color: var(--ui-muted);
-  font-size: 10px;
+  font-size: calc(12px * var(--text-scale, 1));
   line-height: 1.55;
 }
 
@@ -4318,7 +4318,7 @@ button {
 .device-safety-list > p {
   margin: 0;
   color: var(--ui-muted);
-  font-size: 10px;
+  font-size: calc(12px * var(--text-scale, 1));
   line-height: 1.55;
 }
 
@@ -4346,13 +4346,13 @@ button {
 
 .device-safety-card__heading strong {
   color: var(--ui-text);
-  font-size: 10px;
+  font-size: calc(12px * var(--text-scale, 1));
 }
 
 .device-safety-card .device-safety-card__heading > span,
 .device-safety-card .device-safety-card__actions > span {
   color: var(--ui-faint);
-  font-size: 9px;
+  font-size: calc(12px * var(--text-scale, 1));
 }
 
 .device-safety-card--changed .device-safety-card__heading > span {
@@ -4364,7 +4364,7 @@ button {
   display: block;
   overflow-wrap: anywhere;
   color: var(--ui-accent);
-  font-size: 10px;
+  font-size: calc(12px * var(--text-scale, 1));
   letter-spacing: 0.45px;
   line-height: 1.6;
   user-select: all;
@@ -4376,7 +4376,7 @@ button {
 
 .device-safety-card__actions button {
   min-height: 25px;
-  font-size: 9px;
+  font-size: calc(12px * var(--text-scale, 1));
 }
 
 .message-bubble__encryption {
@@ -4433,14 +4433,14 @@ button {
 }
 
 .app-brand .wordmark__name {
-  font-size: 21px;
+  font-size: calc(21px * var(--text-scale, 1));
   letter-spacing: -1.2px;
 }
 
 .app-sidebar__label {
   margin: 45px 12px 11px;
   color: var(--ui-faint);
-  font-size: 10px;
+  font-size: calc(12px * var(--text-scale, 1));
   font-weight: 650;
   letter-spacing: 0.08em;
 }
@@ -4455,7 +4455,7 @@ button {
   padding-inline: 12px;
   border-radius: 10px;
   color: var(--ui-muted);
-  font-size: 13px;
+  font-size: calc(13px * var(--text-scale, 1));
   font-weight: 540;
 }
 
@@ -4504,7 +4504,7 @@ button {
   border-radius: 50%;
   background: var(--ui-subtle);
   color: var(--ui-accent);
-  font-size: 11px;
+  font-size: calc(12px * var(--text-scale, 1));
   font-weight: 650;
 }
 
@@ -4518,7 +4518,7 @@ button {
 .app-sidebar__session-copy strong {
   overflow: hidden;
   color: var(--ui-text);
-  font-size: 11px;
+  font-size: calc(12px * var(--text-scale, 1));
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -4526,7 +4526,7 @@ button {
 .app-sidebar__foot > .app-sidebar__session-copy > small {
   overflow: hidden;
   color: var(--ui-muted);
-  font-size: 10px;
+  font-size: calc(12px * var(--text-scale, 1));
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -4542,7 +4542,7 @@ button {
   background: transparent;
   color: var(--ui-muted);
   cursor: pointer;
-  font-size: 10px;
+  font-size: calc(12px * var(--text-scale, 1));
 }
 
 .app-sidebar__session-action:hover {
@@ -4564,7 +4564,7 @@ button {
   min-height: 64px;
   border-bottom-color: var(--ui-border);
   color: var(--ui-muted);
-  font-size: 12px;
+  font-size: calc(12px * var(--text-scale, 1));
 }
 
 .app-topbar__title {
@@ -4580,7 +4580,7 @@ button {
   border-radius: 999px;
   background: var(--ui-subtle);
   color: var(--ui-muted);
-  font-size: 10px;
+  font-size: calc(12px * var(--text-scale, 1));
   font-weight: 570;
 }
 
@@ -4618,7 +4618,7 @@ button {
 .app-eyebrow {
   margin-bottom: 11px;
   color: var(--ui-muted);
-  font-size: 10px;
+  font-size: calc(12px * var(--text-scale, 1));
   font-weight: 650;
   letter-spacing: 0.08em;
 }
@@ -4635,7 +4635,7 @@ button {
   max-width: 560px;
   margin-top: 11px;
   color: var(--ui-muted);
-  font-size: 14px;
+  font-size: calc(14px * var(--text-scale, 1));
   line-height: 1.65;
 }
 
@@ -4644,7 +4644,7 @@ button {
   gap: 24px;
   border-top-color: var(--ui-border);
   color: var(--ui-faint);
-  font-size: 10px;
+  font-size: calc(12px * var(--text-scale, 1));
 }
 
 main.app-main .app-main__footer > span:first-child {
@@ -4663,7 +4663,7 @@ main.app-main .app-main__footer > span:first-child {
 .app-loading-panel p {
   margin: 0;
   color: var(--ui-muted);
-  font-size: 12px;
+  font-size: calc(12px * var(--text-scale, 1));
 }
 
 .app-loading-spinner {
@@ -4702,7 +4702,7 @@ main.app-main .app-main__footer > span:first-child {
   border: 1px solid var(--ui-border);
   border-radius: 10px;
   background: var(--ui-surface);
-  font-size: 12px;
+  font-size: calc(12px * var(--text-scale, 1));
 }
 
 .state-panel__link:hover {
@@ -4727,14 +4727,14 @@ main.app-main .app-main__footer > span:first-child {
 }
 
 .inbox-overview__header h2 {
-  font-size: 16px;
+  font-size: calc(16px * var(--text-scale, 1));
   font-weight: 620;
   letter-spacing: -0.3px;
 }
 
 .app-page .messaging-kicker {
   color: var(--ui-muted);
-  font-size: 9px;
+  font-size: calc(12px * var(--text-scale, 1));
   font-weight: 650;
   letter-spacing: 0.08em;
 }
@@ -4746,7 +4746,7 @@ main.app-main .app-main__footer > span:first-child {
   border: 1px solid var(--ui-border);
   border-radius: 9px;
   color: var(--ui-accent);
-  font-size: 11px;
+  font-size: calc(12px * var(--text-scale, 1));
   transition: background-color 150ms ease, border-color 150ms ease;
 }
 
@@ -4774,7 +4774,7 @@ main.app-main .app-main__footer > span:first-child {
 .inbox-conversation .inbox-conversation__avatar {
   width: 43px;
   height: 43px;
-  font-size: 12px;
+  font-size: calc(12px * var(--text-scale, 1));
   font-weight: 620;
 }
 
@@ -4784,18 +4784,18 @@ main.app-main .app-main__footer > span:first-child {
 
 .inbox-conversation__topline strong {
   color: var(--ui-text);
-  font-size: 12px;
+  font-size: calc(12px * var(--text-scale, 1));
   font-weight: 610;
 }
 
 .inbox-conversation__topline time {
   color: var(--ui-faint);
-  font-size: 10px;
+  font-size: calc(12px * var(--text-scale, 1));
 }
 
 .inbox-conversation__preview {
   color: var(--ui-muted);
-  font-size: 11px;
+  font-size: calc(12px * var(--text-scale, 1));
 }
 
 .inbox-conversation__arrow {
@@ -4812,7 +4812,7 @@ main.app-main .app-main__footer > span:first-child {
 .inbox-overview__note {
   padding: 13px 23px;
   color: var(--ui-muted);
-  font-size: 10px;
+  font-size: calc(12px * var(--text-scale, 1));
 }
 
 .contact-directory__start {
@@ -4849,7 +4849,7 @@ main.app-main .app-main__footer > span:first-child {
 
 .conversation-search input {
   color: var(--ui-text);
-  font-size: 12px;
+  font-size: calc(12px * var(--text-scale, 1));
 }
 
 .start-conversation button {
@@ -4858,7 +4858,7 @@ main.app-main .app-main__footer > span:first-child {
   border: 1px solid var(--ui-accent);
   border-radius: 10px;
   background: var(--ui-accent);
-  font-size: 11px;
+  font-size: calc(12px * var(--text-scale, 1));
   transition: background-color 150ms ease, transform 150ms ease;
 }
 
@@ -4876,13 +4876,13 @@ main.app-main .app-main__footer > span:first-child {
 
 .contact-directory__identity strong {
   color: var(--ui-text);
-  font-size: 12px;
+  font-size: calc(12px * var(--text-scale, 1));
   font-weight: 610;
 }
 
 .contact-directory .contact-directory__identity > span {
   color: var(--ui-muted);
-  font-size: 11px;
+  font-size: calc(12px * var(--text-scale, 1));
 }
 
 .contact-directory li > a {
@@ -4890,7 +4890,7 @@ main.app-main .app-main__footer > span:first-child {
   align-items: center;
   gap: 6px;
   color: var(--ui-accent);
-  font-size: 11px;
+  font-size: calc(12px * var(--text-scale, 1));
   font-weight: 570;
 }
 
@@ -4919,7 +4919,7 @@ main.app-main .app-main__footer > span:first-child {
 
 .conversation-list-panel__header h2 {
   color: var(--ui-text);
-  font-size: 20px;
+  font-size: calc(20px * var(--text-scale, 1));
   font-weight: 640;
   letter-spacing: -0.6px;
 }
@@ -4930,7 +4930,7 @@ main.app-main .app-main__footer > span:first-child {
   border: 1px solid var(--ui-border);
   background: var(--ui-surface);
   color: var(--ui-muted);
-  font-size: 10px;
+  font-size: calc(12px * var(--text-scale, 1));
 }
 
 .conversation-list {
@@ -4958,23 +4958,23 @@ main.app-main .app-main__footer > span:first-child {
 .messaging-workspace .contact-avatar {
   width: 39px;
   height: 39px;
-  font-size: 11px;
+  font-size: calc(12px * var(--text-scale, 1));
 }
 
 .conversation-row__topline strong {
   color: var(--ui-text);
-  font-size: 11px;
+  font-size: calc(12px * var(--text-scale, 1));
   font-weight: 620;
 }
 
 .conversation-row__topline time {
   color: var(--ui-faint);
-  font-size: 9px;
+  font-size: calc(12px * var(--text-scale, 1));
 }
 
 .conversation-row__preview {
   color: var(--ui-muted);
-  font-size: 10px;
+  font-size: calc(12px * var(--text-scale, 1));
 }
 
 .conversation-panel {
@@ -4994,7 +4994,7 @@ main.app-main .app-main__footer > span:first-child {
 
 .conversation-header__person h2 {
   color: var(--ui-text);
-  font-size: 15px;
+  font-size: calc(15px * var(--text-scale, 1));
   font-weight: 620;
 }
 
@@ -5006,7 +5006,7 @@ main.app-main .app-main__footer > span:first-child {
   border-radius: 9px;
   background: var(--ui-surface);
   color: var(--ui-muted);
-  font-size: 10px;
+  font-size: calc(12px * var(--text-scale, 1));
 }
 
 .conversation-details:not([open]) summary::after,
@@ -5038,7 +5038,7 @@ main.app-main .app-main__footer > span:first-child {
   border-radius: 10px;
   background: var(--ui-subtle);
   color: var(--ui-warm-ink);
-  font-size: 9px;
+  font-size: calc(12px * var(--text-scale, 1));
 }
 
 .app-page .conversation-disclaimer > span {
@@ -5075,7 +5075,7 @@ main.app-main .app-main__footer > span:first-child {
 
 .message-bubble > p {
   color: var(--ui-text);
-  font-size: 12px;
+  font-size: calc(12px * var(--text-scale, 1));
 }
 
 .message-attachment__image,
@@ -5111,7 +5111,7 @@ main.app-main .app-main__footer > span:first-child {
   min-height: 54px;
   padding: 5px 7px;
   color: var(--ui-text);
-  font-size: 12px;
+  font-size: calc(12px * var(--text-scale, 1));
 }
 
 .message-composer textarea::placeholder {
@@ -5121,7 +5121,7 @@ main.app-main .app-main__footer > span:first-child {
 .message-composer__footer {
   gap: 12px;
   color: var(--ui-faint);
-  font-size: 9px;
+  font-size: calc(12px * var(--text-scale, 1));
 }
 
 .message-composer__footer > div {
@@ -5130,7 +5130,7 @@ main.app-main .app-main__footer > span:first-child {
 
 .message-composer__footer .message-composer__count {
   color: var(--ui-faint);
-  font-size: 9px;
+  font-size: calc(12px * var(--text-scale, 1));
 }
 
 .message-composer__footer .message-composer__attach {
@@ -5167,7 +5167,7 @@ main.app-main .app-main__footer > span:first-child {
   border-radius: 9px;
   background: var(--ui-accent);
   color: var(--ui-on-accent);
-  font-size: 10px;
+  font-size: calc(12px * var(--text-scale, 1));
   font-weight: 620;
   transition: background-color 140ms ease;
 }
@@ -5198,14 +5198,14 @@ main.app-main .app-main__footer > span:first-child {
 .account-settings-preview h2 {
   margin-top: 5px;
   color: var(--ui-text);
-  font-size: 14px;
+  font-size: calc(14px * var(--text-scale, 1));
   font-weight: 620;
 }
 
 .app-page .account-settings-preview article > div > p:last-child {
   margin-top: 7px;
   color: var(--ui-muted);
-  font-size: 11px;
+  font-size: calc(12px * var(--text-scale, 1));
   line-height: 1.65;
 }
 
@@ -5215,7 +5215,7 @@ main.app-main .app-main__footer > span:first-child {
   margin: 12px 0 0;
   padding-left: 17px;
   color: var(--ui-muted);
-  font-size: 11px;
+  font-size: calc(12px * var(--text-scale, 1));
   line-height: 1.6;
 }
 
@@ -5228,7 +5228,7 @@ main.app-main .app-main__footer > span:first-child {
   align-items: center;
   gap: 6px;
   color: var(--ui-accent);
-  font-size: 11px;
+  font-size: calc(12px * var(--text-scale, 1));
 }
 
 .account-settings-preview article > a:hover {
@@ -5241,7 +5241,7 @@ main.app-main .app-main__footer > span:first-child {
   border-radius: 999px;
   background: var(--ui-subtle);
   color: var(--ui-accent);
-  font-size: 10px;
+  font-size: calc(12px * var(--text-scale, 1));
 }
 
 .account-settings-preview article.account-device-management {
@@ -5258,7 +5258,7 @@ main.app-main .app-main__footer > span:first-child {
 
 .account-device-list button {
   border-radius: 8px;
-  font-size: 10px;
+  font-size: calc(12px * var(--text-scale, 1));
 }
 
 .profile-preview-card {
@@ -5271,17 +5271,17 @@ main.app-main .app-main__footer > span:first-child {
   border: 1px solid var(--ui-border);
   background: var(--ui-subtle);
   color: var(--ui-accent);
-  font-size: 17px;
+  font-size: calc(17px * var(--text-scale, 1));
 }
 
 .profile-preview-card h2 {
   color: var(--ui-text);
-  font-size: 23px;
+  font-size: calc(23px * var(--text-scale, 1));
 }
 
 .profile-preview-card__details > p:not(.messaging-kicker) {
   color: var(--ui-muted);
-  font-size: 12px;
+  font-size: calc(12px * var(--text-scale, 1));
 }
 
 .profile-preview-card__status {
@@ -5289,13 +5289,13 @@ main.app-main .app-main__footer > span:first-child {
   border-radius: 999px;
   background: var(--ui-subtle);
   color: var(--ui-accent);
-  font-size: 10px;
+  font-size: calc(12px * var(--text-scale, 1));
 }
 
 .profile-preview-card__note,
 .profile-preview-footnote {
   color: var(--ui-muted);
-  font-size: 11px;
+  font-size: calc(12px * var(--text-scale, 1));
   line-height: 1.7;
 }
 
@@ -5319,7 +5319,7 @@ main.app-main .app-main__footer > span:first-child {
   gap: 4px;
   border-radius: 10px;
   color: var(--ui-muted);
-  font-size: 9px;
+  font-size: calc(12px * var(--text-scale, 1));
 }
 
 .app-shell .app-main-column ~ nav.app-navigation--mobile .app-navigation__link > svg {
@@ -5379,12 +5379,12 @@ main.app-main .app-main__footer > span:first-child {
   }
 
   .app-page-heading h1 {
-    font-size: 36px;
+    font-size: calc(36px * var(--text-scale, 1));
     letter-spacing: -1.45px;
   }
 
   .app-page-heading__description {
-    font-size: 13px;
+    font-size: calc(13px * var(--text-scale, 1));
   }
 
   .messaging-workspace {
@@ -5423,18 +5423,18 @@ main.app-main .app-main__footer > span:first-child {
     border: 0;
     background: transparent;
     cursor: pointer;
-    font-size: 10px;
+    font-size: calc(12px * var(--text-scale, 1));
     text-align: left;
   }
 
   .conversation-header__person h2 {
-    font-size: 14px;
+    font-size: calc(14px * var(--text-scale, 1));
   }
 
   .conversation-disclaimer {
     align-items: flex-start;
     margin: 9px 10px 0;
-    font-size: 8px;
+    font-size: calc(12px * var(--text-scale, 1));
   }
 
   .message-history {
@@ -5479,7 +5479,7 @@ main.app-main .app-main__footer > span:first-child {
   .app-main__footer {
     align-items: flex-start;
     padding-block: 16px;
-    font-size: 9px;
+    font-size: calc(12px * var(--text-scale, 1));
   }
 
   .account-settings-preview article {
@@ -5539,7 +5539,7 @@ main.app-main .app-main__footer > span:first-child {
   background: var(--ui-surface);
   color: var(--ui-accent);
   cursor: pointer;
-  font-size: 10px;
+  font-size: calc(12px * var(--text-scale, 1));
   font-weight: 590;
   white-space: nowrap;
   transition: border-color 140ms ease, background-color 140ms ease, color 140ms ease;
@@ -5574,7 +5574,7 @@ main.app-main .app-main__footer > span:first-child {
   background: var(--ui-surface);
   box-shadow: 0 12px 32px var(--ui-shadow);
   color: var(--ui-muted);
-  font-size: 11px;
+  font-size: calc(12px * var(--text-scale, 1));
   line-height: 1.55;
 }
 
@@ -5589,7 +5589,7 @@ main.app-main .app-main__footer > span:first-child {
   align-items: center;
   gap: 7px;
   color: var(--ui-accent);
-  font-size: 11px;
+  font-size: calc(12px * var(--text-scale, 1));
   font-weight: 580;
 }
 
@@ -5605,7 +5605,7 @@ main.app-main .app-main__footer > span:first-child {
   border-radius: 10px;
   background: var(--ui-accent);
   color: var(--ui-on-accent);
-  font-size: 11px;
+  font-size: calc(12px * var(--text-scale, 1));
 }
 
 .account-settings-preview__install .pwa-install__button:hover:not(:disabled) {
@@ -5623,7 +5623,7 @@ main.app-main .app-main__footer > span:first-child {
     min-height: 34px;
     gap: 5px;
     padding-inline: 9px;
-    font-size: 9px;
+    font-size: calc(12px * var(--text-scale, 1));
   }
 
   .pwa-install--mobile .pwa-install__button svg {

@@ -2,6 +2,24 @@
 
 **Status: deployment is not yet verified after the first-party encryption and attachment integration.** Migration 006 will permanently remove pre-encryption and unsupported message rows at app startup, but it has not been applied to Portways from this workspace. Migration 007 adds attachment records and message links. Message text, attachment metadata, and attachment bytes are encrypted in the browser; live Portways object storage and the full attachment flow are not configured or verified here. Protocol v1 has no forward secrecy and no independent security review. Do not describe Untold as production-secure.
 
+## Current local review (2026-10-15)
+
+Empty-chat follow-up: migration 013 adds per-member explicit-start tracking. Empty chats stay in the starter’s list; automatic recipients see them only after a message is committed. Either member can explicitly start the same existing chat without creating a duplicate. Existing message history is preserved. Inbox, Chats, and Contacts share the server visibility filter. Foreground delivery triggers a list refresh for first messages in previously hidden chats.
+
+- [ ] Deploy with migration 013 before serving the updated queries. With two accounts, enter the recipient’s email without sending anything: their Inbox, Chats, and Contacts must stay unchanged. Send the first text or file-only message and confirm the chat appears. Repeat with both people independently starting the same chat and confirm they reuse its ID. Check an older empty chat and confirm only its original starter retains it until explicitly opened by the other person or a message is sent.
+- [ ] On an actual iPhone Home Screen install, enable notifications in Settings and send from the other account while the app is backgrounded. Confirm the alert opens the correct chat. iOS implementation is present, but physical-device delivery has not been verified here.
+
+Full-screen chats on screens up to 1000px wide, Settings-only sign out with confirmation, and verification-aware privacy banners are implemented. The complete privacy note remains accessible in Details. New or changed device codes still require verification; a member with only revoked devices cannot satisfy the send checks.
+
+- [x] Production webpack build (including TypeScript) and lint pass. The production dependency audit (`npm audit --omit=dev`) reports zero known vulnerabilities.
+- [x] Review static sample-data chat layouts with 100 messages at phone, tablet, landscape, and desktop sizes, including extra-large text at 120% interface zoom and a simulated reduced keyboard viewport. Review Details, list navigation, and Settings placement. These previews do not verify live event handlers, real keyboards, authentication, or delivery.
+- [ ] On actual Android and iPhone installs, open a conversation, use the back button, rotate the screen, open the keyboard, and confirm the composer remains visible. Confirm navigation returns on leaving the chat.
+- [ ] Verify codes on both devices: the banner should disappear while the note remains in Details. Add or change a device and confirm verification warnings return.
+- [ ] Confirm Settings sign out can be cancelled, a failed request keeps the session usable with a retry message, and a successful request removes access to authenticated pages.
+- [ ] Verify migrations through 012 against the deployment database, including MFA enrollment, sign-in challenges, password recovery, push subscription persistence, notifications, and Received/Read receipts on real devices. Keep earlier encryption, authorization, storage, and security review gates below.
+
+Ready to commit the local implementation after reviewing the complete working-tree diff. Production release still requires the outstanding live checks; no deployment or database migration was performed in this pass.
+
 ## Previously verified before the encryption integration (2026-10-15)
 
 - [x] `npm run lint`, `npx tsc --noEmit`, and `npm test` (19 tests) pass; `npm run build` succeeds.
@@ -42,7 +60,7 @@
 ## Known limitations
 
 - Protocol v1 has no forward secrecy or post-compromise security and has not been independently reviewed. Lost browser keys cannot be recovered; device removal cannot erase content already downloaded. See [the Phase 6 design and limits](phase-6-e2ee-architecture.md).
-- No email verification or password reset, so there is no way to recover a forgotten password.
-- One-to-one conversations only. Attachments are limited to 20 MiB each; there are no group chats, calls, push notifications, editing, or deletion.
+- Email addresses are not verified. Password resets require MFA to have been enabled and an unused recovery code. There is no email reset flow. See [MFA and password recovery](mfa-and-password-recovery.md).
+- One-to-one conversations only. Attachments are limited to 20 MiB each; there are no group chats, calls, editing, or deletion. Opt-in push notifications and cross-conversation Received receipts are implemented locally and still need real-device verification. See [readability, delivery, and notifications](readability-delivery-and-notifications.md).
 - Starting a conversation reveals whether an email has an account (rate limited to 20 attempts per hour per user).
 - Only the most recent 100 messages of a conversation are shown.

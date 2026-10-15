@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useId, useRef, useState } from "react";
-import { Check, Download, Share, X } from "lucide-react";
+import { Check, Download, Ellipsis, Share, X } from "lucide-react";
 import { useInstallPrompt } from "@/components/pwa/install-prompt-provider";
 
 export function InstallAppButton({
@@ -74,12 +74,17 @@ export function InstallAppButton({
             </button>
           </div>
           {platform === "apple-mobile" ? (
-            <ol>
-              <li>Open Untold in Safari.</li>
-              <li>Tap <Share aria-hidden="true" size={14} /> <strong>Share</strong>. You may need to open the browser menu first.</li>
-              <li>Choose <strong>Add to Home Screen</strong>.</li>
-              <li>Keep <strong>Open as Web App</strong> on if it appears, then tap <strong>Add</strong>.</li>
-            </ol>
+            <>
+              <p>Use Safari’s menu to add Untold to your Home Screen.</p>
+              <ol>
+                <li>Open this website in <strong>Safari</strong>.</li>
+                <li>Tap <Ellipsis aria-hidden="true" size={14} /> <strong>More</strong>, then <Share aria-hidden="true" size={14} /> <strong>Share</strong>. If Share is already visible, tap it directly.</li>
+                <li>Scroll down the actions and tap <strong>Add to Home Screen</strong>.</li>
+                <li>Turn on <strong>Open as Web App</strong>, then tap <strong>Add</strong>.</li>
+              </ol>
+              <p><strong>Can’t find Add to Home Screen?</strong> Scroll to the bottom of the Share menu, tap <strong>Edit Actions</strong>, and add it to the list.</p>
+              <p>If you opened Untold inside another app, open the same address in Safari first.</p>
+            </>
           ) : platform === "safari-mac" ? (
             <>
               <ol>

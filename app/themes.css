@@ -135,7 +135,7 @@
   color: var(--ui-text);
   cursor: pointer;
   font: inherit;
-  font-size: 11px;
+  font-size: calc(12px * var(--text-scale, 1));
 }
 
 .theme-select:focus-within {
@@ -226,13 +226,13 @@
   align-items: center;
   gap: 7px;
   color: var(--ui-text);
-  font-size: 12px;
+  font-size: calc(12px * var(--text-scale, 1));
   font-weight: 600;
 }
 
 .theme-option__description {
   color: var(--ui-muted);
-  font-size: 10px;
+  font-size: calc(12px * var(--text-scale, 1));
   line-height: 1.5;
 }
 
@@ -295,8 +295,22 @@
   vertical-align: text-bottom;
 }
 
+.site-header__brand-actions,
+.auth-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.pwa-install__help {
+  max-height: 70dvh;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
 @media (max-width: 680px) {
   .app-mobile-header .theme-select,
+  .auth-header-actions .theme-select,
   .site-nav .theme-select {
     width: 34px;
     height: 34px;
@@ -305,6 +319,7 @@
   }
 
   .app-mobile-header .theme-select select,
+  .auth-header-actions .theme-select select,
   .site-nav .theme-select select {
     position: absolute;
     inset: 0;
@@ -324,7 +339,40 @@
 
   .theme-option__label {
     gap: 4px;
-    font-size: 11px;
+    font-size: calc(12px * var(--text-scale, 1));
+  }
+}
+
+@media (max-width: 900px) {
+  .site-header__inner {
+    flex-wrap: wrap;
+    gap: 0;
+    padding-block: 17px 0;
+  }
+
+  .site-header__brand-actions {
+    width: 100%;
+    justify-content: space-between;
+  }
+
+  .site-nav {
+    width: 100%;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    gap: 14px;
+    margin-top: 14px;
+    padding-block: 12px;
+    border-top: 1px solid var(--ui-border);
+  }
+}
+
+@media (max-width: 560px) {
+  .site-nav {
+    gap: 9px;
+  }
+
+  .auth-header-actions {
+    gap: 8px;
   }
 }
 

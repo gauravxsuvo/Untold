@@ -1,4 +1,7 @@
 import { createHash } from "node:crypto";
+import { after } from "next/server";
+import { pushOutbox } from "@/lib/server/schema";
+import { deliverPushOutbox } from "@/lib/server/push";
 import { and, desc, eq, inArray, isNull } from "drizzle-orm";
 import {
   getAuthenticatedUser,
@@ -231,7 +234,7 @@ export async function POST(request: Request, context: RouteContext): Promise<Res
           .for("update");
         if (!attachment) return null;
       }
-      return tx
+      const created = await tx
         .insert(messageEnvelopes)
         .values({
           id: crypto.randomUUID(),
@@ -243,6 +246,8 @@ export async function POST(request: Request, context: RouteContext): Promise<Res
         })
         .onConflictDoNothing()
         .returning({ id: messageEnvelopes.id, createdAt: messageEnvelopes.createdAt });
+      if (created.length) await tx.insert(pushOutbox).values({ messageId: created[0].id }).onConflictDoNothing();
+      return created;
     });
 
     if (inserted === null) {
@@ -299,6 +304,7 @@ export async function POST(request: Request, context: RouteContext): Promise<Res
       );
     }
 
+    after(async () => { try { await deliverPushOutbox(); } catch { console.error("Untold notification delivery will retry"); } });
     return Response.json(
       {
         message: {

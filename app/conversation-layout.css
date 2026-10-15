@@ -1,0 +1,406 @@
+/* Message count must never increase the height of the conversation route. */
+:root {
+  --conversation-interface-scale: 1;
+}
+:root[data-interface-zoom="90"] {
+  --conversation-interface-scale: 0.9;
+}
+:root[data-interface-zoom="110"] {
+  --conversation-interface-scale: 1.1;
+}
+:root[data-interface-zoom="120"] {
+  --conversation-interface-scale: 1.2;
+}
+.app-shell--messaging {
+  display: grid;
+  padding: 0;
+  position: fixed;
+  inset-inline: 0;
+  top: var(--conversation-viewport-top, 0px);
+  height: var(--conversation-viewport-height, calc(100dvh / var(--conversation-interface-scale)));
+  min-height: 0;
+  grid-template-rows: minmax(0, 1fr);
+  overflow: hidden;
+}
+
+@media (min-width: 681px) and (max-width: 1000px) {
+  .app-shell--messaging {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: minmax(0, 1fr) auto;
+  }
+  .app-shell--messaging .app-sidebar,
+  .app-shell--messaging .app-topbar {
+    display: none;
+  }
+  .app-shell--messaging .app-mobile-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 12px 20px;
+    border-bottom: 1px solid var(--ui-border);
+    background: var(--ui-surface);
+  }
+  .app-shell--messaging .app-navigation--mobile {
+    position: static;
+    display: grid;
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    padding: 5px 8px calc(5px + env(safe-area-inset-bottom));
+    border-top: 1px solid var(--ui-border);
+    background: var(--ui-surface);
+  }
+  .app-shell--messaging .app-navigation--mobile .app-navigation__link {
+    min-width: 0;
+    min-height: 50px;
+    flex-direction: column;
+    justify-content: center;
+    gap: 4px;
+    padding: 4px 1px;
+    font-size: calc(12px * var(--text-scale, 1));
+  }
+  .app-shell--messaging .app-main {
+    padding-inline: 16px;
+  }
+}
+.app-shell--messaging .app-sidebar {
+  height: 100%;
+  min-height: 0;
+  overflow-y: auto;
+}
+.app-shell--messaging .app-main-column {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+.app-shell--messaging .app-main {
+  min-height: 0;
+  flex: 1 1 0;
+}
+.app-shell--messaging .app-topbar,
+.app-shell--messaging .app-mobile-header {
+  flex-shrink: 0;
+}
+.app-shell--messaging .app-main__footer {
+  display: none;
+}
+.app-shell--messaging .app-page--messaging {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 0;
+  min-height: 0;
+  padding-block: 20px 16px;
+}
+.app-shell--messaging .app-page-heading {
+  flex-shrink: 0;
+  margin-bottom: 18px;
+}
+.app-shell--messaging .messaging-workspace {
+  flex: 1 1 0;
+  min-height: 0;
+  grid-template-rows: minmax(0, 1fr);
+}
+.app-shell--messaging .conversation-list-panel {
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior-y: contain;
+}
+.app-shell--messaging .conversation-list {
+  align-content: start;
+  flex-shrink: 0;
+}
+.app-shell--messaging .conversation-panel {
+  min-height: 0;
+  overflow: hidden;
+}
+.app-shell--messaging .conversation-header {
+  flex: 0 0 auto;
+  z-index: 2;
+}
+.app-shell--messaging .conversation-header__person .messaging-kicker {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.app-shell--messaging .conversation-header__person h2 {
+  overflow-wrap: anywhere;
+}
+.conversation-notices {
+  flex: 0 1 auto;
+  min-height: 0;
+  max-height: 22%;
+  overflow-y: auto;
+  overscroll-behavior-y: contain;
+}
+.app-shell--messaging .message-history,
+.app-shell--messaging .message-history__empty,
+.app-shell--messaging .loading-skeleton--thread {
+  flex: 1 1 0;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior-y: contain;
+  overflow-anchor: auto;
+  scrollbar-gutter: stable;
+}
+.app-shell--messaging .message-history > .message-row {
+  flex: 0 0 auto;
+}
+.app-shell--messaging .message-composer {
+  flex: 0 0 auto;
+  min-height: 0;
+  max-height: 45%;
+  overflow-y: auto;
+  overscroll-behavior-y: contain;
+}
+.app-shell--messaging .message-composer textarea {
+  min-height: 44px;
+  max-height: 120px;
+  resize: none;
+}
+.app-shell--messaging .message-composer__footer {
+  flex-wrap: wrap;
+}
+.app-shell--messaging .message-composer__footer > div {
+  margin-left: auto;
+  flex-shrink: 0;
+}
+.app-shell--messaging .message-composer__footer > span {
+  min-width: 0;
+  flex: 1 1 180px;
+}
+.app-shell--messaging .conversation-details__popover {
+  max-height: min(
+    480px,
+    max(
+      80px,
+      calc(
+        var(--conversation-viewport-height, calc(100dvh / var(--conversation-interface-scale))) -
+        110px -
+        env(safe-area-inset-top)
+      )
+    )
+  );
+}
+.app-shell--messaging .conversation-details__popover .conversation-disclaimer {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  margin: 0 0 16px;
+  gap: 6px;
+  font-size: calc(12px * var(--text-scale, 1));
+  line-height: 1.65;
+}
+@media (max-width: 680px) {
+  .app-shell--messaging {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: minmax(0, 1fr) auto;
+  }
+  .app-shell--messaging .app-main {
+    padding-inline: 8px;
+  }
+  .app-shell--messaging .app-page--messaging {
+    padding-block: 10px 8px;
+  }
+  .app-shell--messaging:has(.messaging-workspace.is-thread-open) .app-page-heading {
+    display: none;
+  }
+  .app-shell--messaging .messaging-workspace {
+    border-radius: 12px;
+  }
+  .app-shell--messaging .conversation-panel {
+    flex: 1 1 0;
+    border: 0;
+  }
+  .app-shell--messaging .conversation-list-panel {
+    flex: 1 1 0;
+  }
+  .app-shell--messaging .app-navigation--mobile {
+    position: static;
+    width: 100%;
+  }
+  .app-shell--messaging .message-composer {
+    margin: 0 8px 8px;
+  }
+  .app-shell--messaging .message-composer textarea {
+    font-size: max(16px, calc(16px * var(--text-scale, 1)));
+  }
+  .app-shell--messaging .message-composer__footer > span {
+    display: none;
+  }
+  .app-shell--messaging .message-history {
+    padding: 14px 12px;
+  }
+  .app-shell--messaging .conversation-disclaimer {
+    flex-direction: column;
+    gap: 4px;
+  }
+  .app-shell--messaging[data-keyboard-open="true"] .app-mobile-header,
+  .app-shell--messaging[data-keyboard-open="true"] .app-navigation--mobile {
+    display: none;
+  }
+  .app-shell--messaging[data-keyboard-open="true"] {
+    grid-template-rows: minmax(0, 1fr);
+  }
+  .app-shell--messaging[data-keyboard-open="true"] .conversation-header {
+    padding-block: 6px;
+    gap: 7px;
+  }
+  .app-shell--messaging[data-keyboard-open="true"] .conversation-back {
+    width: auto;
+  }
+  .app-shell--messaging[data-keyboard-open="true"] .conversation-header__person .messaging-kicker,
+  .app-shell--messaging[data-keyboard-open="true"] .conversation-disclaimer {
+    display: none;
+  }
+}
+
+@media (max-height: 500px) {
+  .app-shell--messaging .app-mobile-header,
+  .app-shell--messaging .conversation-disclaimer {
+    display: none;
+  }
+  .app-shell--messaging .message-composer {
+    max-height: 65%;
+  }
+}
+@media (max-height: 600px) {
+  .app-shell--messaging .app-page-heading {
+    display: none;
+  }
+  .app-shell--messaging .app-topbar {
+    min-height: 44px;
+  }
+  .app-shell--messaging .app-page--messaging {
+    padding-top: 8px;
+  }
+  .app-shell--messaging .conversation-header {
+    min-height: 0;
+    padding-block: 7px;
+  }
+  .app-shell--messaging .message-composer textarea {
+    height: 44px;
+  }
+  .app-shell--messaging .message-composer__footer > span {
+    display: none;
+  }
+}
+
+/* Open chats get the whole app window on phones and compact tablets. */
+@media (max-width: 1000px) {
+  .app-shell--messaging .messaging-workspace {
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+  .app-shell--messaging .conversation-list-panel {
+    flex: 1 1 0;
+    width: 100%;
+    border: 0;
+  }
+  .app-shell--messaging .conversation-panel,
+  .app-shell--messaging .conversation-panel--empty {
+    display: none;
+  }
+  .app-shell--messaging .is-thread-open .conversation-list-panel {
+    display: none;
+  }
+  .app-shell--messaging .is-thread-open .conversation-panel {
+    display: flex;
+    flex: 1 1 0;
+    width: 100%;
+    border: 0;
+    border-radius: 0;
+  }
+  .app-shell--messaging:has(.is-thread-open) {
+    grid-template-rows: minmax(0, 1fr);
+    background: var(--ui-surface);
+  }
+  .app-shell--messaging:has(.is-thread-open) .app-mobile-header,
+  .app-shell--messaging:has(.is-thread-open) .app-navigation--mobile,
+  .app-shell--messaging:has(.is-thread-open) .app-page-heading {
+    display: none;
+  }
+  .app-shell--messaging:has(.is-thread-open) .app-main {
+    width: 100%;
+    max-width: none;
+    padding: 0;
+  }
+  .app-shell--messaging:has(.is-thread-open) .app-page--messaging {
+    padding: 0;
+  }
+  .app-shell--messaging .messaging-workspace.is-thread-open {
+    border: 0;
+    border-radius: 0;
+  }
+  .app-shell--messaging .is-thread-open .conversation-header {
+    min-height: 68px;
+    flex-wrap: nowrap;
+    gap: 8px;
+    padding: calc(8px + env(safe-area-inset-top)) max(10px, env(safe-area-inset-right)) 8px
+      max(6px, env(safe-area-inset-left));
+    border-radius: 0;
+    background: var(--ui-surface);
+  }
+  .app-shell--messaging .conversation-back {
+    display: inline-flex;
+    flex: 0 0 44px;
+    align-items: center;
+    justify-content: center;
+    width: 44px;
+    min-height: 44px;
+    padding: 0;
+    border: 0;
+    border-radius: 12px;
+    background: transparent;
+    color: var(--ui-text);
+    cursor: pointer;
+  }
+  .app-shell--messaging .conversation-back:hover:not(:disabled) {
+    background: var(--ui-subtle);
+  }
+  .app-shell--messaging .conversation-back:focus-visible {
+    outline: 2px solid var(--ui-accent);
+    outline-offset: -2px;
+  }
+  .app-shell--messaging .conversation-back:disabled {
+    cursor: default;
+    opacity: 0.5;
+  }
+  .app-shell--messaging .conversation-header__person {
+    flex: 1 1 0;
+    min-width: 0;
+    gap: 9px;
+  }
+  .app-shell--messaging .conversation-header__person .messaging-kicker {
+    display: none;
+  }
+  .app-shell--messaging .conversation-header__person h2 {
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+    overflow: hidden;
+    line-height: 1.35;
+  }
+  .app-shell--messaging .conversation-details {
+    flex-shrink: 0;
+  }
+  .app-shell--messaging .conversation-details summary {
+    min-height: 44px;
+    padding-inline: 10px;
+  }
+  .app-shell--messaging .conversation-details__popover {
+    width: min(360px, calc(100vw / var(--conversation-interface-scale) - 24px));
+  }
+  .app-shell--messaging .is-thread-open .message-history {
+    padding-inline: max(14px, env(safe-area-inset-left)) max(14px, env(safe-area-inset-right));
+  }
+  .app-shell--messaging .is-thread-open .message-composer {
+    margin: 0 max(10px, env(safe-area-inset-right)) max(10px, env(safe-area-inset-bottom))
+      max(10px, env(safe-area-inset-left));
+  }
+  .app-shell--messaging .message-composer textarea {
+    font-size: max(16px, calc(16px * var(--text-scale, 1)));
+  }
+  .app-shell--messaging .message-composer__footer > span {
+    display: none;
+  }
+}
