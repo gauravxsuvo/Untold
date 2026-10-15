@@ -17,6 +17,10 @@ Use the guide's Env tab for variables. The linked Object Storage add-on provides
 
 The database pool is capped at three connections per app replica. Keep the initial project at one replica. If the project later scales, count `pool size × replicas` against the Postgres add-on's connection limit and enable its PgBouncer option before increasing replicas.
 
+## Build mode: use the default Turbopack build
+
+`npm run build` must stay the default `next build` (Turbopack). Portways builds inside a container with the project at `/app`, and Next 16.4's **webpack** build mis-resolves the root `app/layout.tsx` and `app/page.tsx` to `app/app/layout.tsx` and `app/app/page.tsx` when the project root is exactly `/app`. The symptom is a build crash prerendering `/_not-found` ("useAccountSession must be used inside AccountSessionProvider"), or, if it builds, every page redirecting to `/auth/sign-in`. It does not reproduce on a Windows checkout or in other Linux folders. `npm run build:webpack` exists only as a local fallback if Turbopack fails to start on a machine; do not deploy with it.
+
 ## Local database and migrations
 
 For local development, use the Portways database bridge on loopback and put its PostgreSQL URL in `.env.local` as `DATABASE_URL`. `.env.example` shows the format. The app uses the same `DATABASE_URL` setting locally and in Portways; the hosted project receives it from the linked add-on.

@@ -7,7 +7,8 @@
   },
   "scripts": {
     "dev": "next dev",
-    "build": "next build --webpack",
+    "build": "next build",
+    "build:webpack": "next build --webpack",
     "build:encryption": "npm --prefix encryption run build",
     "build:crypto": "npm --prefix crypto run build",
     "build:all": "npm run build && npm run build:crypto",
