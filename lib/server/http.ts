@@ -2,6 +2,7 @@ import "server-only";
 
 import { BackendConfigurationError } from "@/lib/server/database";
 import { getAuth } from "@/lib/auth/server";
+import { readBoundedStream } from "@/lib/messaging/bounded-stream";
 
 export async function getAuthenticatedUser(request: Request) {
   const session = await getAuthenticatedSession(request);
@@ -70,33 +71,14 @@ export async function readJsonBody(
   request: Request,
   maxBytes: number,
 ): Promise<{ ok: true; body: unknown } | { ok: false; status: 400 | 413 }> {
-  const reader = request.body?.getReader();
-  if (!reader) return { ok: false, status: 400 };
-
-  const chunks: Uint8Array[] = [];
-  let totalBytes = 0;
+  if (!request.body) return { ok: false, status: 400 };
+  let bytes: Uint8Array<ArrayBuffer> | undefined;
   try {
-    while (true) {
-      const { done, value } = await reader.read();
-      if (done) break;
-      totalBytes += value.byteLength;
-      if (totalBytes > maxBytes) {
-        await reader.cancel();
-        return { ok: false, status: 413 };
-      }
-      chunks.push(value);
-    }
-
-    const bytes = new Uint8Array(totalBytes);
-    let offset = 0;
-    for (const chunk of chunks) {
-      bytes.set(chunk, offset);
-      offset += chunk.byteLength;
-    }
+    bytes = await readBoundedStream(request.body, { maxBytes, signal: request.signal, timeoutMs: 15_000 });
     return { ok: true, body: JSON.parse(new TextDecoder("utf-8", { fatal: true }).decode(bytes)) };
-  } catch {
-    return { ok: false, status: 400 };
+  } catch (error) {
+    return { ok: false, status: error instanceof RangeError ? 413 : 400 };
   } finally {
-    reader.releaseLock();
+    bytes?.fill(0);
   }
 }

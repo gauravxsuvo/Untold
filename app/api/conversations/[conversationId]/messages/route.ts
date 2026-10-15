@@ -12,7 +12,12 @@ import { publishMessageAvailable } from "@/lib/server/ably";
 import { isConversationMember } from "@/lib/server/conversations";
 import { decodeMessageEnvelope } from "@/lib/server/message-envelope";
 import { consumeRateLimit, rateLimitedResponse, rateLimitRules } from "@/lib/server/rate-limit";
-import { conversationMembers, devices, messageAttachments, messageEnvelopes } from "@/lib/server/schema";
+import {
+  conversationMembers,
+  devices,
+  messageAttachments,
+  messageEnvelopes,
+} from "@/lib/server/schema";
 import { parseE2eeEnvelope } from "@/lib/server/e2ee-envelope";
 
 export const runtime = "nodejs";
@@ -62,7 +67,9 @@ export async function GET(request: Request, context: RouteContext): Promise<Resp
       .orderBy(desc(messageEnvelopes.createdAt), desc(messageEnvelopes.id))
       .limit(100);
 
-    const encryptedMessages = messages.filter(({ envelope }) => parseE2eeEnvelope(envelope) !== null);
+    const encryptedMessages = messages.filter(
+      ({ envelope }) => parseE2eeEnvelope(envelope) !== null,
+    );
 
     return Response.json(
       {
@@ -121,7 +128,12 @@ export async function POST(request: Request, context: RouteContext): Promise<Res
     const decoded = decodeMessageEnvelope(input.envelope);
     if (!decoded.ok) {
       return Response.json(
-        { message: decoded.error === "too-large" ? "Message envelope is too large." : "Message envelope is invalid." },
+        {
+          message:
+            decoded.error === "too-large"
+              ? "Message envelope is too large."
+              : "Message envelope is invalid.",
+        },
         { status: decoded.error === "too-large" ? 413 : 400 },
       );
     }
@@ -138,26 +150,14 @@ export async function POST(request: Request, context: RouteContext): Promise<Res
 
     const { db } = getDatabase();
     if (!(await isConversationMember(db, conversationId, user.id))) return notFoundResponse();
-    if (attachmentId) {
-      const [attachment] = await db
-        .select({ id: messageAttachments.id })
-        .from(messageAttachments)
-        .where(and(
-          eq(messageAttachments.id, attachmentId),
-          eq(messageAttachments.conversationId, conversationId),
-          eq(messageAttachments.senderId, user.id),
-        ))
-        .limit(1);
-      if (!attachment) {
-        return Response.json({ message: "Upload the encrypted attachment before sending its message." }, { status: 409 });
-      }
-    }
 
     const conversationDevices = await db
       .select({ id: devices.id })
       .from(conversationMembers)
       .innerJoin(devices, eq(devices.userId, conversationMembers.userId))
-      .where(and(eq(conversationMembers.conversationId, conversationId), isNull(devices.revokedAt)));
+      .where(
+        and(eq(conversationMembers.conversationId, conversationId), isNull(devices.revokedAt)),
+      );
     const expectedDeviceIds = new Set(conversationDevices.map(({ id }) => id));
     const wrappedDeviceIds = new Set(envelope.wrappedKeys.map(({ deviceId }) => deviceId));
     if (
@@ -175,33 +175,61 @@ export async function POST(request: Request, context: RouteContext): Promise<Res
     const [senderDevice] = await db
       .select({ id: devices.id })
       .from(devices)
-      .where(and(
-        eq(devices.id, envelope.senderDeviceId),
-        eq(devices.userId, user.id),
-        isNull(devices.revokedAt),
-      ))
+      .where(
+        and(
+          eq(devices.id, envelope.senderDeviceId),
+          eq(devices.userId, user.id),
+          isNull(devices.revokedAt),
+        ),
+      )
       .limit(1);
     if (!senderDevice) {
-      return Response.json({ message: "Register this browser as a messaging device first." }, { status: 409 });
+      return Response.json(
+        { message: "Register this browser as a messaging device first." },
+        { status: 409 },
+      );
     }
 
     const limit = await consumeRateLimit(db, `send-message:${user.id}`, rateLimitRules.sendMessage);
     if (!limit.allowed) return rateLimitedResponse(limit.retryAfterSeconds);
 
-    const inserted = await db
-      .insert(messageEnvelopes)
-      .values({
-        id: crypto.randomUUID(),
-        conversationId,
-        senderId: user.id,
-        clientMessageId: input.clientMessageId,
-        attachmentId,
-        envelope: decoded.bytes,
-      })
-      .onConflictDoNothing({
-        target: [messageEnvelopes.senderId, messageEnvelopes.clientMessageId],
-      })
-      .returning({ id: messageEnvelopes.id, createdAt: messageEnvelopes.createdAt });
+    const clientMessageId = input.clientMessageId;
+    const inserted = await db.transaction(async (tx) => {
+      if (attachmentId) {
+        const [attachment] = await tx
+          .select({ id: messageAttachments.id })
+          .from(messageAttachments)
+          .where(
+            and(
+              eq(messageAttachments.id, attachmentId),
+              eq(messageAttachments.conversationId, conversationId),
+              eq(messageAttachments.senderId, user.id),
+            ),
+          )
+          .limit(1)
+          .for("update");
+        if (!attachment) return null;
+      }
+      return tx
+        .insert(messageEnvelopes)
+        .values({
+          id: crypto.randomUUID(),
+          conversationId,
+          senderId: user.id,
+          clientMessageId,
+          attachmentId,
+          envelope: decoded.bytes,
+        })
+        .onConflictDoNothing()
+        .returning({ id: messageEnvelopes.id, createdAt: messageEnvelopes.createdAt });
+    });
+
+    if (inserted === null) {
+      return Response.json(
+        { message: "Upload the encrypted attachment before sending its message." },
+        { status: 409 },
+      );
+    }
 
     if (inserted.length === 0) {
       const [existing] = await db
@@ -224,9 +252,13 @@ export async function POST(request: Request, context: RouteContext): Promise<Res
       if (
         !existing ||
         existing.conversationId !== conversationId ||
-        existing.attachmentId !== attachmentId
+        existing.attachmentId !== attachmentId ||
+        !Buffer.from(existing.envelope).equals(decoded.bytes)
       ) {
-        return Response.json({ message: "This client message ID has already been used." }, { status: 409 });
+        return Response.json(
+          { message: "This client message ID has already been used." },
+          { status: 409 },
+        );
       }
 
       return Response.json(

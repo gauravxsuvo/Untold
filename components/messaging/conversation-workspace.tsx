@@ -25,6 +25,9 @@ import {
 } from "@/lib/messaging/attachments";
 import { fetchAttachmentDownloadUrl } from "@/lib/messaging/api-client";
 import { decryptAttachmentBytes, maxAttachmentBytes } from "@/crypto/src/protocol";
+import { decodeAttachmentBytes } from "@/lib/messaging/attachment-compression";
+import { readBoundedStream } from "@/lib/messaging/bounded-stream";
+import { validateAttachmentPreview } from "@/lib/messaging/prepare-attachment";
 import {
   conversationActivityAt,
   conversationTitle,
@@ -92,13 +95,14 @@ function AttachmentMessage({
   const mediaUrlRef = useRef<string | null>(null);
   const aliveRef = useRef(true);
   const loadingRef = useRef(false);
-  const loadMediaRef = useRef<() => Promise<void>>(async () => undefined);
+  const operationRef = useRef<AbortController | null>(null);
   const previewKind = attachment ? attachmentPreviewKind(attachment.contentType) : null;
 
   useEffect(() => {
     aliveRef.current = true;
     return () => {
       aliveRef.current = false;
+      operationRef.current?.abort();
       if (mediaUrlRef.current) URL.revokeObjectURL(mediaUrlRef.current);
     };
   }, []);
@@ -108,44 +112,27 @@ function AttachmentMessage({
       throw new Error("Attachment details are unavailable.");
     }
     const url = await fetchAttachmentDownloadUrl(message.attachmentId);
-    const response = await fetch(url, { cache: "no-store" });
+    if (!aliveRef.current) throw new DOMException("File opening cancelled.", "AbortError");
+    const controller = new AbortController();
+    operationRef.current = controller;
+    const response = await fetch(url, {
+      cache: "no-store", credentials: "omit", referrerPolicy: "no-referrer",
+      signal: AbortSignal.any([controller.signal, AbortSignal.timeout(30_000)]), redirect: "error",
+    });
     if (!response.ok) throw new Error("The encrypted file could not be downloaded.");
     const expectedCiphertextBytes = attachment.size + 16;
     const declaredLength = response.headers.get("content-length");
     if (declaredLength !== null && Number(declaredLength) !== expectedCiphertextBytes) {
+      void response.body?.cancel();
       throw new Error("The encrypted file size does not match its message details.");
     }
-    const reader = response.body?.getReader();
-    if (!reader) throw new Error("The encrypted file could not be read.");
-    const chunks: Uint8Array[] = [];
-    let receivedBytes = 0;
+    if (!response.body) throw new Error("The encrypted file could not be read.");
+    const ciphertext = await readBoundedStream(response.body, {
+      maxBytes: maxAttachmentBytes + 16, expectedBytes: expectedCiphertextBytes,
+      signal: controller.signal, timeoutMs: 30_000,
+    });
     try {
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-        receivedBytes += value.byteLength;
-        if (receivedBytes > expectedCiphertextBytes || receivedBytes > maxAttachmentBytes + 16) {
-          await reader.cancel();
-          throw new Error("The encrypted file is larger than its message details.");
-        }
-        chunks.push(value);
-      }
-    } finally {
-      reader.releaseLock();
-    }
-    if (receivedBytes !== expectedCiphertextBytes) {
-      for (const chunk of chunks) chunk.fill(0);
-      throw new Error("The encrypted file size does not match its message details.");
-    }
-    const ciphertext = new Uint8Array(receivedBytes);
-    let offset = 0;
-    for (const chunk of chunks) {
-      ciphertext.set(chunk, offset);
-      offset += chunk.byteLength;
-      chunk.fill(0);
-    }
-    try {
-      return await decryptAttachmentBytes(
+      const plaintext = await decryptAttachmentBytes(
         ciphertext,
         { conversationId, messageId: message.clientMessageId, senderId: message.senderId },
         message.attachmentSenderDeviceId,
@@ -154,6 +141,7 @@ function AttachmentMessage({
         attachment.nonce,
         attachment.size,
       );
+      return await decodeAttachmentBytes(plaintext, attachment, controller.signal);
     } finally {
       ciphertext.fill(0);
     }
@@ -167,6 +155,7 @@ function AttachmentMessage({
     let cleartext: Uint8Array<ArrayBuffer> | null = null;
     try {
       cleartext = await decryptedBytes();
+      await validateAttachmentPreview(cleartext, attachment.contentType, operationRef.current?.signal);
       if (!aliveRef.current) return;
       const url = URL.createObjectURL(new Blob([cleartext.buffer], { type: attachment.contentType }));
       mediaUrlRef.current = url;
@@ -179,25 +168,12 @@ function AttachmentMessage({
       if (aliveRef.current) setBusy(false);
     }
   }
-  loadMediaRef.current = loadMedia;
-
-  useEffect(() => {
-    if (previewKind !== "image" || !attachmentRef.current || typeof IntersectionObserver === "undefined") return;
-    const target = attachmentRef.current;
-    const observer = new IntersectionObserver((entries) => {
-      if (entries.some((entry) => entry.isIntersecting)) {
-        observer.disconnect();
-        void loadMediaRef.current();
-      }
-    }, { rootMargin: "160px" });
-    observer.observe(target);
-    return () => observer.disconnect();
-  }, [previewKind]);
 
   if (!attachment) return null;
 
   async function download() {
-    if (!attachment || busy) return;
+    if (!attachment || busy || loadingRef.current) return;
+    loadingRef.current = true;
     setBusy(true);
     setError("");
     let cleartext: Uint8Array<ArrayBuffer> | null = null;
@@ -214,10 +190,11 @@ function AttachmentMessage({
       link.remove();
       window.setTimeout(() => URL.revokeObjectURL(url), 1000);
     } catch (caught) {
-      setError(caught instanceof Error ? caught.message : "The file could not be downloaded.");
+      if (aliveRef.current) setError(caught instanceof Error ? caught.message : "The file could not be downloaded.");
     } finally {
       cleartext?.fill(0);
-      setBusy(false);
+      loadingRef.current = false;
+      if (aliveRef.current) setBusy(false);
     }
   }
 
@@ -271,7 +248,10 @@ function AttachmentMessage({
         </span>
         <span className="message-attachment__name">
           <strong>{attachment.name}</strong>
-          <small>{formatAttachmentSize(attachment.size)}</small>
+          <small>
+            {formatAttachmentSize(attachment.compression?.originalSize ?? attachment.size)}
+            {attachment.compression ? ` · Compressed to ${formatAttachmentSize(attachment.size)}` : ""}
+          </small>
         </span>
         <button disabled={busy} onClick={() => void download()} type="button">
           {busy ? "Preparing…" : "Download"}
@@ -769,7 +749,11 @@ export function ConversationWorkspace({ initialSelectedId }: { initialSelectedId
                 <div>
                   <strong>{currentAttachmentUpload.fileName}</strong>
                   <span>
-                    {currentAttachmentUpload.phase === "preparing"
+                    {currentAttachmentUpload.phase === "optimizing"
+                      ? currentAttachmentUpload.progress > 0
+                        ? `Optimizing video · ${currentAttachmentUpload.progress}% · Keep this tab open`
+                        : "Optimizing file on this device…"
+                      : currentAttachmentUpload.phase === "preparing"
                       ? "Encrypting on this device…"
                       : currentAttachmentUpload.phase === "failed"
                         ? currentAttachmentUpload.error ?? "Upload failed."
@@ -784,7 +768,12 @@ export function ConversationWorkspace({ initialSelectedId }: { initialSelectedId
                     <button onClick={() => void thread.discardAttachmentUpload()} type="button">Discard</button>
                   </div>
                 ) : (
-                  <progress max={100} value={currentAttachmentUpload.progress} />
+                  <div className="message-composer__upload-actions">
+                    <progress max={100} value={currentAttachmentUpload.progress} />
+                    {currentAttachmentUpload.phase === "optimizing" || currentAttachmentUpload.phase === "preparing" ? (
+                      <button onClick={() => void thread.discardAttachmentUpload()} type="button">Cancel</button>
+                    ) : null}
+                  </div>
                 )}
               </div>
             ) : null}
