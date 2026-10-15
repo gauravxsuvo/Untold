@@ -3,7 +3,6 @@ import { createContext, useContext, useEffect, useRef, useState, type ReactNode 
 import {
   Mic,
   MicOff,
-  Minimize2,
   MonitorUp,
   MonitorX,
   Phone,
@@ -14,10 +13,13 @@ import {
   X,
 } from "lucide-react";
 import { useMessagingDevice } from "./messaging-device-provider";
+import { CallWindow } from "./call-window";
+import { CallMediaView } from "./call-media-view";
+import { CallDeviceSettings, useCallDevices } from "./call-devices";
+import { callInputConstraints, switchCallInput } from "@/lib/messaging/call-input";
 import { classifyDeviceTrust } from "@/crypto/src/protocol";
 import { fetchConversationDevices } from "@/lib/messaging/api-client";
 import {
-  callMedia,
   chooseCallScreen,
   constrainCallScreen,
   limitCallSenders,
@@ -110,68 +112,23 @@ function MediaTile({
   status: string;
   sharing?: boolean;
 }) {
-  const element = useRef<HTMLMediaElement | null>(null);
-  const [blocked, setBlocked] = useState(false);
-  useEffect(() => {
-    const node = element.current;
-    if (!node || !stream) return;
-    node.srcObject = stream;
-    void node
-      .play()
-      .then(() => setBlocked(false))
-      .catch(() => setBlocked(true));
-    return () => {
-      node.srcObject = null;
-    };
-  }, [stream]);
   return (
     <div className={`group-call-tile${sharing ? " group-call-tile--sharing" : ""}`}>
-      {audioOnly ? (
-        <>
-          <audio
-            ref={(node) => {
-              element.current = node;
-            }}
-            autoPlay
-            muted={local}
-          />
-          <div className="call-avatar">
-            <Users size={36} aria-hidden="true" />
-          </div>
-        </>
-      ) : (
-        <video
-          ref={(node) => {
-            element.current = node;
-          }}
-          autoPlay
-          playsInline
-          muted={local}
-          aria-label={name}
-        />
-      )}
+      <CallMediaView
+        stream={stream}
+        muted={local}
+        label={sharing ? `${name}'s shared screen` : name}
+        audioOnly={audioOnly}
+      />
       <div className="group-call-tile__caption">
         <strong>{name}</strong>
         <span>{sharing ? "Sharing screen" : status}</span>
       </div>
-      {blocked ? (
-        <button
-          className="feature-button"
-          type="button"
-          onClick={() =>
-            void element.current
-              ?.play()
-              .then(() => setBlocked(false))
-              .catch(() => {})
-          }
-        >
-          Play call audio
-        </button>
-      ) : null}
     </div>
   );
 }
 export function GroupCallProvider({ children }: { children: ReactNode }) {
+  const devices = useCallDevices();
   const messaging = useMessagingDevice();
   const messagingRef = useRef(messaging);
   messagingRef.current = messaging;
@@ -201,7 +158,6 @@ export function GroupCallProvider({ children }: { children: ReactNode }) {
   const ignored = useRef("");
   const heartbeatAt = useRef(0);
   const lastSignal = useRef(0);
-  const dialog = useRef<HTMLDialogElement>(null);
   const allowed = useRef<boolean | null>(null);
   const directoryAt = useRef(0);
   const trustedDirectory = useRef<Awaited<ReturnType<typeof classifyDeviceTrust>>>([]);
@@ -628,8 +584,11 @@ export function GroupCallProvider({ children }: { children: ReactNode }) {
       document.documentElement.dataset.callMediaPending = "group";
       try {
         acquired = await navigator.mediaDevices.getUserMedia({
-          audio: callMedia.audio,
-          video: actualKind === "video" ? callMedia.camera : false,
+          audio: callInputConstraints("audio", devices.preferencesRef.current.microphone),
+          video:
+            actualKind === "video"
+              ? callInputConstraints("video", devices.preferencesRef.current.camera)
+              : false,
         });
       } catch {
         throw new Error(
@@ -681,6 +640,35 @@ export function GroupCallProvider({ children }: { children: ReactNode }) {
       if (token === generation.current && currentRef.current?.phase === "preparing") cleanup();
     }
   }
+  async function changeInput(kind: "audio" | "video", id: string) {
+    const token = generation.current;
+    if (screenPending.current) throw new Error("Wait for screen selection to finish");
+    if (kind === "video" && screenRef.current)
+      throw new Error("Stop sharing before changing camera");
+    await switchCallInput(kind, id, {
+      getStream: () => stream.current,
+      setStream: (next) => {
+        stream.current = next;
+        setLocal(next);
+      },
+      isCurrent: () => token === generation.current && currentRef.current?.phase === "joined",
+      enabled: () => (kind === "audio" ? !mutedRef.current : !cameraOffRef.current),
+      targets: () =>
+        [...peers.current.values()]
+          .filter((peer) => peer.state !== "failed")
+          .map((peer) => ({
+            replace: (track) =>
+              sendWork(peer, async () => {
+                const sender = peer.pc.getSenders().find((s) => s.track?.kind === kind);
+                if (!sender) throw new Error("Call sender unavailable");
+                await sender.replaceTrack(track);
+                await limitCallSenders(peer.pc, Boolean(screenRef.current), peerCount());
+              }),
+            disconnect: () =>
+              failPeer(peer, "The device couldn’t switch for one person. Rejoin to reconnect."),
+          })),
+    });
+  }
   async function stopScreen() {
     const capture = screenRef.current;
     if (!capture) return;
@@ -713,6 +701,10 @@ export function GroupCallProvider({ children }: { children: ReactNode }) {
     }
     if (!navigator.mediaDevices?.getDisplayMedia) {
       setMessage("This browser can watch shared screens but can’t share one.");
+      return;
+    }
+    if (document.documentElement.dataset.callMediaPending === "switch") {
+      setMessage("Wait for the device change to finish before sharing your screen.");
       return;
     }
     screenPending.current = true;
@@ -914,11 +906,6 @@ export function GroupCallProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (!messaging.approved && currentRef.current) void leave("Your call access changed.");
   }, [messaging.approved]);
-  useEffect(() => {
-    const node = dialog.current;
-    if (current && !minimized && node && !node.open) node.showModal();
-    else if ((!current || minimized) && node?.open) node.close();
-  }, [current, minimized]);
   const active = Boolean(current);
   // biome-ignore lint/correctness/useExhaustiveDependencies: The expiry timer reads live refs.
   useEffect(() => {
@@ -952,185 +939,171 @@ export function GroupCallProvider({ children }: { children: ReactNode }) {
           </button>
         </div>
       ) : null}
-      {current && minimized ? (
-        <button
-          className="call-mini feature-button"
-          type="button"
-          onClick={() => setMinimized(false)}
+      {current ? (
+        <CallWindow
+          title={`Group call: ${current.name}`}
+          group
+          live={current.phase === "joined"}
+          minimized={minimized}
+          onMinimize={setMinimized}
         >
-          <Users size={16} />
-          {current.name} · {joined.length} in call{screen ? " · Sharing screen" : ""}
-        </button>
-      ) : null}
-      <dialog
-        ref={dialog}
-        className="call-dialog group-call-dialog"
-        aria-label={current ? `Group call: ${current.name}` : "Group call"}
-        onCancel={(event) => {
-          event.preventDefault();
-          setMinimized(true);
-        }}
-      >
-        {current ? (
-          <>
-            <header>
-              <span>
-                {current.room?.kind === "video" ? "Group video call" : "Group voice call"}
-              </span>
-              <button type="button" aria-label="Minimize call" onClick={() => setMinimized(true)}>
-                <Minimize2 size={18} />
-              </button>
-            </header>
-            <h2>{current.name}</h2>
-            <p className="call-phase" role="status">
-              {current.phase === "preparing"
-                ? "Getting ready…"
-                : current.phase === "incoming"
-                  ? current.resume
-                    ? "Rejoin your call"
-                    : "You’re invited"
-                  : joined.length < 2
-                    ? "Waiting for others to join…"
-                    : `${joined.length} people in this call`}
-            </p>
-            <div className="group-call-grid">
-              {current.phase === "joined" ? (
-                joined.map((person) => {
-                  const own = person.userId === me;
-                  const peer = peersView.find((p) => p.userId === person.userId);
-                  return (
-                    <MediaTile
-                      key={person.userId}
-                      stream={own ? (screen ?? local) : (peer?.stream ?? null)}
-                      name={own ? "You" : person.name}
-                      local={own}
-                      audioOnly={current.room?.kind === "voice"}
-                      sharing={own ? Boolean(screen) : person.sharing}
-                      status={
-                        own
-                          ? muted
+          <h2>{current.name}</h2>
+          <p className="call-phase" role="status">
+            {current.phase === "preparing"
+              ? "Getting ready…"
+              : current.phase === "incoming"
+                ? current.resume
+                  ? "Rejoin your call"
+                  : "You’re invited"
+                : joined.length < 2
+                  ? "Waiting for others to join…"
+                  : `${joined.length} people in this call`}
+          </p>
+          <div className="group-call-grid">
+            {current.phase === "joined" ? (
+              joined.map((person) => {
+                const own = person.userId === me;
+                const peer = peersView.find((p) => p.userId === person.userId);
+                return (
+                  <MediaTile
+                    key={person.userId}
+                    stream={own ? (screen ?? local) : (peer?.stream ?? null)}
+                    name={own ? "You" : person.name}
+                    local={own}
+                    audioOnly={current.room?.kind === "voice"}
+                    sharing={own ? Boolean(screen) : person.sharing}
+                    status={
+                      own
+                        ? muted
+                          ? "Microphone muted"
+                          : cameraOff
+                            ? "Camera off"
+                            : "Connected"
+                        : peer?.state === "connected"
+                          ? person.muted
                             ? "Microphone muted"
-                            : cameraOff
+                            : person.cameraOff
                               ? "Camera off"
                               : "Connected"
-                          : peer?.state === "connected"
-                            ? person.muted
-                              ? "Microphone muted"
-                              : person.cameraOff
-                                ? "Camera off"
-                                : "Connected"
-                            : peer?.state === "failed"
-                              ? "Couldn’t connect"
-                              : "Connecting…"
-                      }
-                    />
-                  );
-                })
-              ) : (
-                <div className="call-avatar">
-                  <Users size={48} />
-                </div>
-              )}
-            </div>
-            <div className="call-controls">
-              {current.phase === "incoming" && current.room ? (
-                <button
-                  type="button"
-                  className="call-control call-control--accept"
-                  onClick={() => {
-                    const room = currentRef.current?.room;
-                    if (room) void join(room.conversationId, room.name, room.kind, room);
-                  }}
-                >
-                  <Phone size={22} />
-                  <span>{current.resume ? "Rejoin call" : "Join call"}</span>
-                </button>
-              ) : null}
-              {current.phase === "joined" ? (
-                <>
-                  <button
-                    type="button"
-                    className="call-control"
-                    aria-pressed={muted}
-                    onClick={() => {
-                      mutedRef.current = !mutedRef.current;
-                      stream.current?.getAudioTracks().forEach((t) => {
-                        t.enabled = !mutedRef.current;
-                      });
-                      setMuted(mutedRef.current);
-                      heartbeatAt.current = 0;
-                    }}
-                  >
-                    {muted ? <MicOff size={22} /> : <Mic size={22} />}
-                    <span>{muted ? "Unmute" : "Mute"}</span>
-                  </button>
-                  {current.room?.kind === "video" ? (
-                    <>
-                      <button
-                        type="button"
-                        className="call-control"
-                        disabled={Boolean(screen) || screenBusy}
-                        aria-pressed={cameraOff}
-                        onClick={() => {
-                          cameraOffRef.current = !cameraOffRef.current;
-                          stream.current?.getVideoTracks().forEach((t) => {
-                            t.enabled = !cameraOffRef.current;
-                          });
-                          setCameraOff(cameraOffRef.current);
-                          heartbeatAt.current = 0;
-                        }}
-                      >
-                        {cameraOff ? <VideoOff size={22} /> : <Video size={22} />}
-                        <span>{cameraOff ? "Camera on" : "Camera off"}</span>
-                      </button>
-                      <button
-                        type="button"
-                        className="call-control"
-                        disabled={screenBusy}
-                        aria-pressed={Boolean(screen)}
-                        onClick={() => void shareScreen()}
-                      >
-                        {screen ? <MonitorX size={22} /> : <MonitorUp size={22} />}
-                        <span>
-                          {screen ? "Stop sharing" : screenBusy ? "Choosing…" : "Share screen"}
-                        </span>
-                      </button>
-                    </>
-                  ) : null}
-                </>
-              ) : null}
+                          : peer?.state === "failed"
+                            ? "Couldn’t connect"
+                            : "Connecting…"
+                    }
+                  />
+                );
+              })
+            ) : (
+              <div className="call-avatar">
+                <Users size={48} />
+              </div>
+            )}
+          </div>
+          <div className="call-controls">
+            {current.phase === "incoming" && current.room ? (
               <button
                 type="button"
-                className="call-control call-control--end"
-                onClick={() =>
-                  void leave(
-                    current.phase === "incoming" && !current.resume
-                      ? "Group call declined"
-                      : "You left the group call",
-                    current.phase === "incoming" && !current.resume,
-                  )
-                }
+                className="call-control call-control--accept"
+                onClick={() => {
+                  const room = currentRef.current?.room;
+                  if (room) void join(room.conversationId, room.name, room.kind, room);
+                }}
               >
-                <PhoneOff size={22} />
-                <span>
-                  {current.phase === "incoming" && !current.resume ? "Decline" : "Leave call"}
-                </span>
+                <Phone size={22} />
+                <span>{current.resume ? "Rejoin call" : "Join call"}</span>
               </button>
-            </div>
-            <p className="call-note">
-              {screen ? "You’re sharing your screen. " : ""}
-              {fallback ? "Trying direct connections. They may not work on every network. " : ""}
-              {policy === "all"
-                ? "Direct connections can share your network address with other participants. "
-                : policy === "relay"
-                  ? "Direct connections are disabled. "
-                  : ""}
-              Camera up to 720p at 30 fps. Screen sharing up to 720p at 60 fps. Quality adjusts to
-              your connection and group size. Keep Untold open. Calls can last up to 55 minutes.
-            </p>
-          </>
-        ) : null}
-      </dialog>
+            ) : null}
+            {current.phase === "joined" ? (
+              <>
+                <button
+                  type="button"
+                  className="call-control"
+                  aria-pressed={muted}
+                  onClick={() => {
+                    mutedRef.current = !mutedRef.current;
+                    stream.current?.getAudioTracks().forEach((t) => {
+                      t.enabled = !mutedRef.current;
+                    });
+                    setMuted(mutedRef.current);
+                    heartbeatAt.current = 0;
+                  }}
+                >
+                  {muted ? <MicOff size={22} /> : <Mic size={22} />}
+                  <span>{muted ? "Unmute" : "Mute"}</span>
+                </button>
+                {current.room?.kind === "video" ? (
+                  <>
+                    <button
+                      type="button"
+                      className="call-control"
+                      disabled={Boolean(screen) || screenBusy}
+                      aria-pressed={cameraOff}
+                      onClick={() => {
+                        cameraOffRef.current = !cameraOffRef.current;
+                        stream.current?.getVideoTracks().forEach((t) => {
+                          t.enabled = !cameraOffRef.current;
+                        });
+                        setCameraOff(cameraOffRef.current);
+                        heartbeatAt.current = 0;
+                      }}
+                    >
+                      {cameraOff ? <VideoOff size={22} /> : <Video size={22} />}
+                      <span>{cameraOff ? "Camera on" : "Camera off"}</span>
+                    </button>
+                    <button
+                      type="button"
+                      className="call-control"
+                      disabled={screenBusy}
+                      aria-pressed={Boolean(screen)}
+                      onClick={() => void shareScreen()}
+                    >
+                      {screen ? <MonitorX size={22} /> : <MonitorUp size={22} />}
+                      <span>
+                        {screen ? "Stop sharing" : screenBusy ? "Choosing…" : "Share screen"}
+                      </span>
+                    </button>
+                  </>
+                ) : null}
+              </>
+            ) : null}
+            <button
+              type="button"
+              className="call-control call-control--end"
+              onClick={() =>
+                void leave(
+                  current.phase === "incoming" && !current.resume
+                    ? "Group call declined"
+                    : "You left the group call",
+                  current.phase === "incoming" && !current.resume,
+                )
+              }
+            >
+              <PhoneOff size={22} />
+              <span>
+                {current.phase === "incoming" && !current.resume ? "Decline" : "Leave call"}
+              </span>
+            </button>
+          </div>
+          {local && current.phase === "joined" ? (
+            <CallDeviceSettings
+              stream={local}
+              video={current.room?.kind === "video"}
+              sharing={Boolean(screen)}
+              onInputChange={changeInput}
+            />
+          ) : null}
+          <p className="call-note">
+            {screen ? "You’re sharing your screen. " : ""}
+            {fallback ? "Trying direct connections. They may not work on every network. " : ""}
+            {policy === "all"
+              ? "Direct connections can share your network address with other participants. "
+              : policy === "relay"
+                ? "Direct connections are disabled. "
+                : ""}
+            Camera up to 720p at 30 fps. Screen sharing up to 720p at 60 fps. Quality adjusts to
+            your connection and group size. Keep Untold open. Calls can last up to 55 minutes.
+          </p>
+        </CallWindow>
+      ) : null}
     </Context.Provider>
   );
 }

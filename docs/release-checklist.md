@@ -1,5 +1,11 @@
 # Untold release checklist
 
+## Call window follow-up (2026-10-16)
+
+Fullscreen, movable/resizable windows, supported floating windows, microphone/camera/output selection and the 96 kbit/s audio target are implemented locally. This follow-up needs no new migration or environment variables. Existing group-call migration 017 remains required.
+
+- [ ] Complete the live browser/device checks in [call windows and devices](call-window-and-devices.md), including installed Chrome apps, background floating permissions, fullscreen, headphones disconnecting, permission denial and hangup during input switching. Compilation does not verify live media behavior.
+
 **Status: deployment is not yet verified after the first-party encryption and attachment integration.** Migration 006 will permanently remove pre-encryption and unsupported message rows at app startup, but it has not been applied to Portways from this workspace. Migration 007 adds attachment records and message links. Message text, attachment metadata, and attachment bytes are encrypted in the browser; live Portways object storage and the full attachment flow are not configured or verified here. Protocol v1 has no forward secrecy and no independent security review. Do not describe Untold as production-secure.
 
 ## Current local review (2026-10-15)

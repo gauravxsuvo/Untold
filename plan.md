@@ -2,6 +2,17 @@
 
 ## Current status
 
+### Call window and device controls (2026-10-16, implemented locally)
+
+- [x] Raise the live-call audio payload target to 96 kbit/s per connection.
+- [x] Add fullscreen controls to direct/group camera and shared-screen views, with native-video/in-app fallbacks.
+- [x] Replace blocking call dialogs with bounded draggable/resizable call windows and restore/minimize controls.
+- [x] Add an always-on-top Document Picture-in-Picture window, eligible Chrome automatic background entry, and a user-opened popup fallback; preserve the same media elements and close external windows on call teardown.
+- [x] Add microphone/camera switching and speaker selection for direct/group calls, preserving mute and media budgets, safe rollback, permission handling and disconnected-output privacy.
+- [x] Keep floating windows in sync with theme/readability, document platform limits, compile and lint without live calls or automated tests.
+
+TypeScript, lint (207 files, no warnings), production webpack build and whitespace checks passed. No automated tests, live call, development server, migration, commit or deployment were run. No new dependencies, environment variables or migrations are needed for this follow-up; group calls still require migration 017. Audio is capped at 96 kbit/s per peer rather than guaranteed constant-rate encoding. Automatic floating depends on browser support, eligibility and permission; unsupported browsers get an explicit popup fallback, and mobile suspension limits still apply. See `docs/call-window-and-devices.md` for controls, platform limits and remaining live-device checks. The 96 kbit/s budget supersedes the earlier 32 kbit/s entry below.
+
 ### Group calls, sharing and message spam controls (2026-10-16, implemented locally)
 
 - [x] Add voice/video rooms for up to eight current group members, approved devices, signed pairwise setup, join/leave, invitations and privacy-safe notifications.
