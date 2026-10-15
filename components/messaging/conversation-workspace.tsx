@@ -7,6 +7,8 @@ import { ArrowLeft, ChevronDown, FileText, Paperclip, Search, Send } from "lucid
 import { useAccountSession } from "@/components/auth/account-session-provider";
 import { ContactAvatar } from "@/components/messaging/contact-avatar";
 import { StartConversationForm } from "@/components/messaging/start-conversation-form";
+import { MessageReceipt } from "@/components/messaging/message-receipt";
+import { useMessageReceipts } from "@/components/messaging/use-message-receipts";
 import {
   deviceFingerprint,
   type DeviceTrust,
@@ -274,7 +276,10 @@ function MessageBubble({
   onRetry: () => void;
 }) {
   return (
-    <li className={`message-row${isOutgoing ? " message-row--outgoing" : " message-row--incoming"}`}>
+    <li
+      className={`message-row${isOutgoing ? " message-row--outgoing" : " message-row--incoming"}`}
+      data-receipt-id={!isOutgoing && message.encryption === "encrypted" ? message.id : undefined}
+    >
       <article className="message-bubble">
         {message.attachment ? (
           <AttachmentMessage conversationId={conversationId} message={message} />
@@ -283,7 +288,7 @@ function MessageBubble({
         )}
         <footer>
           <time dateTime={message.createdAt}>{formatMessageTime(message.createdAt)}</time>
-          {message.delivery === "sent" ? (
+          {message.delivery === "sent" && !isOutgoing ? (
             <span className={`message-bubble__encryption message-bubble__encryption--${message.encryption}`}>
               {message.encryption === "encrypted"
                 ? "Encrypted"
@@ -291,6 +296,9 @@ function MessageBubble({
                   ? "Unverified device"
                   : "Unavailable"}
             </span>
+          ) : null}
+          {isOutgoing && message.delivery === "sent" ? (
+            <MessageReceipt receivedAt={message.receivedAt} readAt={message.readAt} />
           ) : null}
           {message.delivery === "sending" ? (
             <span className="message-bubble__local-status">Sending…</span>
@@ -484,6 +492,7 @@ export function ConversationWorkspace({ initialSelectedId }: { initialSelectedId
     () => void directory.refresh(),
   );
   refreshThreadRef.current = () => void thread.refresh();
+  useMessageReceipts(selectedId, viewerId, thread.messages, historyRef);
 
   // On wide screens, open the most recent conversation once the list arrives.
   useEffect(() => {

@@ -57,13 +57,15 @@ export type AccountDevice = {
 };
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
+  const headers = new Headers(init?.headers);
+  if (init?.body && !headers.has("Content-Type")) headers.set("Content-Type", "application/json");
   let response: Response;
   try {
     response = await fetch(path, {
       ...init,
       cache: "no-store",
       credentials: "same-origin",
-      headers: init?.body ? { "Content-Type": "application/json" } : undefined,
+      headers,
     });
   } catch {
     throw new ApiError("Untold could not be reached. Check your connection.", 0);
@@ -74,6 +76,17 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
     throw new ApiError(requestErrorMessage(response.status, body?.message), response.status);
   }
   return body as T;
+}
+
+export async function updateProfilePhoto(photo: Blob, signal?: AbortSignal): Promise<string> {
+  const result = await request<{ image: string }>("/api/profile/photo", {
+    method: "PUT", headers: { "Content-Type": photo.type }, body: photo, signal,
+  });
+  return result.image;
+}
+
+export async function removeProfilePhoto(): Promise<void> {
+  await request<{ image: null }>("/api/profile/photo", { method: "DELETE" });
 }
 
 export async function fetchConversations(): Promise<ConversationSummary[]> {
@@ -126,6 +139,41 @@ export async function fetchMessages(conversationId: string): Promise<Conversatio
     `/api/conversations/${encodeURIComponent(conversationId)}/messages`,
   );
   return messages;
+}
+
+export async function fetchMessageSnapshot(
+  conversationId: string,
+  knownIds: string[],
+  etag: string | null,
+  signal: AbortSignal,
+): Promise<{ messages: ConversationMessage[]; etag: string | null } | null> {
+  const query = new URLSearchParams();
+  if (knownIds.length) query.set("known", knownIds.slice(0, 100).join(","));
+  let response: Response;
+  try {
+    response = await fetch(`/api/conversations/${encodeURIComponent(conversationId)}/messages?${query}`, {
+      cache: "no-store", credentials: "same-origin", signal,
+      headers: etag ? { "If-None-Match": etag } : undefined,
+    });
+  } catch {
+    throw new ApiError("Untold could not be reached. Check your connection.", 0);
+  }
+  if (response.status === 304) return null;
+  const body = await response.json().catch(() => null);
+  if (!response.ok) throw new ApiError(requestErrorMessage(response.status, body?.message), response.status);
+  if (!Array.isArray(body?.messages)) throw new ApiError("We couldn’t refresh this conversation. Please try again.", 0);
+  return { messages: body.messages, etag: response.headers.get("etag") };
+}
+
+export async function acknowledgeMessages(
+  conversationId: string,
+  receivedIds: string[],
+  readIds: string[],
+  signal?: AbortSignal,
+): Promise<void> {
+  await request<{ updated: boolean }>(`/api/conversations/${encodeURIComponent(conversationId)}/receipts`, {
+    method: "POST", body: JSON.stringify({ receivedIds, readIds }), signal,
+  });
 }
 
 export async function sendMessage(

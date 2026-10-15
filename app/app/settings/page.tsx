@@ -6,6 +6,7 @@ import { PageHeading } from "@/components/app/page-heading";
 import { useAccountSession } from "@/components/auth/account-session-provider";
 import { DeviceManagement } from "@/components/messaging/device-management";
 import { InstallAppButton } from "@/components/pwa/install-app-button";
+import { ThemeSwitcher } from "@/components/theme/theme-switcher";
 
 export default function SettingsPage() {
   const { session } = useAccountSession();
@@ -18,6 +19,14 @@ export default function SettingsPage() {
         title="Settings"
       />
       <section aria-label="Account settings" className="account-settings-preview">
+        <article className="account-settings-preview__appearance">
+          <div>
+            <p className="messaging-kicker">Make it yours</p>
+            <h2>Appearance</h2>
+            <p>Choose a look that feels right. Your choice is saved on this device.</p>
+            <ThemeSwitcher />
+          </div>
+        </article>
         <article>
           <div>
             <p className="messaging-kicker">Sign-in method</p>
@@ -33,8 +42,8 @@ export default function SettingsPage() {
             <p className="messaging-kicker">Your devices</p>
             <h2>Install Untold</h2>
             <p>
-              Open Untold in its own window on your computer, or add it to your Android
-              home screen. Your conversations stay connected to your account.
+              Add Untold to your iPhone, iPad, Android home screen, or your computer.
+              Open it straight from its own icon.
             </p>
           </div>
           <InstallAppButton placement="settings" />
@@ -58,6 +67,7 @@ export default function SettingsPage() {
             <h2>Before you share</h2>
             <p>What to know before you send a message.</p>
             <ul className="account-privacy-notes">
+              <li>Your contacts can see when you’ve received a message and when it’s been visible in your active conversation.</li>
               <li>Messages and files are encrypted on your device before you send them.</li>
               <li>Compare safety codes with your contact by phone or in person before sharing.</li>
               <li>Privacy features are still being tested and haven’t been independently checked.</li>

@@ -187,6 +187,13 @@ const bytea = customType<{ data: Buffer; driverData: Buffer }>({
   fromDriver: (value) => (Buffer.isBuffer(value) ? value : Buffer.from(value)),
 });
 
+export const profilePhotos = appSchema.table("profile_photo", {
+  userId: text("user_id").primaryKey().references(() => authUser.id, { onDelete: "cascade" }),
+  version: uuid("version").notNull(),
+  image: bytea("image").notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
 export const messageEnvelopes = appSchema.table(
   "message_envelope",
   {
@@ -210,5 +217,19 @@ export const messageEnvelopes = appSchema.table(
       table.createdAt,
       table.id,
     ),
+  ],
+);
+
+export const messageReceipts = appSchema.table(
+  "message_receipt",
+  {
+    messageId: uuid("message_id").notNull().references(() => messageEnvelopes.id, { onDelete: "cascade" }),
+    userId: text("user_id").notNull().references(() => authUser.id, { onDelete: "cascade" }),
+    receivedAt: timestamp("received_at", { withTimezone: true }).notNull().defaultNow(),
+    readAt: timestamp("read_at", { withTimezone: true }),
+  },
+  (table) => [
+    primaryKey({ columns: [table.messageId, table.userId], name: "untold_message_receipt_pk" }),
+    index("untold_message_receipt_user_idx").on(table.userId),
   ],
 );

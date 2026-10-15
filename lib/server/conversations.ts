@@ -2,7 +2,8 @@ import "server-only";
 
 import { and, eq, inArray, sql } from "drizzle-orm";
 import type { getDatabase } from "@/lib/server/database";
-import { conversationMembers, conversations, authUser } from "@/lib/server/schema";
+import { conversationMembers, conversations, authUser, profilePhotos } from "@/lib/server/schema";
+import { profilePhotoUrl } from "@/lib/profile/photos";
 import type { ConversationSummary, Person } from "@/lib/messaging/people";
 
 type Database = ReturnType<typeof getDatabase>["db"];
@@ -112,19 +113,27 @@ export async function listConversationsForUser(
       id: authUser.id,
       name: authUser.name,
       email: authUser.email,
+      photoVersion: profilePhotos.version,
     })
     .from(conversationMembers)
     .innerJoin(authUser, eq(authUser.id, conversationMembers.userId))
+    .leftJoin(profilePhotos, eq(profilePhotos.userId, authUser.id))
     .where(inArray(conversationMembers.conversationId, ids));
 
   const lastMessages = await db.execute<LastMessageRow>(sql`
-    SELECT DISTINCT ON (conversation_id) conversation_id, sender_id, created_at, attachment_id
-    FROM untold_app.message_envelope
-    WHERE conversation_id IN (${sql.join(
+    SELECT c.id AS conversation_id, latest.sender_id, latest.created_at, latest.attachment_id
+    FROM untold_app.conversation AS c
+    JOIN LATERAL (
+      SELECT m.sender_id, m.created_at, m.attachment_id
+      FROM untold_app.message_envelope AS m
+      WHERE m.conversation_id = c.id
+      ORDER BY m.created_at DESC, m.id DESC
+      LIMIT 1
+    ) AS latest ON true
+    WHERE c.id IN (${sql.join(
       ids.map((id) => sql`${id}::uuid`),
       sql`, `,
     )})
-    ORDER BY conversation_id, created_at DESC, id DESC
   `);
   const lastByConversation = new Map(
     lastMessages.rows.map((row) => [row.conversation_id, row] as const),
@@ -138,7 +147,9 @@ export async function listConversationsForUser(
         createdAt: createdAt.toISOString(),
         members: members
           .filter((member) => member.conversationId === id)
-          .map(({ id: memberId, name, email }) => ({ id: memberId, name, email })),
+          .map(({ id: memberId, name, email, photoVersion }) => ({
+            id: memberId, name, email, image: photoVersion ? profilePhotoUrl(memberId, photoVersion) : null,
+          })),
         lastMessage: last
           ? {
               text: null,

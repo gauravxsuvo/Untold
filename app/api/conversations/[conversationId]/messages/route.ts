@@ -1,4 +1,5 @@
-import { and, desc, eq, isNull } from "drizzle-orm";
+import { createHash } from "node:crypto";
+import { and, desc, eq, inArray, isNull } from "drizzle-orm";
 import {
   getAuthenticatedUser,
   backendErrorResponse,
@@ -19,6 +20,7 @@ import {
   messageEnvelopes,
 } from "@/lib/server/schema";
 import { parseE2eeEnvelope } from "@/lib/server/e2ee-envelope";
+import { outgoingMessageReceipts } from "@/lib/server/message-receipts";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -53,13 +55,19 @@ export async function GET(request: Request, context: RouteContext): Promise<Resp
     const { db } = getDatabase();
     if (!(await isConversationMember(db, conversationId, user.id))) return notFoundResponse();
 
+    const knownParam = new URL(request.url).searchParams.get("known");
+    const knownIds = knownParam ? knownParam.split(",") : [];
+    if ((knownParam?.length ?? 0) > 4000 || knownIds.length > 100 || knownIds.some((id) => !uuidPattern.test(id))) {
+      return Response.json({ message: "We couldn’t refresh this conversation. Please try again." }, { status: 400 });
+    }
+    const known = new Set(knownIds.map((id) => id.toLowerCase()));
+    // Metadata and receipt reads do not load the larger encrypted message bodies.
     const messages = await db
       .select({
         id: messageEnvelopes.id,
         senderId: messageEnvelopes.senderId,
         clientMessageId: messageEnvelopes.clientMessageId,
         attachmentId: messageEnvelopes.attachmentId,
-        envelope: messageEnvelopes.envelope,
         createdAt: messageEnvelopes.createdAt,
       })
       .from(messageEnvelopes)
@@ -67,19 +75,32 @@ export async function GET(request: Request, context: RouteContext): Promise<Resp
       .orderBy(desc(messageEnvelopes.createdAt), desc(messageEnvelopes.id))
       .limit(100);
 
-    const encryptedMessages = messages.filter(
-      ({ envelope }) => parseE2eeEnvelope(envelope) !== null,
+    const receipts = await outgoingMessageReceipts(
+      db, conversationId, user.id,
+      messages.filter(({ senderId }) => senderId === user.id).map(({ id }) => id),
     );
+    const metadata = messages.reverse().map(({ createdAt, ...message }) => ({
+      ...message, createdAt: createdAt.toISOString(), ...(receipts.get(message.id) ?? {}),
+    }));
+    const etag = `"${createHash("sha256").update(JSON.stringify([user.id, conversationId, metadata])).digest("base64url")}"`;
+    const headers = { "Cache-Control": "no-store", "Vary": "Cookie", "ETag": etag };
+    if (request.headers.get("if-none-match") === etag && metadata.every(({ id }) => known.has(id))) {
+      return new Response(null, { status: 304, headers });
+    }
+    const missingIds = metadata.filter(({ id }) => !known.has(id)).map(({ id }) => id);
+    const missing = missingIds.length ? await db.select({ id: messageEnvelopes.id, envelope: messageEnvelopes.envelope })
+      .from(messageEnvelopes).where(and(eq(messageEnvelopes.conversationId, conversationId), inArray(messageEnvelopes.id, missingIds))) : [];
+    const bodies = new Map(missing.map(({ id, envelope }) => [id, envelope]));
 
     return Response.json(
       {
-        messages: encryptedMessages.reverse().map(({ envelope, createdAt, ...message }) => ({
-          ...message,
-          envelope: Buffer.from(envelope).toString("base64"),
-          createdAt: createdAt.toISOString(),
-        })),
+        messages: metadata.flatMap((message) => {
+          if (known.has(message.id)) return [message];
+          const envelope = bodies.get(message.id);
+          return envelope && parseE2eeEnvelope(envelope) ? [{ ...message, envelope: Buffer.from(envelope).toString("base64") }] : [];
+        }),
       },
-      { headers: { "Cache-Control": "no-store" } },
+      { headers },
     );
   } catch (error) {
     return backendErrorResponse(error);

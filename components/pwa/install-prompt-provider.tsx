@@ -20,6 +20,7 @@ type DeferredInstallPrompt = Event & {
 type InstallPromptContextValue = {
   isInstalled: boolean;
   isInstalling: boolean;
+  platform: "apple-mobile" | "safari-mac" | "other";
   install: () => Promise<InstallChoice | "unavailable">;
 };
 
@@ -37,9 +38,16 @@ export function InstallPromptProvider({ children }: { children: React.ReactNode 
   const deferredPrompt = useRef<DeferredInstallPrompt | null>(null);
   const [isInstalled, setIsInstalled] = useState(false);
   const [isInstalling, setIsInstalling] = useState(false);
+  const [platform, setPlatform] = useState<InstallPromptContextValue["platform"]>("other");
 
   useEffect(() => {
     setIsInstalled(isRunningAsInstalledApp());
+    const agent = navigator.userAgent;
+    const isAppleMobile = /iPad|iPhone|iPod/.test(agent) ||
+      (/Macintosh/.test(agent) && navigator.maxTouchPoints > 1);
+    const isSafariMac = /Macintosh/.test(agent) && /Safari/.test(agent) &&
+      !/Chrome|Chromium|CriOS|Edg|OPR|Firefox|FxiOS/.test(agent);
+    setPlatform(isAppleMobile ? "apple-mobile" : isSafariMac ? "safari-mac" : "other");
 
     const handleBeforeInstallPrompt = (event: Event) => {
       event.preventDefault();
@@ -85,8 +93,8 @@ export function InstallPromptProvider({ children }: { children: React.ReactNode 
   }, [isInstalling]);
 
   const value = useMemo(
-    () => ({ isInstalled, isInstalling, install }),
-    [isInstalled, isInstalling, install],
+    () => ({ isInstalled, isInstalling, platform, install }),
+    [isInstalled, isInstalling, platform, install],
   );
 
   return <InstallPromptContext.Provider value={value}>{children}</InstallPromptContext.Provider>;
