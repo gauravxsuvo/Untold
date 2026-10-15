@@ -7,7 +7,7 @@
 - Any member can leave. If the owner leaves, ownership passes to the earliest remaining member. A group with no remaining members is inaccessible; retained encrypted history follows the existing storage policy.
 - Groups appear in the inbox, search, and conversation list with their name and photo. Incoming group messages show the sender's name.
 - Safety codes remain account-to-account. Compare each group member once in Details. Existing account verifications carry over to groups and approved devices.
-- Group messages, attachments, and voice recordings use the existing browser encryption protocol, with a new content key per message and wraps for the current approved devices. The envelope limit now supports 64 devices, covering eight accounts with eight devices each. Group voice/video calls are not included; call controls and the call API remain for direct chats.
+- Group messages, attachments, and voice recordings use the existing browser encryption protocol, with a new content key per message and wraps for the current approved devices. The envelope limit supports 64 devices, covering eight accounts with eight devices each. Migration 017 adds group voice/video calls and screen sharing; see [group calls and media](group-calls-and-media.md).
 
 ## Membership and history
 

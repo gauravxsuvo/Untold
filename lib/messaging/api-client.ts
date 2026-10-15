@@ -129,6 +129,9 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
 
   const body = (await response.json().catch(() => null)) as { message?: string } | null;
   if (!response.ok) {
+    const wait = Number(response.headers.get("Retry-After"));
+    if (response.status === 429 && Number.isInteger(wait) && wait >= 1 && wait <= 3600)
+      throw new ApiError(`Please wait ${wait} seconds before trying again.`, response.status);
     throw new ApiError(requestErrorMessage(response.status, body?.message), response.status);
   }
   return body as T;

@@ -65,10 +65,12 @@ Ready to commit the local implementation after reviewing the complete working-tr
 
 - Protocol v1 has no forward secrecy or post-compromise security and has not been independently reviewed. Lost browser keys cannot be recovered; device removal cannot erase content already downloaded. See [the Phase 6 design and limits](phase-6-e2ee-architecture.md).
 - Email addresses are not verified. Password resets require MFA to have been enabled and an unused recovery code. There is no email reset flow. See [MFA and password recovery](mfa-and-password-recovery.md).
-- One-to-one conversations only. Attachments are limited to 20 MiB each; there are no group chats, calls, editing, or deletion. Opt-in push notifications and cross-conversation Received receipts are implemented locally and still need real-device verification. See [readability, delivery, and notifications](readability-delivery-and-notifications.md).
+- Direct and group conversations support files up to 20 MiB, with no message editing or deletion. Group calls support up to eight accounts. Opt-in push notifications, calls and screen sharing still need real-device verification. See [group calls and media](group-calls-and-media.md).
 - Starting a conversation reveals whether an email has an account (rate limited to 20 attempts per hour per user).
 - Only the most recent 100 messages of a conversation are shown.
 # Membership, attachments, and calls release gate
+
+Include migration 017 for group call rooms and pair signaling, and complete the live-device checks in [group calls and media](group-calls-and-media.md). Camera targets are 720p/30 fps, sharing targets 720p/60 fps, with capped outgoing video and database-backed message burst/account/chat limits. Keep using Portways' default production build and the migration-on-start command. No new TURN variables are required.
 
 For group chats and desktop typing, include migration 016 after 015 and follow [the group rollout notes](groups-and-desktop-typing.md). Refresh the app on all participants' devices after deployment. Group membership changes, file access, original-recipient receipts, and desktop typing still need live account/device checks.
 

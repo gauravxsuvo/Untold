@@ -16,7 +16,7 @@ import { accountDeviceDirectory } from "@/lib/server/device-trust";
 import { publishMessageAvailable } from "@/lib/server/ably";
 import { isConversationMember, messageAudience } from "@/lib/server/conversations";
 import { decodeMessageEnvelope } from "@/lib/server/message-envelope";
-import { consumeRateLimit, rateLimitedResponse, rateLimitRules } from "@/lib/server/rate-limit";
+import { consumeMessageLimits } from "@/lib/server/rate-limit";
 import {
   conversationMembers,
   authUser,
@@ -159,6 +159,11 @@ export async function POST(request: Request, context: RouteContext): Promise<Res
     if (!user) return unauthorizedResponse();
     if (!trustedBrowserOrigin(request)) return forbiddenOriginResponse();
 
+    const { db } = getDatabase();
+    if (!(await isConversationMember(db, conversationId, user.id))) return notFoundResponse();
+    const limited = await consumeMessageLimits(db, user.id, conversationId);
+    if (limited) return limited;
+
     const parsed = await readJsonBody(request, maxRequestBytes);
     if (!parsed.ok) {
       return Response.json(
@@ -226,13 +231,15 @@ export async function POST(request: Request, context: RouteContext): Promise<Res
       );
     }
 
-    const { db } = getDatabase();
-    if (!(await isConversationMember(db, conversationId, user.id))) return notFoundResponse();
-
     const members = await db
       .select({ userId: conversationMembers.userId })
       .from(conversationMembers)
-      .where(and(eq(conversationMembers.conversationId, conversationId), isNull(conversationMembers.leftAt)));
+      .where(
+        and(
+          eq(conversationMembers.conversationId, conversationId),
+          isNull(conversationMembers.leftAt),
+        ),
+      );
     const directory = await accountDeviceDirectory(members.map((member) => member.userId));
     const expectedDeviceIds = new Set(
       directory
@@ -272,15 +279,31 @@ export async function POST(request: Request, context: RouteContext): Promise<Res
       );
     }
 
-    const limit = await consumeRateLimit(db, `send-message:${user.id}`, rateLimitRules.sendMessage);
-    if (!limit.allowed) return rateLimitedResponse(limit.retryAfterSeconds);
-
     const clientMessageId = input.clientMessageId;
     const inserted = await db.transaction(async (tx) => {
-      await tx.select({ id: conversations.id }).from(conversations).where(eq(conversations.id, conversationId)).for("update");
-      const currentMembers = await tx.select({ userId: conversationMembers.userId }).from(conversationMembers).where(and(eq(conversationMembers.conversationId, conversationId), isNull(conversationMembers.leftAt)));
-      if (!currentMembers.some(member => member.userId === user.id)) return "access-changed" as const;
-      if (currentMembers.length !== members.length || currentMembers.some(member => !members.some(previous => previous.userId === member.userId))) return "devices-changed" as const;
+      await tx
+        .select({ id: conversations.id })
+        .from(conversations)
+        .where(eq(conversations.id, conversationId))
+        .for("update");
+      const currentMembers = await tx
+        .select({ userId: conversationMembers.userId })
+        .from(conversationMembers)
+        .where(
+          and(
+            eq(conversationMembers.conversationId, conversationId),
+            isNull(conversationMembers.leftAt),
+          ),
+        );
+      if (!currentMembers.some((member) => member.userId === user.id))
+        return "access-changed" as const;
+      if (
+        currentMembers.length !== members.length ||
+        currentMembers.some(
+          (member) => !members.some((previous) => previous.userId === member.userId),
+        )
+      )
+        return "devices-changed" as const;
 
       await tx
         .select({ id: authUser.id })
@@ -349,8 +372,11 @@ export async function POST(request: Request, context: RouteContext): Promise<Res
         .onConflictDoNothing()
         .returning({ id: messageEnvelopes.id, createdAt: messageEnvelopes.createdAt });
       if (created.length) {
-        const recipients = members.filter(member => member.userId !== user.id).map(member => ({ messageId: created[0].id, userId: member.userId }));
-        if (recipients.length) await tx.insert(messageRecipients).values(recipients).onConflictDoNothing();
+        const recipients = members
+          .filter((member) => member.userId !== user.id)
+          .map((member) => ({ messageId: created[0].id, userId: member.userId }));
+        if (recipients.length)
+          await tx.insert(messageRecipients).values(recipients).onConflictDoNothing();
         await tx.insert(pushOutbox).values({ messageId: created[0].id }).onConflictDoNothing();
       }
       return created;

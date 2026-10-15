@@ -51,6 +51,60 @@ export const calls = appSchema.table("call", {
   expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
 });
 
+export const callRooms = appSchema.table("call_room", {
+  id: uuid("id").primaryKey(),
+  conversationId: uuid("conversation_id")
+    .notNull()
+    .references(() => conversations.id, { onDelete: "cascade" }),
+  createdBy: text("created_by")
+    .notNull()
+    .references(() => authUser.id, { onDelete: "cascade" }),
+  kind: text("kind").notNull(),
+  status: text("status").notNull().default("active"),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  startedAt: timestamp("started_at", { withTimezone: true }),
+  ringUntil: timestamp("ring_until", { withTimezone: true }).notNull(),
+  expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+});
+export const callParticipants = appSchema.table(
+  "call_participant",
+  {
+    roomId: uuid("room_id")
+      .notNull()
+      .references(() => callRooms.id, { onDelete: "cascade" }),
+    userId: text("user_id")
+      .notNull()
+      .references(() => authUser.id, { onDelete: "cascade" }),
+    deviceId: uuid("device_id").references(() => devices.id),
+    instanceId: uuid("instance_id"),
+    status: text("status").notNull().default("invited"),
+    seenAt: timestamp("seen_at", { withTimezone: true }),
+    sharing: boolean("sharing").notNull().default(false),
+    muted: boolean("muted").notNull().default(false),
+    cameraOff: boolean("camera_off").notNull().default(false),
+  },
+  (table) => [primaryKey({ columns: [table.roomId, table.userId] })],
+);
+export const callLinks = appSchema.table(
+  "call_link",
+  {
+    id: uuid("id").notNull().unique(),
+    roomId: uuid("room_id")
+      .notNull()
+      .references(() => callRooms.id, { onDelete: "cascade" }),
+    lowerUserId: text("lower_user_id")
+      .notNull()
+      .references(() => authUser.id, { onDelete: "cascade" }),
+    upperUserId: text("upper_user_id")
+      .notNull()
+      .references(() => authUser.id, { onDelete: "cascade" }),
+    offer: jsonb("offer").$type<import("@/lib/messaging/group-call-types").GroupCallDescription>(),
+    answer:
+      jsonb("answer").$type<import("@/lib/messaging/group-call-types").GroupCallDescription>(),
+  },
+  (table) => [primaryKey({ columns: [table.roomId, table.lowerUserId, table.upperUserId] })],
+);
+
 export const authUser = authSchema.table(
   "user",
   {

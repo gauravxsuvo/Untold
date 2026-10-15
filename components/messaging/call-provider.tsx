@@ -1,12 +1,31 @@
 "use client";
 import { createContext, useContext, useEffect, useRef, useState, type ReactNode } from "react";
-import { Mic, MicOff, Minimize2, Phone, PhoneOff, Video, VideoOff, X } from "lucide-react";
+import {
+  Mic,
+  MicOff,
+  Minimize2,
+  MonitorUp,
+  MonitorX,
+  Phone,
+  PhoneOff,
+  Video,
+  VideoOff,
+  X,
+} from "lucide-react";
 import { useMessagingDevice } from "./messaging-device-provider";
 import { classifyDeviceTrust } from "@/crypto/src/protocol";
 import { fetchConversationDevices } from "@/lib/messaging/api-client";
 import { signCallDescription, verifyCallDescription } from "@/lib/messaging/call-signatures";
 import { fallbackIceServers, maxCallDurationMs } from "@/lib/messaging/call-policy";
 import { gatherCallDescription } from "@/lib/messaging/call-ice";
+import {
+  callMedia,
+  chooseCallScreen,
+  constrainCallScreen,
+  limitCallSenders,
+  preferSpeechCodec,
+} from "@/lib/messaging/call-media";
+import { useGroupCalls } from "./group-call-provider";
 import type {
   CallConfiguration,
   CallDescription,
@@ -27,7 +46,7 @@ function callError(error: unknown, fallback: string) {
 const Context = createContext<{
   active: boolean;
   available: boolean | null;
-  start: (conversationId: string, name: string, kind: CallKind) => Promise<void>;
+  start: (conversationId: string, name: string, kind: CallKind, group?: boolean) => Promise<void>;
 } | null>(null);
 async function callRequest<T>(url: string, init?: RequestInit): Promise<T> {
   const response = await fetch(url, {
@@ -114,6 +133,7 @@ function StreamVideo({
   );
 }
 export function CallProvider({ children }: { children: ReactNode }) {
+  const groups = useGroupCalls();
   const messaging = useMessagingDevice();
   const messagingRef = useRef(messaging);
   messagingRef.current = messaging;
@@ -129,6 +149,12 @@ export function CallProvider({ children }: { children: ReactNode }) {
   const [remote, setRemote] = useState<MediaStream | null>(null);
   const [muted, setMuted] = useState(false);
   const [cameraOff, setCameraOff] = useState(false);
+  const cameraOffRef = useRef(false);
+  const [screen, setScreen] = useState<MediaStream | null>(null);
+  const screenRef = useRef<MediaStream | null>(null);
+  const [screenBusy, setScreenBusy] = useState(false);
+  const screenPending = useRef(false);
+  const senderUpdates = useRef<Promise<void>>(Promise.resolve());
   const [minimized, setMinimized] = useState(false);
   const [seconds, setSeconds] = useState(0);
   const dialogRef = useRef<HTMLDialogElement>(null);
@@ -154,10 +180,18 @@ export function CallProvider({ children }: { children: ReactNode }) {
     lastSignalAt.current = 0;
     pcRef.current?.close();
     pcRef.current = null;
+    senderUpdates.current = Promise.resolve();
     streamRef.current?.getTracks().forEach((t) => {
       t.stop();
     });
     streamRef.current = null;
+    screenRef.current?.getTracks().forEach((track) => {
+      track.onended = null;
+      track.stop();
+    });
+    screenRef.current = null;
+    setScreen(null);
+    setScreenBusy(false);
     remoteRef.current?.getTracks().forEach((t) => {
       t.stop();
     });
@@ -168,13 +202,17 @@ export function CallProvider({ children }: { children: ReactNode }) {
     setRemote(null);
     setMuted(false);
     setCameraOff(false);
+    cameraOffRef.current = false;
     setUsingFallback(false);
     setConnectionPolicy(null);
     setSeconds(0);
     update(null);
     setMinimized(false);
     connectedAt.current = 0;
-    window.dispatchEvent(new CustomEvent("untold-call-active", { detail: false }));
+    if (document.documentElement.dataset.liveCall === "direct") {
+      delete document.documentElement.dataset.liveCall;
+      window.dispatchEvent(new CustomEvent("untold-call-active", { detail: false }));
+    }
   }
   async function action(
     actionName: string,
@@ -267,17 +305,15 @@ export function CallProvider({ children }: { children: ReactNode }) {
     if (!navigator.mediaDevices?.getUserMedia || typeof RTCPeerConnection === "undefined")
       throw new Error("This browser can’t make calls. Try an up-to-date browser.");
     // Another camera/microphone prompt may still be outstanding after Cancel.
-    if (pendingMedia.current)
+    if (pendingMedia.current || document.documentElement.dataset.callMediaPending)
       throw new Error("Finish the microphone permission request before trying again.");
     pendingMedia.current = true;
+    document.documentElement.dataset.callMediaPending = "direct";
     let stream: MediaStream;
     try {
       stream = await navigator.mediaDevices.getUserMedia({
-        audio: { echoCancellation: true, noiseSuppression: true },
-        video:
-          call.kind === "video"
-            ? { facingMode: "user", width: { ideal: 960 }, height: { ideal: 540 } }
-            : false,
+        audio: callMedia.audio,
+        video: call.kind === "video" ? callMedia.camera : false,
       });
     } catch {
       throw new Error(
@@ -287,6 +323,8 @@ export function CallProvider({ children }: { children: ReactNode }) {
       );
     } finally {
       pendingMedia.current = false;
+      if (document.documentElement.dataset.callMediaPending === "direct")
+        delete document.documentElement.dataset.callMediaPending;
     }
     if (token !== generation.current || document.visibilityState !== "visible") {
       stream.getTracks().forEach((t) => {
@@ -303,6 +341,7 @@ export function CallProvider({ children }: { children: ReactNode }) {
     });
     pcRef.current = pc;
     for (const track of stream.getTracks()) pc.addTrack(track, stream);
+    preferSpeechCodec(pc);
     const receiving = new MediaStream();
     remoteRef.current = receiving;
     setRemote(receiving);
@@ -313,6 +352,10 @@ export function CallProvider({ children }: { children: ReactNode }) {
     pc.onconnectionstatechange = () => {
       if (pc !== pcRef.current) return;
       if (pc.connectionState === "connected") {
+        void updateSenders(pc, () => limitCallSenders(pc, Boolean(screenRef.current))).catch(() => {
+          if (pc === pcRef.current)
+            void end("This browser couldn’t prepare the call. Please try an up-to-date browser.");
+        });
         if (disconnectTimer.current) clearTimeout(disconnectTimer.current);
         if (connectTimer.current) clearTimeout(connectTimer.current);
         if (!connectedAt.current) connectedAt.current = Date.now();
@@ -343,8 +386,104 @@ export function CallProvider({ children }: { children: ReactNode }) {
         void end("The call couldn’t connect. Please try again.");
     }, 35_000);
   }
-  async function start(conversationId: string, name: string, kind: CallKind) {
-    if (currentRef.current) return;
+  async function stopScreen() {
+    const capture = screenRef.current;
+    if (!capture) return;
+    screenRef.current = null;
+    capture.getTracks().forEach((track) => {
+      track.onended = null;
+      track.stop();
+    });
+    setScreen(null);
+    const pc = pcRef.current;
+    const camera = streamRef.current?.getVideoTracks()[0] ?? null;
+    if (camera) camera.enabled = !cameraOffRef.current;
+    if (!pc || pc.signalingState === "closed") return;
+    try {
+      await updateSenders(pc, async () => {
+        const sender = pc.getSenders().find((s) => s.track?.kind === "video");
+        if (sender) await sender.replaceTrack(camera);
+        await limitCallSenders(pc, false);
+      });
+    } catch {
+      if (pc === pcRef.current) void end("The camera couldn’t resume. Please call again.");
+    }
+  }
+  function updateSenders(pc: RTCPeerConnection, task: () => Promise<void>) {
+    const next = senderUpdates.current
+      .catch(() => {})
+      .then(async () => {
+        if (pc === pcRef.current && pc.signalingState !== "closed") await task();
+      });
+    senderUpdates.current = next;
+    return next;
+  }
+  async function shareScreen() {
+    const pc = pcRef.current;
+    if (!pc || currentRef.current?.phase !== "connected" || screenPending.current) return;
+    if (screenRef.current) {
+      screenPending.current = true;
+      setScreenBusy(true);
+      const token = generation.current;
+      try {
+        await stopScreen();
+      } finally {
+        screenPending.current = false;
+        if (token === generation.current) setScreenBusy(false);
+      }
+      return;
+    }
+    if (!navigator.mediaDevices?.getDisplayMedia) {
+      setNotice(
+        "Screen sharing isn’t supported in this browser. You can still watch a shared screen.",
+      );
+      return;
+    }
+    screenPending.current = true;
+    setScreenBusy(true);
+    const token = generation.current;
+    let capture: MediaStream | null = null;
+    try {
+      capture = await chooseCallScreen();
+      const track = await constrainCallScreen(capture);
+      if (token !== generation.current || pc !== pcRef.current) return;
+      if (track.readyState !== "live") return;
+      screenRef.current = capture;
+      track.onended = () => void stopScreen();
+      await updateSenders(pc, async () => {
+        if (screenRef.current !== capture) return;
+        const sender = pc.getSenders().find((s) => s.track?.kind === "video");
+        if (!sender) throw new Error();
+        await sender.replaceTrack(track);
+        await limitCallSenders(pc, true);
+      });
+      if (token !== generation.current || pc !== pcRef.current || screenRef.current !== capture)
+        return;
+      streamRef.current?.getVideoTracks().forEach((camera) => {
+        camera.enabled = false;
+      });
+      setScreen(capture);
+    } catch (caught) {
+      if (token === generation.current) {
+        if (capture && screenRef.current === capture) await stopScreen();
+        if (!(caught instanceof DOMException && caught.name === "NotAllowedError"))
+          setNotice("Screen sharing couldn’t start. Choose a screen or window and try again.");
+      }
+    } finally {
+      if (capture && screenRef.current !== capture)
+        capture.getTracks().forEach((track) => {
+          track.stop();
+        });
+      screenPending.current = false;
+      if (token === generation.current) setScreenBusy(false);
+    }
+  }
+  async function start(conversationId: string, name: string, kind: CallKind, group = false) {
+    if (currentRef.current || groups.active || document.documentElement.dataset.liveCall) return;
+    if (group) {
+      await groups.start(conversationId, name, kind);
+      return;
+    }
     if (document.documentElement.dataset.voiceRecording === "true") {
       setError("Finish or discard your voice recording before calling.");
       return;
@@ -370,6 +509,7 @@ export function CallProvider({ children }: { children: ReactNode }) {
     setNotice("");
     setMinimized(false);
     update({ call, phase: "preparing" });
+    document.documentElement.dataset.liveCall = "direct";
     window.dispatchEvent(new CustomEvent("untold-call-active", { detail: true }));
     const token = ++generation.current;
     let submitted = false;
@@ -385,6 +525,7 @@ export function CallProvider({ children }: { children: ReactNode }) {
       if (token !== generation.current) return;
       const pc = await preparePeer(call, config, token);
       await pc.setLocalDescription(await pc.createOffer());
+      await updateSenders(pc, () => limitCallSenders(pc, false));
       const offer = await signCallDescription(
         device,
         call.id,
@@ -433,6 +574,7 @@ export function CallProvider({ children }: { children: ReactNode }) {
       const pc = await preparePeer(call, config, token);
       await pc.setRemoteDescription({ type: "offer", sdp: offer.sdp });
       await pc.setLocalDescription(await pc.createAnswer());
+      await updateSenders(pc, () => limitCallSenders(pc, false));
       const answer = await signCallDescription(
         device,
         call.id,
@@ -469,7 +611,8 @@ export function CallProvider({ children }: { children: ReactNode }) {
       !device ||
       !messagingRef.current.approved ||
       polling.current ||
-      (document.visibilityState !== "visible" && !currentRef.current)
+      (document.visibilityState !== "visible" && !currentRef.current) ||
+      document.documentElement.dataset.liveCall === "group"
     )
       return;
     const mine = currentRef.current;
@@ -486,6 +629,7 @@ export function CallProvider({ children }: { children: ReactNode }) {
         return;
       availableRef.current = result.enabled;
       setAvailable(result.enabled);
+      if (document.documentElement.dataset.liveCall === "group") return;
       lastSignalAt.current = Date.now();
       const call = result.call;
       if (mine) {
@@ -504,6 +648,7 @@ export function CallProvider({ children }: { children: ReactNode }) {
           if (currentRef.current?.call.id !== call.id || !pcRef.current) return;
           const pc = pcRef.current;
           await pc.setRemoteDescription({ type: "answer", sdp: call.answer.sdp });
+          await updateSenders(pc, () => limitCallSenders(pc, Boolean(screenRef.current)));
           if (currentRef.current?.call.id !== call.id || pcRef.current !== pc) return;
           update({ call, phase: pc.connectionState === "connected" ? "connected" : "connecting" });
           connectionTimeout();
@@ -521,6 +666,7 @@ export function CallProvider({ children }: { children: ReactNode }) {
         call.id !== ignoredIncoming.current
       ) {
         update({ call, phase: "incoming" });
+        document.documentElement.dataset.liveCall = "direct";
         setError("");
         setNotice("");
         setMinimized(false);
@@ -621,7 +767,7 @@ export function CallProvider({ children }: { children: ReactNode }) {
             ? "Connecting…"
             : `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, "0")}`;
   return (
-    <Context.Provider value={{ active: Boolean(current), available, start }}>
+    <Context.Provider value={{ active: Boolean(current) || groups.active, available, start }}>
       {children}
       {error || notice ? (
         <div className="call-toast" role="status">
@@ -646,6 +792,7 @@ export function CallProvider({ children }: { children: ReactNode }) {
         >
           <Phone size={16} />
           {current.call.peerName} · {phaseLabel}
+          {screen ? " · Sharing screen" : ""}
         </button>
       ) : null}
       <dialog
@@ -684,7 +831,11 @@ export function CallProvider({ children }: { children: ReactNode }) {
                 </div>
               )}
               {local && current.call.kind === "video" ? (
-                <StreamVideo stream={local} muted label="Your camera preview" />
+                <StreamVideo
+                  stream={screen ?? local}
+                  muted
+                  label={screen ? "Your shared screen" : "Your camera preview"}
+                />
               ) : null}
             </div>
             <div className="call-controls">
@@ -720,9 +871,11 @@ export function CallProvider({ children }: { children: ReactNode }) {
                     <button
                       className="call-control"
                       aria-pressed={cameraOff}
+                      disabled={Boolean(screen) || screenBusy}
                       type="button"
                       onClick={() => {
                         const next = !cameraOff;
+                        cameraOffRef.current = next;
                         streamRef.current?.getVideoTracks().forEach((t) => {
                           t.enabled = !next;
                         });
@@ -731,6 +884,20 @@ export function CallProvider({ children }: { children: ReactNode }) {
                     >
                       {cameraOff ? <VideoOff size={22} /> : <Video size={22} />}
                       <span>{cameraOff ? "Camera on" : "Camera off"}</span>
+                    </button>
+                  ) : null}
+                  {local && current.call.kind === "video" && current.phase === "connected" ? (
+                    <button
+                      className="call-control"
+                      type="button"
+                      aria-pressed={Boolean(screen)}
+                      disabled={screenBusy}
+                      onClick={() => void shareScreen()}
+                    >
+                      {screen ? <MonitorX size={22} /> : <MonitorUp size={22} />}
+                      <span>
+                        {screen ? "Stop sharing" : screenBusy ? "Choosing…" : "Share screen"}
+                      </span>
                     </button>
                   ) : null}
                 </>
@@ -747,6 +914,9 @@ export function CallProvider({ children }: { children: ReactNode }) {
               </button>
             </div>
             <p className="call-note">
+              {screen ? "You’re sharing your screen. " : ""}
+              Camera up to 720p at 30 fps. Screen sharing up to 720p at 60 fps. Quality adjusts to
+              your connection.{" "}
               {usingFallback
                 ? "Trying a direct connection. It may not work on every network. "
                 : ""}

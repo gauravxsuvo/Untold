@@ -81,7 +81,10 @@ export function VoiceRecorder({
   }, [phase, stop]);
   async function begin() {
     if (disabled || calls.active || phase !== "idle") return;
-    if (acquiring.current) { setError("Finish the microphone permission request before trying again."); return; }
+    if (acquiring.current || document.documentElement.dataset.callMediaPending) {
+      setError("Finish the microphone permission request before trying again.");
+      return;
+    }
     if (!navigator.mediaDevices?.getUserMedia || typeof MediaRecorder === "undefined") {
       setError("Voice recording isn’t supported here. You can attach an audio file instead.");
       return;
@@ -95,11 +98,16 @@ export function VoiceRecorder({
         (type) => MediaRecorder.isTypeSupported(type),
       );
       if (!mimeType) throw new Error();
+      document.documentElement.dataset.callMediaPending = "recording";
       const stream = await navigator.mediaDevices.getUserMedia({
         audio: { echoCancellation: true, noiseSuppression: true, channelCount: 1 },
         video: false,
       });
-      if (!mounted.current || generation.current !== token || document.visibilityState !== "visible") {
+      if (
+        !mounted.current ||
+        generation.current !== token ||
+        document.visibilityState !== "visible"
+      ) {
         stream.getTracks().forEach((t) => {
           t.stop();
         });
@@ -159,6 +167,8 @@ export function VoiceRecorder({
       }
     } finally {
       acquiring.current = false;
+      if (document.documentElement.dataset.callMediaPending === "recording")
+        delete document.documentElement.dataset.callMediaPending;
     }
   }
   async function send() {
