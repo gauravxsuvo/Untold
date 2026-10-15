@@ -61,10 +61,10 @@ export function RecoveryOverview() {
         <p className="auth-kicker">A separate decision</p>
         <h2 id="key-recovery-title">Account access and message keys are different.</h2>
         <p>
-          A password reset can restore the ability to sign in. It cannot recreate end-to-end
-          encryption keys that only existed on a lost device. Untold must decide whether old
-          messages become unreadable, whether users hold a recovery secret, or whether another key
-          backup model is acceptable before building that flow.
+          A password reset can restore the ability to sign in. It cannot recreate encryption keys
+          that only existed in a lost browser profile. A newly registered device can read future
+          messages, but old messages wrapped for the lost keys stay unreadable. No key backup or
+          recovery flow is implemented.
         </p>
       </aside>
 

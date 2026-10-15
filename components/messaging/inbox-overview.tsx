@@ -25,7 +25,7 @@ function RecentConversation({
   const [person] = otherMembers(conversation, viewerId);
   const last = conversation.lastMessage;
   const preview = last
-    ? `${last.senderId === viewerId ? "You: " : ""}${last.text ?? "Unsupported message"}`
+    ? `${last.senderId === viewerId ? "You: " : ""}${last.text ?? "Encrypted message"}`
     : "No messages yet";
   const title = conversationTitle(conversation, viewerId);
   const activityAt = conversationActivityAt(conversation);

@@ -1,6 +1,6 @@
 # Untold hosting and backend setup
 
-Untold's Next.js application contains both the user interface and its server API routes. Deploy that full-stack Node app as a Portways project, then link a Portways Postgres add-on to it. The app's account, conversation, and message-envelope data stay in the linked database.
+Untold's Next.js application contains both the user interface and its server API routes. Deploy that full-stack Node app as a Portways project, then link Portways Postgres and Object Storage add-ons to it. Accounts, conversations, and message envelopes stay in PostgreSQL; encrypted file bytes stay in the linked private S3-compatible bucket.
 
 The Portways guide says to create separate projects when the frontend and backend are separate app directories. Untold currently has one integrated Next.js app, so Portways should build the repository root as one project; Next.js serves both pages and `/api/*` routes from that process. Do not split authentication into another origin without first designing the cookie and CORS boundary.
 
@@ -8,11 +8,12 @@ The Portways guide says to create separate projects when the frontend and backen
 
 1. Create a Portways project from this repository with the repository root as its root directory.
 2. Link a Portways Postgres add-on to the project. Portways injects its project-scoped PostgreSQL connection as `DATABASE_URL`.
-3. Set `BETTER_AUTH_SECRET` to a random secret of at least 32 characters and `BETTER_AUTH_URL` to the project's public HTTPS origin, such as `https://untold.portways.app`.
-4. Optionally set `ABLY_API_KEY` as a server-only environment variable for instant delivery. Ably receives only conversation and message IDs. Without it, the browser polls the API every few seconds.
-5. Deploy. Portways sees the root `package.json`, installs dependencies, runs `npm run build`, then runs `npm start`. The start command binds Next.js to `0.0.0.0`; Next.js uses the `PORT` value supplied by Portways.
+3. Create a Portways **Object Storage (S3)** add-on and link it to the same project. Portways provisions a private project bucket and injects scoped S3 credentials and endpoints.
+4. Set `BETTER_AUTH_SECRET` to a random secret of at least 32 characters and `BETTER_AUTH_URL` to the project's public HTTPS origin, such as `https://untold.portways.app`.
+5. Optionally set `ABLY_API_KEY` as a server-only environment variable for instant delivery. Ably receives only conversation and message IDs. Without it, the browser polls the API every few seconds.
+6. Deploy. Portways sees the root `package.json`, installs dependencies, runs `npm run build`, then runs `npm start`. The start command binds Next.js to `0.0.0.0`; Next.js uses the `PORT` value supplied by Portways.
 
-Use the guide's Env tab for variables. Never expose database credentials, `BETTER_AUTH_SECRET`, or the Ably API key through a `NEXT_PUBLIC_` variable. Portways passes recognized public prefixes to the build, so only values intended for browser code should use those prefixes.
+Use the guide's Env tab for variables. The linked Object Storage add-on provides `S3_ENDPOINT`, `S3_INTERNAL_ENDPOINT` (when reachable), `S3_REGION`, `S3_BUCKET`, `S3_ACCESS_KEY_ID`, `S3_SECRET_ACCESS_KEY`, and `S3_FORCE_PATH_STYLE`. Keep both S3 credentials, database credentials, `BETTER_AUTH_SECRET`, and the Ably API key server-only; never expose them through a `NEXT_PUBLIC_` variable. The app uses the Portways public S3 endpoint to sign short-lived private download URLs and the internal endpoint for encrypted uploads when available. The public bucket/CDN path is not used.
 
 The database pool is capped at three connections per app replica. Keep the initial project at one replica. If the project later scales, count `pool size × replicas` against the Postgres add-on's connection limit and enable its PgBouncer option before increasing replicas.
 
@@ -27,23 +28,26 @@ With the bridge running, a local Next.js server, and the migrations applied, `np
 ## Current application boundary
 
 - Better Auth stores email/password accounts and sessions in the `untold_auth` schema. Passwords are hashed by Better Auth. Email verification and password reset mail are not configured. Behind Portways, Better Auth reads the client IP from Cloudflare's `cf-connecting-ip` header; `X-Forwarded-For` carries several proxy hops there and would put every visitor in one shared rate-limit bucket.
-- Drizzle stores conversations, membership, and message envelopes in `untold_app`. `GET/POST /api/conversations` lists conversations and finds or creates a one-to-one conversation by account email (one per pair, enforced by `direct_key`). The API checks sessions and membership before reads, writes, and realtime-token issuance, and applies per-user limits from `untold_app.rate_limit`.
-- Message envelopes are plaintext JSON (`{"v":1,"type":"text","text":…}`, base64 on the wire, up to 2,000 characters). They are protected in transit by HTTPS but are **not end-to-end encrypted**: the server and database operator can read them. The UI states this wherever messages appear.
+- Drizzle stores conversations, membership, public device keys, and message envelopes in `untold_app`. `GET/POST /api/conversations` lists conversations and finds or creates a one-to-one conversation by account email (one per pair, enforced by `direct_key`). The API checks sessions and membership before reads, writes, device-directory access, and realtime-token issuance, and applies per-user limits from `untold_app.rate_limit`.
+- New message envelopes are JSON ciphertext envelopes (`untold-e2ee`, version 1) encoded as base64 on the API wire. The API checks the authenticated sender, conversation, message ID, registered sender device, and the current recipient-device set, then stores and returns bytes without decrypting them. Migration 006 removes pre-encryption or malformed message rows before the app serves requests; the messages API also returns only structurally valid E2EE envelopes. Host backups may retain pre-migration copies.
+- Attachment bytes are encrypted in the browser with a fresh AES-GCM key and nonce, with additional data bound to the conversation, message, sender device, and attachment ID. Filename, declared type, plaintext size, key, and nonce travel only inside the signed and encrypted message body. The upload API receives ciphertext bytes only and stores them in a private Portways Object Storage bucket; downloads are membership-checked and use five-minute presigned URLs for the ciphertext. File IDs, conversation/sender association, ciphertext size/hash, and upload timing remain visible to the backend.
+- The first-party browser protocol is implemented under [`crypto/`](crypto/README.md). It uses browser-native Web Crypto and IndexedDB, with no cryptography package or separate crypto server. The server stores public device keys only. Device fingerprints use a manual safety-code comparison; an unverified or changed device blocks message sending and reading.
+- This protocol has no forward secrecy, post-compromise security, group messaging, key backup, or independent security review. The hosting origin still serves the JavaScript that performs encryption, so a malicious app update or same-origin script compromise can access plaintext and keys while the app is in use. Treat the implementation as an early prototype.
 - Ably receives only message-available identifiers and issues short-lived, conversation-scoped subscribe tokens. Conversation and message IDs, timing, and connection metadata remain visible to Ably.
-- Group conversations, device management, end-to-end encryption, attachments, push notifications, and email delivery remain unimplemented.
+- Group conversations, push notifications, and email delivery remain unimplemented. Attachment sharing is limited to 20 MiB per file and one-to-one chats; there are no call features. Device revocation preserves its public key for old-message signature checks, excludes it from future key wraps, and expires the account's other sessions. It cannot erase messages or keys already downloaded.
 
 ## Security headers and release boundary
 
 - The Next.js app applies a nonce-based Content Security Policy to page responses and standard browser security headers to all routes. Authenticated message writes and realtime-token requests also require the configured `BETTER_AUTH_URL` origin.
 - TLS termination and HSTS are deployment responsibilities. Serve the project only over HTTPS and set `BETTER_AUTH_URL` to the exact public origin.
-- The helper in `encryption/` is built separately with `npm run build:encryption`. It uses browser Web Crypto and is not called by the chat UI. The CSP allows `connect-src` to Ably's `ably.net`, `ably-realtime.com`, and `ably.io` hosts for realtime delivery. Do not host it as an API that receives plaintext or keys; its code belongs on the client.
+- The browser protocol in `crypto/` is bundled into the application and also has a standalone TypeScript build (`npm run build:crypto`). It does not require a separate encryption API or hosted crypto project. The CSP allows `connect-src` to Ably's `ably.net`, `ably-realtime.com`, and `ably.io` hosts for realtime delivery; Ably receives message IDs only.
 - Read [`docs/release-checklist.md`](docs/release-checklist.md) before creating the Portways project.
 
 ## Limits and operations
 
 - Do not store sessions, uploads, cache state, or other durable data in the container filesystem. Portways recreates containers on deploy/restart and scaled projects have no shared local disk.
 - Better Auth sessions and all rate-limit state use PostgreSQL, so they are shared across replicas.
-- The full flow (migrations, sign-up, sign-in, starting a conversation, messaging both ways, membership isolation, rate limits) was verified on 2026-10-15 against a local PostgreSQL-compatible server and the production build. A live Portways database and Ably delivery have not been exercised from this workspace.
+- The earlier full backend flow was verified against a local PostgreSQL-compatible server before the browser encryption flow was connected. Migrations 004–007, the attachment flow, and live Portways object storage have not yet been exercised from this workspace.
 - Portways project creation, database linking, environment entry, custom domains, and live deployment happen in the Portways dashboard; this repository change prepares the app but does not create dashboard resources.
 
 ## References

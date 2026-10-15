@@ -11,6 +11,8 @@ export type RateLimitRule = { max: number; windowSeconds: number };
 export const rateLimitRules = {
   startConversation: { max: 20, windowSeconds: 60 * 60 },
   sendMessage: { max: 60, windowSeconds: 60 },
+  uploadAttachment: { max: 10, windowSeconds: 60 * 60 },
+  downloadAttachment: { max: 120, windowSeconds: 60 },
   realtimeToken: { max: 30, windowSeconds: 60 },
 } satisfies Record<string, RateLimitRule>;
 

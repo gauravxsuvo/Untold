@@ -46,8 +46,8 @@ export function ProfilePreview() {
       )}
 
       <p className="profile-preview-footnote">
-        Display names are self-chosen and are not proof of identity. Contact safety-code
-        verification is not implemented yet.
+        Display names are self-chosen and are not proof of identity. Compare a contact’s device
+        safety code with them over a separate trusted channel before sending messages.
       </p>
     </div>
   );

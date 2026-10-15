@@ -4,8 +4,12 @@ import { BackendConfigurationError } from "@/lib/server/database";
 import { getAuth } from "@/lib/auth/server";
 
 export async function getAuthenticatedUser(request: Request) {
-  const session = await getAuth().api.getSession({ headers: request.headers });
+  const session = await getAuthenticatedSession(request);
   return session?.user ?? null;
+}
+
+export async function getAuthenticatedSession(request: Request) {
+  return getAuth().api.getSession({ headers: request.headers });
 }
 
 export function backendErrorResponse(error: unknown): Response {

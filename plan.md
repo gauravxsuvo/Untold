@@ -2,20 +2,61 @@
 
 ## Current status
 
+### Phase 8 — encrypted media and file sharing (implemented locally, 2026-10-15)
+
+The user asked for WhatsApp-style image, document, and general file sharing, and explicitly excluded calling features. Keep the current one-to-one chat and build attachment delivery into it.
+
+- [x] Add a private Portways S3-compatible Object Storage add-on integration. Do not store uploads on the app container or make the bucket public.
+- [x] Encrypt file bytes in the browser with a fresh AES-GCM key and nonce before upload. Bind encryption to the conversation, message, sender device, and attachment ID.
+- [x] Put only encrypted bytes in Portways Object Storage. Keep filename, declared media type, plaintext size, file key, and nonce inside the E2EE message envelope. Authorize attachment upload/download through Untold APIs and conversation membership.
+- [x] Support image, video, audio, PDF, office documents, and arbitrary file downloads. Show safe in-chat previews for supported raster images, audio, and video; require explicit download for other files.
+- [x] Add progress, retry feedback, keyboard/screen-reader support, and a 20 MiB per-file limit (below Portways' 25 MB single-request limit). Keep calls and unrelated WhatsApp features out of scope.
+- [x] Add the additive database migration, private attachment API routes, schema, UI, crypto helpers, deployment setup, release checks, and updated plan/README.
+
+Hosting choice: Portways' own MinIO-backed S3-compatible add-on is the file store; it is not an AWS-hosted bucket. The AWS S3 SDK is only the server-side protocol client for Portways' S3 API. The existing E2EE remains first-party and uses native Web Crypto; do not add an external crypto package or allow plaintext file bytes/metadata to reach the API or storage.
+
+### Phase 8 implementation notes
+
+- Implemented locally: migration 007, private upload/download APIs, membership and device checks, rate limits, browser AES-GCM encryption, encrypted attachment manifests, image/audio/video handling, generic downloads, progress, retry and discard controls, and release/setup docs.
+- The release still requires a Portways Object Storage add-on linked to the existing app project so Portways injects private bucket credentials, plus the two-browser and live authorization checks in the release checklist. This remains one hosted app project plus its linked storage/database add-ons; no separate attachment service is needed.
+- The AWS S3 SDK is only a server-side client for the Portways S3-compatible API. It is not an AWS hosted bucket, crypto provider, or encryption service. File encryption uses the browser's built-in Web Crypto API.
+
+### Finalization pass (2026-10-15)
+
+The local implementation for the current one-to-one messaging scope is in place. Production release remains gated on the live and security checks in `docs/release-checklist.md`. This pass closes stale product copy and makes the handoff explicit.
+
+- [x] Review the implementation snapshot against the release checklist and the actual connected encryption flow.
+- [x] Fix product copy that described shipped device safety-code verification as missing.
+- [x] Rebuild the site and standalone crypto package, and run lint after the copy fix.
+- [x] Keep the release checklist as the handoff for the steps that require two real browser profiles, Portways credentials/live deployment, or an independent protocol review.
+- [x] Local finalization is complete; report the build and exact remaining external release gates without claiming those gates are done.
+
+Local final checks before this follow-up on 2026-10-15: `npm run build:all`, `npm run lint`, and `git diff --check` pass. No tests were run after the encryption integration in that pass. Next release steps are listed in the release checklist: verify migration 006, confirm host backup retention, run the two-browser encrypted flow, deploy to Portways with migrations 004–006, inspect the live origin and dependency audit, then obtain an independent protocol review.
+
+### Security hardening in progress (2026-10-15)
+
+- Threat model: protect new message contents from normal backend/database access, assuming correct client code, verified device keys, and uncompromised devices and browser origin. An intended recipient deliberately sharing a message is outside Untold's server-side confidentiality responsibility.
+- Compromised device or browser-origin code remains an app-side risk; non-extractable keys do not prevent same-origin code from asking the browser to decrypt.
+- The user approved permanently removing pre-encryption message history. Added migration 006 to delete rows that are not structurally valid protocol-v1 envelopes from the live database before the app starts. It also removes malformed/unsupported envelopes. The API filters non-E2EE rows, and the client no longer decodes plaintext legacy messages.
+- Migration 006 cannot erase copies retained in host backups. The removed history is unavailable to both conversation members after migration.
+- Protocol v1 uses static device agreement keys and has no forward secrecy. A secure upgrade needs a carefully reviewed ratcheting design and independent cryptographic review; do not claim the absolute guarantee or treat an unreviewed homemade ratchet as a fix.
+- Before release, verify migration 006 against a database containing both legacy plaintext rows and valid encrypted envelopes, then run the complete two-browser device-verification flow.
+- Current checks for this hardening pass: `npm run lint`, `npm run build:crypto`, `npx tsc --noEmit`, and `git diff --check` pass. Four `npm run build:all` attempts failed during Next webpack output with Windows `EPERM: operation not permitted, mkdir` errors under `.next`; the full site build and migration execution remain unverified here. No tests were run.
+
 - Phase 0 (repository inspection and planning): approved.
 - Phase 1 (brand foundation and visual prototype): approved.
 - Phase 2 (application shell and navigation): approved.
 - Phase 3 (messaging interface): approved by the user on 2026-10-14.
 - Phase 4 (authentication and onboarding): preview approved by the user on 2026-10-14. Provider selection was deferred to the backend discussion below.
 - Phase 5 (backend and real-time messaging): approved; hosting target was changed from Vercel to Portways on 2026-10-15. The user started Phase 6 on 2026-10-14.
-- Phase 6 (end-to-end encryption): the separate browser-native AES-GCM helper in [`encryption/`](encryption/README.md) is implemented and tested, with no third-party crypto dependency. It uses a manually shared symmetric key and is not complete secure messaging or connected to chat. OpenMLS 0.9.1 remains the preferred MLS engine candidate after an SRLabs audit, but its official JS/WASM wrapper is an unpublished experiment and is not covered by the core WASM test job. Real-message integration remains stopped at the security gates. See [the Phase 6 decision](docs/phase-6-e2ee-architecture.md).
+- Phase 6 (end-to-end encryption): after the user's explicit direction to build the protocol in-house without a third-party crypto package, a first-party browser protocol is connected to one-to-one messages. It uses native Web Crypto and IndexedDB, with public device keys and ciphertext stored by the Untold backend. Migration 006 purges pre-encryption message rows from the live database. The protocol remains an early custom protocol without forward secrecy or independent review. See [the current Phase 6 design and limits](docs/phase-6-e2ee-architecture.md).
 - Phase 7 (hardening and release preparation): local hardening and build preparation complete. Production release remains gated on the checklist in [`docs/release-checklist.md`](docs/release-checklist.md), including live Portways/Ably verification, custom API rate limits, and a dependency audit.
-- Production messaging (2026-10-15): the user asked for Untold "in production with everything working" so they and a friend can use it. Real one-to-one messaging replaced the mock workspace: start a conversation by account email, plaintext text envelopes stored in Postgres, Ably notifications with polling fallback, per-user API rate limits, server-side `/app` protection, and Cloudflare client-IP handling for Better Auth. Messages are explicitly **not end-to-end encrypted** and the UI says so. Verified end to end against a local PostgreSQL-compatible server and in a browser; live Portways deployment is pending.
+- Production messaging (2026-10-15): one-to-one conversations use authenticated Portways APIs and Postgres, with optional Ably ID notifications and polling fallback. New sends use the first-party encrypted envelope; migration 006 purges older message rows on app startup. Live Portways deployment is pending.
 
 ## Durable project rules
 
 - The user explicitly authorized continuing the remaining phases through a final build on 2026-10-15. Do not stop for an intermediate approval prompt.
-- Keep security claims accurate. Until a reviewed cryptographic implementation exists, never claim messages are encrypted end to end or secure; state that they are stored readable on the server.
+- Keep security claims accurate. State that messages are browser-encrypted with an early custom protocol that lacks forward secrecy and independent review; migration 006 removes legacy rows from the live database, while host backups may retain copies. A recipient choosing to share decrypted text is outside Untold's server-side confidentiality responsibility; compromised endpoints remain an app-side risk. Do not call the current protocol production-secure.
 - Superseded on 2026-10-15: the Phase 3 mock conversations and demo session were removed when real messaging shipped (see the production messaging status above).
 - Keep the established calm, premium, accessible visual direction and responsive behavior.
 - Update this file with phase status and decisions at each approval boundary. The original master prompt is preserved verbatim below.
@@ -23,13 +64,25 @@
 ## Current implementation snapshot
 
 - Stack: Next.js App Router, React, strict TypeScript, Tailwind CSS 4; npm.
-- Hosting target: one Portways full-stack Next.js project (UI plus API route handlers) linked to a Portways Postgres add-on.
+- Hosting target: one Portways full-stack Next.js project (UI plus API route handlers) linked to Portways Postgres and private Object Storage add-ons.
 - Preview: http://localhost:3000
 - Phase 1 landing page and brand foundation are in place.
 - Phase 2 routes: `/app/inbox`, `/app/conversations`, `/app/contacts`, `/app/settings`, `/app/profile`; shared shell, navigation, status, loading, and error components are in place.
-- Phase 3 adds a mock conversation workspace with search, message history, local-only composition, timestamps, details, contact directory, empty states, and mobile layouts. No real delivery, account contacts, identity verification, encryption, or persistence are implemented.
-- Phase 5 adds Better Auth email/password sessions, Portways Postgres/Drizzle schemas and migrations, membership-checked opaque message-envelope endpoints, and scoped Ably token issuance. The existing messaging UI remains mock; end-to-end messaging cryptography, conversation creation, contact discovery, and verified email are not implemented. A separate experimental AES-GCM helper is documented under Phase 6.
-- The app test suite has 17 focused tests; the standalone encryption package has 5 additional Web Crypto boundary tests. Use `npm run test:all` to run both.
+- The current conversation workspace uses real backend delivery, local device keys, safety-code trust checks, and encrypted-envelope transport. The older mock messaging preview and plaintext-history display were superseded.
+- One-to-one conversations now support encrypted image, video, audio, document, and general file attachments up to 20 MiB each. Attachments use private Portways Object Storage; only ciphertext is uploaded, and filename/type/key/nonce remain inside the encrypted message envelope. See [`docs/phase-8-encrypted-attachments.md`](docs/phase-8-encrypted-attachments.md).
+- Phase 5 provides Better Auth email/password sessions, Portways Postgres/Drizzle schemas and migrations, membership-checked message envelopes, and scoped Ably ID notifications. Email verification and password reset delivery remain unconfigured.
+- App and encryption test suites are present. Tests have not been run for this attachment update.
+
+### Phase 6 implementation update (2026-10-15)
+
+- User specifically asked us to build our own end-to-end encryption code without a third-party crypto package. This supersedes the earlier feasibility stop for this implementation pass; it does not remove the independent-review requirement.
+- Added `crypto/src/protocol.ts`: per-browser P-256 ECDH and ECDSA identity keys, local IndexedDB persistence, AES-GCM text envelopes, HKDF-based per-device content-key wraps, signatures, and safety-code fingerprints.
+- Added migrations 004 and 005 and authenticated device registration/directory/revocation routes. The API returns message bytes as opaque base64 and verifies that new envelope headers match the authenticated account, conversation, message ID, active sender device, and current active-device list.
+- Connected chat send and receive to encrypt/verify/decrypt in the browser. New and changed devices block sending; messages from unverified sender devices are not shown. Account settings include revocation of other devices and expiry of their account's other sessions.
+- Known limits: static ECDH has no forward secrecy or post-compromise security; first-contact key substitution remains possible before a manual comparison; no key backup/recovery or group chats; attachments are limited to 20 MiB each; same-origin malicious JavaScript can access unlocked plaintext; old host backups may retain legacy plaintext. No independent review or two-browser security verification has been completed.
+- Added migration 006 to purge pre-encryption and malformed/unsupported message rows at startup. The app no longer decodes legacy plaintext messages, and the messages API filters responses to valid protocol-v1 envelopes.
+- Current checks: `npm run build:all` and `npm run lint` pass. The default Turbopack build hit a Windows worker-start failure, so `npm run build` uses Next.js's supported webpack build. No tests or two-browser flow were run for this update; migration 005 and live Portways connectivity remain unverified.
+- Browser-native Web Crypto and IndexedDB references: [W3C Web Crypto](https://www.w3.org/TR/WebCryptoAPI/) and [W3C IndexedDB](https://www.w3.org/TR/IndexedDB/). See [RFC 9420](https://www.rfc-editor.org/rfc/rfc9420.html) for the forward-secrecy and post-compromise properties this v1 protocol does not implement.
 
 ## Phase 4 decision context (provider decision recorded below)
 
@@ -79,7 +132,7 @@
 - Added pure unit coverage for configuration checks, password limits, and opaque envelope validation, plus a conditional local backend smoke-check command that checks migrated schemas, Better Auth session routing, and unauthenticated realtime rejection.
 - Local checks: `npm test` passes 17 tests; `npm run lint`, `npx tsc --noEmit`, and `npm run build` pass; `npm audit` reports zero vulnerabilities. The built home, sign-up, and inbox routes returned HTTP 200. With no backend environment configured, auth and realtime API routes returned the designed 503 configuration response.
 - Live integration has not been run because no Portways credentials, local bridge, or Ably key are present. Follow `BACKEND.md` to configure local or Vercel environment variables and run `npm run test:backend` when those services are available. Do not claim live database or realtime delivery has been verified.
-- Important limits: no conversation creation/contact discovery, no email verification or password recovery mail, no client encryption, no UI message delivery, no attachments, and no push notifications. The server cannot prove that accepted opaque bytes are encrypted.
+- Historical limits at the end of Phase 5: no conversation creation/contact discovery, no email verification or password recovery mail, no client encryption, no UI message delivery, no attachments, and no push notifications. Later Phase 6 and Phase 8 updates supersede the encryption and attachment limits above. The server cannot prove that accepted opaque bytes are encrypted.
 - Documentation: [BACKEND.md](BACKEND.md); source guide: [Portways docs](https://db.portways.app/docs.md).
 
 ## Portways application hosting update (2026-10-15)
@@ -90,7 +143,9 @@
 - `BACKEND.md` now documents Portways project creation, add-on linking, environment variables, local bridge migrations, replica limits, and the still-external Ably notification dependency. Dashboard resources and live deployment cannot be created from this repository alone.
 - After the switch, `npx tsc --noEmit` and `npm run build` pass. The automated test suite was not run for this hosting update. No Portways project or live database is configured here, so deployment connectivity remains unverified.
 
-## Phase 6 security decision and candidate review (2026-10-15)
+## Phase 6 pre-implementation security decision and candidate review (2026-10-15; historical)
+
+This records the assessment before the user's explicit direction to implement a first-party v1. The current implementation and its limits are recorded in the Phase 6 implementation update in the current status section above.
 
 The detailed proposal is in [`docs/phase-6-e2ee-architecture.md`](docs/phase-6-e2ee-architecture.md). It keeps Untold's own Next.js app, Portways Postgres/API, and Ably ID notifications; it does not adopt Matrix or Megolm and does not invent a protocol.
 
@@ -114,7 +169,7 @@ The detailed proposal is in [`docs/phase-6-e2ee-architecture.md`](docs/phase-6-e
 - Checks: `npm run lint`, `npx tsc --noEmit`, and `npm run test:all` pass (22 tests). `npm run build:all` passes. The sandboxed first build hit a Windows SWC path permission failure; the same build succeeded with elevated workspace access.
 - Production HTTP smoke check on the local built app: `/` and `/auth/sign-in` returned 200; all 12 script tags included their request's CSP nonce; `X-Content-Type-Options`, `X-Frame-Options`, `Referrer-Policy`, and `Permissions-Policy` were present.
 - `npm audit` could not reach `registry.npmjs.org` because DNS/network access is restricted; dependency advisory status is unverified. No Portways instance, live database, or Ably credentials are configured. Custom message/realtime API rate limits, live authorization checks, live HTTPS/HSTS inspection, email verification/recovery, and independent crypto review remain outstanding.
-- Release checklist: [`docs/release-checklist.md`](docs/release-checklist.md). The final artifact is a local production build, not a deployed release. The chat remains a local mock preview; the AES-GCM helper is not a full E2EE protocol.
+- At the time of this record, the final artifact was a local production build and chat was still a mock preview. Superseded by the Phase 6 implementation update above; live Portways deployment is still pending.
 
 ## Phase 3 review record (2026-10-14)
 

@@ -261,7 +261,7 @@ export function AuthScreen({
           </h2>
           <ul>
             <li>Your password is hashed and never stored in plain text.</li>
-            <li>Messages are sent over HTTPS and stored on Untold’s server. They are not end-to-end encrypted yet.</li>
+            <li>Messages and shared files are encrypted on devices. Verify safety codes first; migration 006 removes older unencrypted history from the live database. Backups may retain copies, and this protocol is still under review.</li>
             <li>Email verification and password reset are not configured.</li>
           </ul>
           <Link href="/auth/recovery">

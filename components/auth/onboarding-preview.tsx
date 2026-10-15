@@ -13,7 +13,7 @@ const onboardingSteps = [
   {
     number: "02",
     title: "Know what privacy means here",
-    text: "Messages are sent over HTTPS and stored on Untold’s server. They are not end-to-end encrypted yet, so the server operator can read them. Share accordingly.",
+    text: "New messages and shared files are encrypted on your devices. Verify each safety code with its owner first. The legacy-history cleanup removes older unencrypted rows from the live database; backups may retain copies. Protocol v1 has no forward secrecy and needs independent review.",
   },
   {
     number: "03",
@@ -81,7 +81,8 @@ export function OnboardingPreview() {
           <p className="messaging-kicker">Still to decide</p>
           <h2 id="onboarding-recovery-title">What happens if you lose access?</h2>
           <p>
-            Account recovery and recovery of future message keys need separate, explicit choices.
+            Account recovery cannot restore a lost browser's message keys. A newly registered device
+            can read future messages, but older messages addressed to the lost keys stay unreadable.
           </p>
         </div>
         <Link href="/auth/recovery">
@@ -97,8 +98,8 @@ export function OnboardingPreview() {
       </div>
 
       <p className="onboarding-disclaimer">
-        Display names are self-chosen and are not proof of identity. End-to-end encryption is not
-        implemented yet.
+        Display names are self-chosen and do not prove identity. Compare device safety codes before
+        trusting a contact. The first encryption protocol still needs independent review.
       </p>
     </div>
   );

@@ -2,7 +2,7 @@
 
 Untold is a calm messaging app for the conversations that matter. You sign up with email and password, add a friend by their account email, and talk. It is one full-stack Next.js application: the interface and the server API deploy together as a single Node.js service on [Portways](#deploying-on-portways).
 
-> **Messages are not end-to-end encrypted.** They travel over HTTPS and are stored in the app's PostgreSQL database, where whoever operates the server can read them. End-to-end encryption is planned (see [`docs/phase-6-e2ee-architecture.md`](docs/phase-6-e2ee-architecture.md)) but not implemented. The app says this wherever messages appear.
+> **Encryption status:** Text and attachment files are encrypted in the browser before the API or Portways object storage receives them. Migration 006 removes pre-encryption message rows when the app next starts, so that old history disappears; database backups may retain copies. Compare device safety codes before trusting a device. Protocol v1 has no forward secrecy and has not had an independent security review. Someone who gains access to an unlocked device may be able to read its messages; do not treat this as production-secure.
 
 ## Features
 
@@ -11,6 +11,8 @@ Untold is a calm messaging app for the conversations that matter. You sign up wi
 | Accounts | Email and password sign-up and sign-in through [Better Auth](https://better-auth.com), stored in PostgreSQL. Passwords are at least 15 characters and hashed. Sign-in and sign-up are rate limited per visitor. |
 | Conversations | Start a one-to-one conversation by entering someone's account email. Starting it again from either side opens the same conversation. |
 | Messaging | Send and receive text messages of up to 2,000 characters. Messages appear immediately for the sender, retry safely without duplicates, and arrive for the other person within a few seconds. |
+| Attachments | Share images, video, audio, PDFs, office documents, and other files up to 20 MiB. Files encrypt in the browser; supported images preview in chat, audio/video play on request, and other types download as files. |
+| Device encryption | A first-party browser protocol encrypts new messages for every registered device. It uses no external cryptography package or hosted encryption service. Device safety codes, local key storage, and revocation are built into the app. |
 | Live updates | With an Ably key configured, new messages arrive instantly. Without one, the app refreshes open conversations every 3 seconds and the list every 8 seconds. |
 | Inbox and contacts | The inbox shows recent conversations, and contacts lists the people you talk with. Untold never reads device contacts. |
 | Access control | Every `/app` page requires a signed-in account (checked on the server). Every API call checks the session and conversation membership, and writes must come from the app's own origin. |
@@ -23,6 +25,7 @@ Untold is a calm messaging app for the conversations that matter. You sign up wi
 - Tailwind CSS 4
 - PostgreSQL via [Drizzle ORM](https://orm.drizzle.team) and `pg`
 - Better Auth for accounts and sessions
+- The browser's built-in Web Crypto API for the first-party encryption protocol in [`crypto/`](crypto/README.md)
 - [Ably](https://ably.com) for optional realtime notifications
 - Biome for linting, and the Node.js test runner for tests
 - npm, with Node.js 20.9 or newer
@@ -67,6 +70,10 @@ All of these are server-only. Never give any of them a `NEXT_PUBLIC_` prefix.
 | `BETTER_AUTH_SECRET` | Yes | Random secret of at least 32 characters. Generate one with `openssl rand -base64 48`. |
 | `BETTER_AUTH_URL` | Yes | The exact public origin, such as `http://localhost:3000` locally or `https://untold.portways.app` in production. Must be HTTPS outside localhost. Writes from any other origin are refused. |
 | `ABLY_API_KEY` | No | Ably API key with publish and subscribe capabilities. It turns on instant message delivery. Without it, the app falls back to polling. |
+| `S3_ENDPOINT`, `S3_BUCKET`, `S3_ACCESS_KEY_ID`, `S3_SECRET_ACCESS_KEY` | For attachments | Injected by a linked Portways Object Storage add-on. Credentials remain server-only; the app uses the add-on's private bucket. |
+| `S3_REGION`, `S3_FORCE_PATH_STYLE` | For attachments | S3-compatible client settings injected by Portways. |
+| `S3_INTERNAL_ENDPOINT` | Optional | Portways in-cluster address for server-side uploads. The public endpoint is the fallback. |
+| `S3_PREFIX` | Optional | Object-key prefix, used for Portways preview deployments when configured. |
 
 `.env.example` is the template. Real `.env*` files are git-ignored.
 
@@ -79,8 +86,10 @@ All of these are server-only. Never give any of them a `NEXT_PUBLIC_` prefix.
 | `npm start` | Apply pending database migrations, then serve the production build on `0.0.0.0` (on `PORT` when set). |
 | `npm run lint` | Lint with Biome. |
 | `npm test` | Type-check and run the app tests. |
-| `npm run build:encryption` / `npm run test:encryption` | Build and test the standalone encryption helper. |
-| `npm run build:all` / `npm run test:all` | App plus encryption helper. |
+| `npm run build:crypto` | Build the standalone first-party browser crypto package. |
+| `npm run build:all` | Build the app and crypto package. |
+| `npm run test:encryption` | Run boundary tests for the older standalone AES helper; it is not used by chat. |
+| `npm run test:all` | App plus older AES helper tests. |
 | `npm run db:migrate` | Manually apply migrations through a loopback database URL (safe to re-run). |
 | `npm run test:backend` | Local backend smoke checks. |
 
@@ -93,12 +102,13 @@ Do not split it into separate frontend and backend projects: the session cookies
 ### 1. Database
 
 1. In Portways, create a **Postgres add-on** and link it to the project (below).
-2. That's all. On every deploy, `npm start` applies any pending SQL migrations from `scripts/migrations/` before the server starts accepting requests. Each migration runs once, in a transaction guarded by a Postgres advisory lock, so several replicas starting together are safe. If a migration fails, the container exits and the deploy shows as failed instead of serving a half-migrated database.
+2. Create a Portways **Object Storage (S3)** add-on and link it to the same project. Keep its bucket private; this enables attachment sharing.
+3. On every deploy, `npm start` applies any pending SQL migrations from `scripts/migrations/` before the server starts accepting requests. Each migration runs once, in a transaction guarded by a Postgres advisory lock, so several replicas starting together are safe. If a migration fails, the container exits and the deploy shows as failed instead of serving a half-migrated database.
 
 ### 2. Project
 
 1. Create a Portways project from this repository, with the repository root as the root directory and `main` as the branch.
-2. Link the Postgres add-on. Portways injects `DATABASE_URL`.
+2. Link the Postgres and Object Storage add-ons. Portways injects `DATABASE_URL` and the private `S3_*` settings.
 3. In the **Env** tab, set the following before the first deploy:
 
    ```text
@@ -115,7 +125,7 @@ Do not split it into separate frontend and backend projects: the session cookies
 1. Open the project URL, choose **Create an account**, and sign up.
 2. Your friend does the same on their own device.
 3. One of you opens **Conversations**, enters the other's account email, and selects **Start**.
-4. Send a message. It appears for the other person within a few seconds, or instantly when Ably is configured.
+4. Send a message. It appears for the other person within a few seconds, or instantly when Ably is configured. Use the paperclip to attach a photo or file.
 
 ### 4. Operating it
 
@@ -129,9 +139,9 @@ After the first deploy, work through [`docs/release-checklist.md`](docs/release-
 
 ## Known limitations
 
-- **No end-to-end encryption.** The server stores readable message text. The standalone [`encryption/`](encryption/README.md) helper is not connected and is not a complete protocol.
+- **Early encryption protocol.** Message text, file bytes, and file details are encrypted in the browser and stored as ciphertext, but protocol v1 has no forward secrecy and no independent review. Verify safety codes before sending. Migration 006 permanently removes pre-encryption message rows from the live database; host backups may retain copies. See [`crypto/`](crypto/README.md).
 - **No email delivery.** Email verification and password reset are not set up, so there is no way to recover a forgotten password yet.
-- **One-to-one only.** No group conversations, attachments, push notifications, message editing or deletion.
+- **Attachment size and scope.** One-to-one chats support files up to 20 MiB each. No group conversations, calls, push notifications, message editing or deletion.
 - **Email lookup.** Starting a conversation reveals whether an email has an account. It is rate limited, and conversation partners see each other's display name and email.
 - **Message history** shows the most recent 100 messages per conversation.
 
@@ -141,13 +151,13 @@ After the first deploy, work through [`docs/release-checklist.md`](docs/release-
 app/                    Next.js routes: landing, /auth/*, /app/* (signed-in), /api/*
 components/             UI (app shell, auth, brand, landing, messaging)
 lib/auth/               Better Auth client/server setup, server session helper, form validation
-lib/messaging/          Shared message envelope format, conversation helpers, browser API client
+lib/messaging/          Message and attachment metadata, conversation helpers, browser API client
 lib/server/             Database pool, schema, conversations, rate limits, Ably, HTTP helpers
 scripts/                Migration runner (on start and manual), backend smoke test, ordered SQL migrations
 tests/                  Unit tests (compiled with tsconfig.tests.json)
-encryption/             Standalone Web Crypto helper with its own package and tests
-crypto/                 Placeholder for a future messaging-protocol integration
-docs/                   E2EE architecture decision and release checklist
+crypto/                 First-party browser protocol, package build, and design notes
+encryption/              Older isolated AES-GCM helper; not used by chat
+docs/                   E2EE architecture, encrypted attachment design, and release checklist
 proxy.ts                Per-request CSP nonce
 ```
 

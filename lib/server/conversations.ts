@@ -3,7 +3,6 @@ import "server-only";
 import { and, eq, inArray, sql } from "drizzle-orm";
 import type { getDatabase } from "@/lib/server/database";
 import { conversationMembers, conversations, authUser } from "@/lib/server/schema";
-import { decodeTextEnvelope } from "@/lib/messaging/text-envelope";
 import type { ConversationSummary, Person } from "@/lib/messaging/people";
 
 type Database = ReturnType<typeof getDatabase>["db"];
@@ -79,8 +78,8 @@ export async function startDirectConversation(
 type LastMessageRow = {
   conversation_id: string;
   sender_id: string;
-  envelope: Buffer;
   created_at: Date | string;
+  attachment_id: string | null;
 };
 
 function toIsoString(value: Date | string): string {
@@ -119,7 +118,7 @@ export async function listConversationsForUser(
     .where(inArray(conversationMembers.conversationId, ids));
 
   const lastMessages = await db.execute<LastMessageRow>(sql`
-    SELECT DISTINCT ON (conversation_id) conversation_id, sender_id, envelope, created_at
+    SELECT DISTINCT ON (conversation_id) conversation_id, sender_id, created_at, attachment_id
     FROM untold_app.message_envelope
     WHERE conversation_id IN (${sql.join(
       ids.map((id) => sql`${id}::uuid`),
@@ -142,9 +141,10 @@ export async function listConversationsForUser(
           .map(({ id: memberId, name, email }) => ({ id: memberId, name, email })),
         lastMessage: last
           ? {
-              text: decodeTextEnvelope(new Uint8Array(last.envelope)),
+              text: null,
               senderId: last.sender_id,
               createdAt: toIsoString(last.created_at),
+              hasAttachment: last.attachment_id !== null,
             }
           : null,
       };

@@ -1,4 +1,6 @@
-# Untold Encryption
+# Legacy AES-GCM Helper
+
+This standalone helper predates chat integration and is **not used by the messaging UI**. New chat sends use the first-party device protocol in [`../crypto/`](../crypto/README.md). This package remains only for its isolated boundary examples; it does not provide chat key exchange or the current device lifecycle.
 
 This standalone folder contains a browser-side encryption module with no external runtime or cryptography package. It uses the browser's built-in Web Crypto API and AES-256-GCM.
 

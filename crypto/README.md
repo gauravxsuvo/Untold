@@ -1,36 +1,45 @@
 # Untold Crypto
 
-This folder is the future integration boundary for Untold's browser-side messaging cryptography. The standalone dependency-free AES-GCM helper now lives in [`../encryption/`](../encryption/README.md); this folder remains the place to connect an approved messaging protocol to the app and its transport.
+This folder contains Untold's first-party browser encryption package and the code used by the chat UI. It has no external cryptography dependency or hosted encryption service. It uses the browser's built-in Web Crypto API and IndexedDB.
 
-## Status
+## Current status
 
-No messaging protocol or chat integration is implemented here. The package is marked private so it cannot be published accidentally.
+Protocol v1 encrypts new one-to-one text messages in the browser before they reach the Untold API. The API stores and returns ciphertext envelopes and public device keys. The implementation is early, custom, and has not had an independent security review. Do not treat it as production-secure or use it for high-risk conversations yet.
 
-## Intended responsibilities
+The older helper in [`../encryption/`](../encryption/README.md) is not used by chat. Historical messages sent before this integration remain plaintext in the database and are labeled as older, unencrypted messages.
 
-- Adapt a selected, maintained MLS implementation to Untold's browser application and message API.
-- Keep plaintext, private device keys, and MLS state on the user's device.
-- Send and receive opaque ciphertext through Untold's authenticated backend.
-- Define a narrow boundary for device setup, encrypt/decrypt, membership changes, and local state lifecycle after the library is selected.
+## What protocol v1 does
 
-The backend remains an Untold service. It stores public credentials and authorized opaque ciphertext, checks account and conversation membership, and sends message-ID notifications. It must not receive plaintext or private keys. This package will not host messages or depend on Matrix or Wire's hosted service.
+- Creates a P-256 ECDH key pair and a separate P-256 ECDSA signing key pair for each browser profile and account.
+- Stores non-extractable private `CryptoKey` objects in IndexedDB. Public SPKI keys are registered with the account's device directory.
+- Encrypts each message with a fresh random AES-256-GCM content key and nonce. The content key is wrapped separately to each registered conversation device using ECDH P-256 and HKDF-SHA-256.
+- Signs the canonical envelope with the sender device's ECDSA key. Recipients verify the signature and device trust before decrypting.
+- Displays a SHA-256 safety code for each device. A new device is not trusted until the user compares the code with its owner over a separate trusted channel. Changed keys are blocked.
+- Lets an account revoke another registered device. Revocation also expires other account sessions, removes that device from future message-key wrapping, and retains its public key so older signatures can still be checked. It cannot erase messages already downloaded or ciphertext already stored.
 
-## Current decision
+The API limits accounts to 8 devices and conversations to 32 devices. There is no group conversation support.
 
-OpenMLS 0.9.1 is the preferred protocol-engine candidate: it is MIT-licensed and has an external SRLabs review. The OpenMLS core tests run on the WASM target in upstream CI, but the separate `openmls-wasm` wrapper is explicitly experimental and unpublished; upstream's WASM job does not test that wrapper as a browser JavaScript API. Its current API is incomplete for Untold's browser state lifecycle and has panic/unimplemented paths. No Rust toolchain is available in this workspace, so that route cannot currently be built or validated here. The browser-native TypeScript MLS candidate is not selected because its published package points to a restrictive Big Time license and no independent audit of its MLS core was found.
+## Limits
 
-The standalone helper in `../encryption/` uses no external package, but does not solve these protocol and device-management requirements. Phase 6 still stops before connecting real messages. Keep the chat UI in mock mode and make no E2EE claims.
+- Protocol v1 has no forward secrecy or post-compromise security. A later compromise of a device's static agreement key may expose old messages addressed to it.
+- First-contact safety depends on a real out-of-band code comparison. The app has no key-transparency service.
+- Keys have no backup or recovery. Losing a browser profile can make old messages unreadable, and a new device cannot decrypt history sent before it was registered.
+- Attachments are not implemented. Account, conversation, device, timing, size, IP, and delivery metadata remain visible to the server; Ably may see message IDs and realtime metadata. A revoked device can still fetch older messages until its session expires.
+- The app's origin serves the encryption JavaScript. A malicious deployment or same-origin script compromise can access plaintext while the app is open.
+- This code has not had independent cryptographic review or two-browser adversarial verification. See [`../docs/phase-6-e2ee-architecture.md`](../docs/phase-6-e2ee-architecture.md).
 
-## Adoption gates
+## Build
 
-Before adding an implementation, resolve the candidate's license, supported browser API, independent security review, local key storage and recovery behavior, update policy, and compatibility with Untold's custom transport. See [`../docs/phase-6-e2ee-architecture.md`](../docs/phase-6-e2ee-architecture.md) for the current review.
+From the repository root:
 
-Do not invent key agreement, ratchets, or attachment encryption. Do not describe the product as end-to-end encrypted until the messaging protocol and integration have passed the documented security gates.
+```sh
+npm run build:crypto
+```
 
-## Next work
+This compiles the package into ignored `crypto/dist/`. The Next.js app imports `crypto/src/protocol.ts` directly, so the crypto code is bundled into the normal site build. It does not need to be deployed as a separate server or API.
 
-1. Get a supported, tested browser API for the selected engine, or have an Untold-owned WASM wrapper and persistence layer independently reviewed.
-2. Design and review device identity, verification, local state storage, lock/unlock, and loss/recovery.
-3. Add the backend device/key-package directory and ordered, paginated MLS message history.
-4. Pin the engine and dependencies, establish a reproducible WASM build, and record the exact versions here.
-5. Add adversarial integration tests and a two-device security review before connecting real messages.
+## References
+
+- [W3C Web Cryptography API](https://www.w3.org/TR/WebCryptoAPI/)
+- [W3C Indexed Database API](https://www.w3.org/TR/IndexedDB/)
+- [IETF MLS, RFC 9420](https://www.rfc-editor.org/rfc/rfc9420.html), which describes forward secrecy and post-compromise security properties that Untold protocol v1 does not provide.

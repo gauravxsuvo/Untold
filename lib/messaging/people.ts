@@ -4,14 +4,16 @@ export type ConversationSummary = {
   id: string;
   createdAt: string;
   members: Person[];
-  lastMessage: { text: string | null; senderId: string; createdAt: string } | null;
+  lastMessage: { text: string | null; senderId: string; createdAt: string; hasAttachment?: boolean } | null;
 };
 
 export type ConversationMessage = {
   id: string;
   senderId: string;
   clientMessageId: string;
-  text: string | null;
+  envelope?: string;
+  attachmentId?: string | null;
+  text?: string | null;
   createdAt: string;
 };
 

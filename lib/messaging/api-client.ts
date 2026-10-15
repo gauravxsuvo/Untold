@@ -1,5 +1,5 @@
 import type { ConversationMessage, ConversationSummary } from "@/lib/messaging/people";
-import { encodeTextEnvelope } from "@/lib/messaging/text-envelope";
+import type { PublicDevice } from "@/crypto/src/protocol";
 
 export class ApiError extends Error {
   constructor(
@@ -10,6 +10,15 @@ export class ApiError extends Error {
     this.name = "ApiError";
   }
 }
+
+export type AccountDevice = {
+  deviceId: string;
+  deviceName: string;
+  agreementKey: string;
+  signingKey: string;
+  createdAt: string;
+  revokedAt: string | null;
+};
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   let response: Response;
@@ -46,6 +55,36 @@ export async function startConversation(email: string): Promise<ConversationSumm
   return conversation;
 }
 
+export async function registerDevice(device: {
+  deviceId: string;
+  name: string;
+  agreementKey: string;
+  signingKey: string;
+}): Promise<void> {
+  await request<{ device: unknown }>("/api/devices", {
+    method: "POST",
+    body: JSON.stringify(device),
+  });
+}
+
+export async function fetchAccountDevices(): Promise<AccountDevice[]> {
+  const { devices } = await request<{ devices: AccountDevice[] }>("/api/devices");
+  return devices;
+}
+
+export async function revokeAccountDevice(deviceId: string): Promise<void> {
+  await request<{ revoked: boolean }>(`/api/devices/${encodeURIComponent(deviceId)}`, {
+    method: "DELETE",
+  });
+}
+
+export async function fetchConversationDevices(conversationId: string): Promise<PublicDevice[]> {
+  const { devices } = await request<{ devices: PublicDevice[] }>(
+    `/api/conversations/${encodeURIComponent(conversationId)}/devices`,
+  );
+  return devices;
+}
+
 export async function fetchMessages(conversationId: string): Promise<ConversationMessage[]> {
   const { messages } = await request<{ messages: ConversationMessage[] }>(
     `/api/conversations/${encodeURIComponent(conversationId)}/messages`,
@@ -55,15 +94,70 @@ export async function fetchMessages(conversationId: string): Promise<Conversatio
 
 export async function sendMessage(
   conversationId: string,
-  text: string,
+  envelope: string,
   clientMessageId: string,
+  attachmentId: string | null = null,
 ): Promise<ConversationMessage> {
   const { message } = await request<{ message: ConversationMessage }>(
     `/api/conversations/${encodeURIComponent(conversationId)}/messages`,
     {
       method: "POST",
-      body: JSON.stringify({ clientMessageId, envelope: encodeTextEnvelope(text) }),
+      body: JSON.stringify({ clientMessageId, envelope, attachmentId }),
     },
   );
   return message;
+}
+
+export async function uploadEncryptedAttachment(
+  conversationId: string,
+  attachmentId: string,
+  deviceId: string,
+  ciphertext: Uint8Array<ArrayBuffer>,
+  onProgress: (percent: number) => void,
+): Promise<void> {
+  return new Promise((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+    xhr.open(
+      "PUT",
+      `/api/conversations/${encodeURIComponent(conversationId)}/attachments/${encodeURIComponent(attachmentId)}`,
+    );
+    xhr.withCredentials = true;
+    xhr.responseType = "json";
+    xhr.setRequestHeader("Content-Type", "application/octet-stream");
+    xhr.setRequestHeader("X-Untold-Device-Id", deviceId);
+    xhr.upload.onprogress = (event) => {
+      if (event.lengthComputable && event.total > 0) {
+        onProgress(Math.max(0, Math.min(100, Math.round((event.loaded / event.total) * 100))));
+      }
+    };
+    xhr.onerror = () => reject(new ApiError("Untold could not be reached. Check your connection.", 0));
+    xhr.onabort = () => reject(new ApiError("File upload was cancelled.", 0));
+    xhr.onload = () => {
+      const body = xhr.response as { message?: string } | null;
+      if (xhr.status >= 200 && xhr.status < 300) {
+        onProgress(100);
+        resolve();
+        return;
+      }
+      reject(new ApiError(body?.message ?? "The encrypted file could not be uploaded.", xhr.status));
+    };
+    xhr.send(ciphertext);
+  });
+}
+
+export async function discardEncryptedAttachment(
+  conversationId: string,
+  attachmentId: string,
+): Promise<void> {
+  await request<{ deleted: boolean }>(
+    `/api/conversations/${encodeURIComponent(conversationId)}/attachments/${encodeURIComponent(attachmentId)}`,
+    { method: "DELETE" },
+  );
+}
+
+export async function fetchAttachmentDownloadUrl(attachmentId: string): Promise<string> {
+  const { url } = await request<{ url: string }>(
+    `/api/attachments/${encodeURIComponent(attachmentId)}/download`,
+  );
+  return url;
 }

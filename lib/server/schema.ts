@@ -140,6 +140,46 @@ export const conversationMembers = appSchema.table(
   ],
 );
 
+export const devices = appSchema.table(
+  "device",
+  {
+    id: uuid("id").primaryKey(),
+    userId: text("user_id")
+      .notNull()
+      .references(() => authUser.id, { onDelete: "cascade" }),
+    name: text("name").notNull(),
+    agreementKey: text("agreement_key").notNull(),
+    signingKey: text("signing_key").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    revokedAt: timestamp("revoked_at", { withTimezone: true }),
+  },
+  (table) => [index("untold_device_user_id_idx").on(table.userId)],
+);
+
+export const messageAttachments = appSchema.table(
+  "message_attachment",
+  {
+    id: uuid("id").primaryKey(),
+    conversationId: uuid("conversation_id")
+      .notNull()
+      .references(() => conversations.id, { onDelete: "cascade" }),
+    senderId: text("sender_id")
+      .notNull()
+      .references(() => authUser.id, { onDelete: "cascade" }),
+    objectKey: text("object_key").notNull(),
+    ciphertextBytes: integer("ciphertext_bytes").notNull(),
+    ciphertextSha256: text("ciphertext_sha256").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    uniqueIndex("untold_message_attachment_object_key_unique").on(table.objectKey),
+    index("untold_message_attachment_conversation_created_idx").on(
+      table.conversationId,
+      table.createdAt,
+    ),
+  ],
+);
+
 const bytea = customType<{ data: Buffer; driverData: Buffer }>({
   dataType: () => "bytea",
   toDriver: (value) => value,
@@ -157,11 +197,13 @@ export const messageEnvelopes = appSchema.table(
       .notNull()
       .references(() => authUser.id, { onDelete: "cascade" }),
     clientMessageId: uuid("client_message_id").notNull(),
+    attachmentId: uuid("attachment_id").references(() => messageAttachments.id, { onDelete: "restrict" }),
     envelope: bytea("envelope").notNull(),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (table) => [
     uniqueIndex("untold_message_client_id_unique").on(table.senderId, table.clientMessageId),
+    uniqueIndex("untold_message_attachment_unique").on(table.attachmentId),
     index("untold_message_conversation_created_idx").on(
       table.conversationId,
       table.createdAt,

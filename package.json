@@ -7,9 +7,10 @@
   },
   "scripts": {
     "dev": "next dev",
-    "build": "next build",
+    "build": "next build --webpack",
     "build:encryption": "npm --prefix encryption run build",
-    "build:all": "npm run build && npm run build:encryption",
+    "build:crypto": "npm --prefix crypto run build",
+    "build:all": "npm run build && npm run build:crypto",
     "start": "node scripts/migrate-on-start.mjs && next start --hostname 0.0.0.0",
     "test": "tsc -p tsconfig.tests.json && node --test .test-build/tests/*.test.js",
     "test:encryption": "npm --prefix encryption test",
@@ -19,6 +20,8 @@
     "test:backend": "node --env-file=.env.local scripts/backend-smoke.mjs"
   },
   "dependencies": {
+    "@aws-sdk/client-s3": "^3.1152.0",
+    "@aws-sdk/s3-request-presigner": "^3.1152.0",
     "@better-auth/drizzle-adapter": "^1.7.8",
     "ably": "^2.29.0",
     "better-auth": "^1.7.8",

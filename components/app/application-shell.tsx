@@ -36,13 +36,13 @@ export function ApplicationShell({ children }: { children: React.ReactNode }) {
             <span>Private by intention</span>
             <span className="app-preview-pill">
               <i aria-hidden="true" />
-              Not end-to-end encrypted
+              E2EE prototype · verify devices
             </span>
           </div>
           {children}
           <footer className="app-main__footer">
             <span>Some things are just between us.</span>
-            <span>Messages are sent over HTTPS and stored on the server. End-to-end encryption is not implemented yet.</span>
+            <span>Messages and shared files are encrypted on devices. Legacy history is removed from the live database; verify safety codes before sending.</span>
           </footer>
         </main>
       </div>

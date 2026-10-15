@@ -1,6 +1,5 @@
-// A plaintext message envelope. Messages are protected in transit by HTTPS and stored by the
-// server; they are not end-to-end encrypted. The version field leaves room for an encrypted
-// envelope type once a reviewed protocol exists.
+// Compatibility decoder for messages stored before browser-side encryption was connected.
+// New message sends use the versioned protocol in crypto/src/protocol.ts.
 
 export const maxMessageLength = 2000;
 

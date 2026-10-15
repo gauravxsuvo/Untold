@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { PageHeading } from "@/components/app/page-heading";
 import { useAccountSession } from "@/components/auth/account-session-provider";
+import { DeviceManagement } from "@/components/messaging/device-management";
 
 export default function SettingsPage() {
   const { session } = useAccountSession();
@@ -25,6 +26,7 @@ export default function SettingsPage() {
             View account profile <span aria-hidden="true">↗</span>
           </Link>
         </article>
+        {session ? <DeviceManagement accountId={session.id} /> : null}
         <article>
           <div>
             <p className="messaging-kicker">Current session</p>
@@ -40,10 +42,13 @@ export default function SettingsPage() {
         <article>
           <div>
             <p className="messaging-kicker">Message privacy</p>
-            <h2>Not end-to-end encrypted</h2>
+            <h2>Device encryption prototype</h2>
             <p>
-              Messages travel over HTTPS and are stored on Untold’s server, where the operator can
-              read them. End-to-end encryption is planned but not implemented.
+              New messages and shared files are encrypted on your browser before Untold stores them.
+              Compare device safety codes with your contact before trusting a device. Migration 006 removes older
+              unencrypted message rows from the live database; backups may retain copies. Protocol
+              v1 has no forward secrecy and has not had an independent security review. Someone
+              who gains access to an unlocked device may be able to read its messages.
             </p>
           </div>
         </article>

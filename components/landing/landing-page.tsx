@@ -12,8 +12,8 @@ const principles = [
   {
     number: "02",
     title: "Encryption, done carefully",
-    text: "End-to-end encryption is a core goal. It has not been implemented yet; its design belongs to a later, security-critical phase.",
-    status: "Not implemented",
+    text: "A first end-to-end encryption flow is connected. Device verification is required, and the protocol still needs independent security review.",
+    status: "Early protocol",
   },
   {
     number: "03",
@@ -62,7 +62,7 @@ export function LandingPage() {
             </a>
           </div>
           <p className="hero__note">
-            <span aria-hidden="true">✳</span> Early access · Not end-to-end encrypted yet
+            <span aria-hidden="true">✳</span> Early access · Verify device codes before messaging
           </p>
         </div>
         <div className="hero__visual">
@@ -105,8 +105,9 @@ export function LandingPage() {
               <div>
                 <h3>Clear about today</h3>
                 <p>
-                  Messaging works today. End-to-end encryption does not exist yet, so messages are
-                  stored on Untold’s server and protected in transit by HTTPS.
+                  Messages and shared files are encrypted on the sending device and stored as ciphertext.
+                  Migration 006 removes earlier unencrypted message rows from the live database;
+                  backups may retain copies. Untold still sees account and conversation metadata.
                 </p>
               </div>
             </article>
@@ -184,7 +185,7 @@ export function LandingPage() {
           <Wordmark />
         </a>
         <p>Some things are just between us.</p>
-        <span>Untold is in early access. Messages are not end-to-end encrypted yet.</span>
+        <span>Untold is in early access. The first device encryption protocol needs independent review.</span>
       </footer>
     </main>
   );
