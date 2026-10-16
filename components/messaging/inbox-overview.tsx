@@ -11,6 +11,7 @@ import { Avatar } from "@/components/profile/avatar";
 import { useConversationList } from "@/components/messaging/use-messaging";
 import {
   conversationActivityAt,
+  conversationPreview,
   conversationTitle,
   formatMessageTime,
   otherMembers,
@@ -26,10 +27,7 @@ function RecentConversation({
   viewerId: string;
 }) {
   const [person] = otherMembers(conversation, viewerId);
-  const last = conversation.lastMessage;
-  const preview = last
-    ? `${last.senderId === viewerId ? "You: " : ""}${last.text ?? "Encrypted message"}`
-    : "No messages yet";
+  const preview = conversationPreview(conversation, viewerId);
   const title = conversationTitle(conversation, viewerId);
   const activityAt = conversationActivityAt(conversation);
 
@@ -39,7 +37,13 @@ function RecentConversation({
         className={`inbox-conversation inbox-conversation--${toneFor(person?.id ?? conversation.id)}`}
         href={`/app/conversations?conversation=${encodeURIComponent(conversation.id)}`}
       >
-        <Avatar className="inbox-conversation__avatar" id={conversation.groupName ? conversation.id : person?.id ?? conversation.id} image={conversation.groupName ? conversation.groupImage : person?.image} group={Boolean(conversation.groupName)} name={title} />
+        <Avatar
+          className="inbox-conversation__avatar"
+          id={conversation.groupName ? conversation.id : (person?.id ?? conversation.id)}
+          image={conversation.groupName ? conversation.groupImage : person?.image}
+          group={Boolean(conversation.groupName)}
+          name={title}
+        />
         <span className="inbox-conversation__body">
           <span className="inbox-conversation__topline">
             <strong>{title}</strong>
@@ -47,7 +51,12 @@ function RecentConversation({
           </span>
           <span className="inbox-conversation__preview">{preview}</span>
         </span>
-        <ArrowUpRight aria-hidden="true" className="inbox-conversation__arrow" size={17} strokeWidth={1.8} />
+        <ArrowUpRight
+          aria-hidden="true"
+          className="inbox-conversation__arrow"
+          size={17}
+          strokeWidth={1.8}
+        />
       </Link>
     </li>
   );
@@ -83,7 +92,11 @@ export function InboxOverview() {
       ) : recent.length > 0 ? (
         <ul className="inbox-overview__list">
           {recent.map((conversation) => (
-            <RecentConversation conversation={conversation} key={conversation.id} viewerId={viewerId} />
+            <RecentConversation
+              conversation={conversation}
+              key={conversation.id}
+              viewerId={viewerId}
+            />
           ))}
         </ul>
       ) : (
@@ -97,7 +110,8 @@ export function InboxOverview() {
       )}
 
       <p className="inbox-overview__note">
-        Open a conversation to read your messages. Compare safety codes before sharing anything sensitive.
+        Open a conversation to read your messages. Compare safety codes before sharing anything
+        sensitive.
       </p>
     </section>
   );

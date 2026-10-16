@@ -1,5 +1,6 @@
 import {
   bigint,
+  bigserial,
   boolean,
   customType,
   index,
@@ -48,6 +49,15 @@ export const calls = appSchema.table("call", {
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   callerSeenAt: timestamp("caller_seen_at", { withTimezone: true }).notNull().defaultNow(),
   calleeSeenAt: timestamp("callee_seen_at", { withTimezone: true }),
+  answeredAt: timestamp("answered_at", { withTimezone: true }),
+  endedAt: timestamp("ended_at", { withTimezone: true }),
+  endReason: text("end_reason"),
+  callerConnectedAt: timestamp("caller_connected_at", { withTimezone: true }),
+  calleeConnectedAt: timestamp("callee_connected_at", { withTimezone: true }),
+  callerCameraOff: boolean("caller_camera_off").notNull().default(false),
+  calleeCameraOff: boolean("callee_camera_off").notNull().default(false),
+  callerSharing: boolean("caller_sharing").notNull().default(false),
+  calleeSharing: boolean("callee_sharing").notNull().default(false),
   expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
 });
 
@@ -79,6 +89,7 @@ export const callParticipants = appSchema.table(
     instanceId: uuid("instance_id"),
     status: text("status").notNull().default("invited"),
     seenAt: timestamp("seen_at", { withTimezone: true }),
+    connectedAt: timestamp("connected_at", { withTimezone: true }),
     sharing: boolean("sharing").notNull().default(false),
     muted: boolean("muted").notNull().default(false),
     cameraOff: boolean("camera_off").notNull().default(false),
@@ -104,6 +115,62 @@ export const callLinks = appSchema.table(
   },
   (table) => [primaryKey({ columns: [table.roomId, table.lowerUserId, table.upperUserId] })],
 );
+
+export const callHistory = appSchema.table(
+  "call_history",
+  {
+    id: text("id").primaryKey(),
+    source: text("source").notNull(),
+    sourceId: uuid("source_id").notNull(),
+    conversationId: uuid("conversation_id")
+      .notNull()
+      .references(() => conversations.id, { onDelete: "cascade" }),
+    initiatorId: text("initiator_id")
+      .notNull()
+      .references(() => authUser.id, { onDelete: "cascade" }),
+    kind: text("kind").notNull(),
+    status: text("status").notNull(),
+    outcome: text("outcome").notNull().default("unknown"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull(),
+    ringUntil: timestamp("ring_until", { withTimezone: true }).notNull(),
+    answeredAt: timestamp("answered_at", { withTimezone: true }),
+    connectedAt: timestamp("connected_at", { withTimezone: true }),
+    endedAt: timestamp("ended_at", { withTimezone: true }),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+    legacy: boolean("legacy").notNull().default(false),
+  },
+  (table) => [
+    uniqueIndex("call_history_source_unique").on(table.source, table.sourceId),
+    index("call_history_conversation_idx").on(table.conversationId, table.createdAt, table.id),
+  ],
+);
+export const callHistoryAudience = appSchema.table(
+  "call_history_audience",
+  {
+    historyId: text("history_id")
+      .notNull()
+      .references(() => callHistory.id, { onDelete: "cascade" }),
+    userId: text("user_id")
+      .notNull()
+      .references(() => authUser.id, { onDelete: "cascade" }),
+    status: text("status").notNull().default("invited"),
+    acknowledgedAt: timestamp("acknowledged_at", { withTimezone: true }),
+  },
+  (table) => [primaryKey({ columns: [table.historyId, table.userId] })],
+);
+export const callAttendance = appSchema.table("call_attendance", {
+  id: bigserial("id", { mode: "number" }).primaryKey(),
+  historyId: text("history_id")
+    .notNull()
+    .references(() => callHistory.id, { onDelete: "cascade" }),
+  userId: text("user_id")
+    .notNull()
+    .references(() => authUser.id, { onDelete: "cascade" }),
+  instanceId: uuid("instance_id").notNull(),
+  joinedAt: timestamp("joined_at", { withTimezone: true }).notNull().defaultNow(),
+  connectedAt: timestamp("connected_at", { withTimezone: true }),
+  leftAt: timestamp("left_at", { withTimezone: true }),
+});
 
 export const authUser = authSchema.table(
   "user",

@@ -24,6 +24,7 @@ import {
   constrainCallScreen,
   limitCallSenders,
   preferSpeechCodec,
+  screenShareError,
 } from "@/lib/messaging/call-media";
 import { fallbackIceServers, maxCallDurationMs } from "@/lib/messaging/call-policy";
 import { gatherCallDescription } from "@/lib/messaging/call-ice";
@@ -59,7 +60,7 @@ type Peer = {
 };
 const Context = createContext<{
   active: boolean;
-  start: (id: string, name: string, kind: CallKind) => Promise<void>;
+  start: (id: string, name: string, kind: CallKind, roomId?: string) => Promise<void>;
 } | null>(null);
 async function request<T>(url: string, body?: object, keepalive = false): Promise<T> {
   const response = await fetch(url, {
@@ -104,6 +105,7 @@ function MediaTile({
   local = false,
   status,
   sharing = false,
+  cameraOff = false,
 }: {
   stream: MediaStream | null;
   name: string;
@@ -111,18 +113,34 @@ function MediaTile({
   local?: boolean;
   status: string;
   sharing?: boolean;
+  cameraOff?: boolean;
 }) {
+  const [pinned, setPinned] = useState(false);
   return (
-    <div className={`group-call-tile${sharing ? " group-call-tile--sharing" : ""}`}>
+    <div
+      className={`group-call-tile${sharing ? " group-call-tile--sharing" : ""}${pinned ? " group-call-tile--pinned" : ""}`}
+    >
       <CallMediaView
         stream={stream}
         muted={local}
         label={sharing ? `${name}'s shared screen` : name}
         audioOnly={audioOnly}
+        videoOff={cameraOff && !sharing}
       />
       <div className="group-call-tile__caption">
         <strong>{name}</strong>
         <span>{sharing ? "Sharing screen" : status}</span>
+        {!audioOnly ? (
+          <button
+            type="button"
+            className="group-call-pin"
+            aria-pressed={pinned}
+            onClick={() => setPinned(!pinned)}
+          >
+            {pinned ? "Unpin" : "Pin"}
+            <span className="sr-only"> {name}</span>
+          </button>
+        ) : null}
       </div>
     </div>
   );
@@ -228,7 +246,10 @@ export function GroupCallProvider({ children }: { children: ReactNode }) {
         ...extra,
       },
       keepalive,
-    );
+    ).then((result) => {
+      window.dispatchEvent(new Event("untold-call-history-refresh"));
+      return result;
+    });
   }
   async function leave(note = "You left the group call", decline = false) {
     const room = currentRef.current?.room;
@@ -370,6 +391,7 @@ export function GroupCallProvider({ children }: { children: ReactNode }) {
         if (peer.timer) clearTimeout(peer.timer);
         if (peer.disconnect) clearTimeout(peer.disconnect);
         peer.state = "connected";
+        heartbeatAt.current = 0;
         refreshView();
       } else if (pc.connectionState === "failed") failPeer(peer);
       else if (pc.connectionState === "disconnected") {
@@ -527,6 +549,7 @@ export function GroupCallProvider({ children }: { children: ReactNode }) {
     name: string,
     kind: CallKind,
     incoming?: GroupCallSnapshot,
+    expectedRoomId?: string,
   ) {
     if (
       document.documentElement.dataset.liveCall === "direct" ||
@@ -557,10 +580,12 @@ export function GroupCallProvider({ children }: { children: ReactNode }) {
         incoming ??
         (
           await request<{ room: GroupCallSnapshot | null }>(
-            `/api/group-calls?deviceId=${encodeURIComponent(me.deviceId)}&conversationId=${encodeURIComponent(conversationId)}`,
+            `/api/group-calls?deviceId=${encodeURIComponent(me.deviceId)}&conversationId=${encodeURIComponent(conversationId)}${expectedRoomId ? `&id=${encodeURIComponent(expectedRoomId)}` : ""}`,
           )
         ).room;
       if (token !== generation.current) return;
+      if (expectedRoomId && (!found || found.id !== expectedRoomId || found.status !== "active"))
+        throw new Error("This call has ended. Start a new call from the group chat.");
       const actualKind = found?.kind ?? kind;
       const raw = await fetchConversationDevices(conversationId);
       const directory = await classifyDeviceTrust(me.accountId, raw);
@@ -693,10 +718,18 @@ export function GroupCallProvider({ children }: { children: ReactNode }) {
     );
     heartbeatAt.current = 0;
   }
-  async function shareScreen() {
+  async function shareScreen(context: Window | null) {
     if (screenPending.current || currentRef.current?.phase !== "joined") return;
     if (screenRef.current) {
-      await stopScreen();
+      screenPending.current = true;
+      setScreenBusy(true);
+      const token = generation.current;
+      try {
+        await stopScreen();
+      } finally {
+        screenPending.current = false;
+        if (token === generation.current) setScreenBusy(false);
+      }
       return;
     }
     if (!navigator.mediaDevices?.getDisplayMedia) {
@@ -712,7 +745,7 @@ export function GroupCallProvider({ children }: { children: ReactNode }) {
     const token = generation.current;
     let capture: MediaStream | null = null;
     try {
-      capture = await chooseCallScreen();
+      capture = await chooseCallScreen(context ?? window);
       const track = await constrainCallScreen(capture);
       if (token !== generation.current) return;
       if (track.readyState !== "live") return;
@@ -724,7 +757,8 @@ export function GroupCallProvider({ children }: { children: ReactNode }) {
           .map((peer) =>
             sendWork(peer, async () => {
               const sender = peer.pc.getSenders().find((s) => s.track?.kind === "video");
-              if (sender) await sender.replaceTrack(track);
+              if (!sender) throw new Error("Video sender unavailable");
+              await sender.replaceTrack(track);
               await limitCallSenders(peer.pc, true, peerCount());
             }),
           ),
@@ -738,8 +772,7 @@ export function GroupCallProvider({ children }: { children: ReactNode }) {
     } catch (error) {
       if (token === generation.current) {
         await stopScreen();
-        if (!(error instanceof DOMException && error.name === "NotAllowedError"))
-          setMessage("Screen sharing couldn’t start. Choose a screen or window and try again.");
+        setMessage(screenShareError(error));
       }
     } finally {
       if (capture && screenRef.current !== capture)
@@ -809,6 +842,9 @@ export function GroupCallProvider({ children }: { children: ReactNode }) {
               sharing: Boolean(screenRef.current),
               muted: mutedRef.current,
               cameraOff: cameraOffRef.current,
+              connected: [...peers.current.values()].some(
+                (peer) => peer.pc.connectionState === "connected",
+              ),
             });
           }
           if (Date.now() - directoryAt.current > 15_000) await loadDirectory(room, token);
@@ -929,9 +965,11 @@ export function GroupCallProvider({ children }: { children: ReactNode }) {
   const joined = current?.room?.participants.filter((p) => p.status === "joined") ?? [];
   const me = messaging.device?.accountId;
   return (
-    <Context.Provider value={{ active, start: (id, name, kind) => join(id, name, kind) }}>
+    <Context.Provider
+      value={{ active, start: (id, name, kind, roomId) => join(id, name, kind, undefined, roomId) }}
+    >
       {children}
-      {message ? (
+      {!current && message ? (
         <div className="call-toast" role="status">
           <span>{message}</span>
           <button type="button" aria-label="Dismiss call status" onClick={() => setMessage("")}>
@@ -946,6 +984,23 @@ export function GroupCallProvider({ children }: { children: ReactNode }) {
           live={current.phase === "joined"}
           minimized={minimized}
           onMinimize={setMinimized}
+          muted={muted}
+          onEnd={() =>
+            void leave("You left the group call", current.phase === "incoming" && !current.resume)
+          }
+          onMute={
+            local
+              ? () => {
+                  const next = !mutedRef.current;
+                  mutedRef.current = next;
+                  stream.current?.getAudioTracks().forEach((track) => {
+                    track.enabled = !next;
+                  });
+                  setMuted(next);
+                  heartbeatAt.current = 0;
+                }
+              : undefined
+          }
         >
           <h2>{current.name}</h2>
           <p className="call-phase" role="status">
@@ -959,6 +1014,13 @@ export function GroupCallProvider({ children }: { children: ReactNode }) {
                   ? "Waiting for others to join…"
                   : `${joined.length} people in this call`}
           </p>
+          {message || devices.blocked ? (
+            <p className="call-window__message" role="status">
+              {devices.blocked
+                ? devices.error || "Choose an audio output in More options to hear the call."
+                : message}
+            </p>
+          ) : null}
           <div className="group-call-grid">
             {current.phase === "joined" ? (
               joined.map((person) => {
@@ -972,6 +1034,7 @@ export function GroupCallProvider({ children }: { children: ReactNode }) {
                     local={own}
                     audioOnly={current.room?.kind === "voice"}
                     sharing={own ? Boolean(screen) : person.sharing}
+                    cameraOff={own ? cameraOff : person.cameraOff}
                     status={
                       own
                         ? muted
@@ -1049,18 +1112,22 @@ export function GroupCallProvider({ children }: { children: ReactNode }) {
                       {cameraOff ? <VideoOff size={22} /> : <Video size={22} />}
                       <span>{cameraOff ? "Camera on" : "Camera off"}</span>
                     </button>
-                    <button
-                      type="button"
-                      className="call-control"
-                      disabled={screenBusy}
-                      aria-pressed={Boolean(screen)}
-                      onClick={() => void shareScreen()}
-                    >
-                      {screen ? <MonitorX size={22} /> : <MonitorUp size={22} />}
-                      <span>
-                        {screen ? "Stop sharing" : screenBusy ? "Choosing…" : "Share screen"}
-                      </span>
-                    </button>
+                    {typeof navigator.mediaDevices?.getDisplayMedia === "function" ? (
+                      <button
+                        type="button"
+                        className="call-control"
+                        disabled={screenBusy}
+                        aria-pressed={Boolean(screen)}
+                        onClick={(event) =>
+                          void shareScreen(event.currentTarget.ownerDocument.defaultView)
+                        }
+                      >
+                        {screen ? <MonitorX size={22} /> : <MonitorUp size={22} />}
+                        <span>
+                          {screen ? "Stop sharing" : screenBusy ? "Choosing…" : "Share screen"}
+                        </span>
+                      </button>
+                    ) : null}
                   </>
                 ) : null}
               </>
@@ -1083,25 +1150,31 @@ export function GroupCallProvider({ children }: { children: ReactNode }) {
               </span>
             </button>
           </div>
-          {local && current.phase === "joined" ? (
-            <CallDeviceSettings
-              stream={local}
-              video={current.room?.kind === "video"}
-              sharing={Boolean(screen)}
-              onInputChange={changeInput}
-            />
-          ) : null}
-          <p className="call-note">
-            {screen ? "You’re sharing your screen. " : ""}
-            {fallback ? "Trying direct connections. They may not work on every network. " : ""}
-            {policy === "all"
-              ? "Direct connections can share your network address with other participants. "
-              : policy === "relay"
-                ? "Direct connections are disabled. "
+          <details className="call-more">
+            <summary>More options</summary>
+            {local && current.phase === "joined" ? (
+              <CallDeviceSettings
+                stream={local}
+                video={current.room?.kind === "video"}
+                sharing={Boolean(screen)}
+                onInputChange={changeInput}
+              />
+            ) : null}
+            <p className="call-note">
+              {typeof navigator.mediaDevices?.getDisplayMedia !== "function"
+                ? "This browser can view shared screens but cannot start a screen share. "
                 : ""}
-            Camera up to 720p at 30 fps. Screen sharing up to 720p at 60 fps. Quality adjusts to
-            your connection and group size. Keep Untold open. Calls can last up to 55 minutes.
-          </p>
+              {screen ? "You’re sharing your screen. " : ""}
+              {fallback ? "Trying direct connections. They may not work on every network. " : ""}
+              {policy === "all"
+                ? "Direct connections can share your network address with other participants. "
+                : policy === "relay"
+                  ? "Direct connections are disabled. "
+                  : ""}
+              Camera up to 720p at 30 fps. Screen sharing up to 720p at 60 fps. Quality adjusts to
+              your connection and group size. Keep Untold open. Calls can last up to 55 minutes.
+            </p>
+          </details>
         </CallWindow>
       ) : null}
     </Context.Provider>

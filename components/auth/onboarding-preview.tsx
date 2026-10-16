@@ -39,15 +39,11 @@ export function OnboardingPreview() {
           <MessageCircle size={24} />
         </span>
         <div>
-          <p className="messaging-kicker">
-            {session ? "Your account" : "Loading your account"}
-          </p>
+          <p className="messaging-kicker">{session ? "Your account" : "Loading your account"}</p>
           {session ? (
             <>
               <h2>Welcome, {session.displayName}.</h2>
-              <p>
-                {session.email}
-              </p>
+              <p>{session.email}</p>
             </>
           ) : (
             <>
@@ -82,9 +78,9 @@ export function OnboardingPreview() {
           <p className="messaging-kicker">Keep your history</p>
           <h2 id="onboarding-recovery-title">Take care of your password and devices.</h2>
           <p>
-            Set up two-factor authentication in Settings and save your recovery codes so you
-            can reset a forgotten password. Clearing browser data or losing a device can still
-            make older messages unreadable.
+            Set up two-factor authentication in Settings and save your recovery codes so you can
+            reset a forgotten password. Clearing browser data or losing a device can still make
+            older messages unreadable.
           </p>
         </div>
         <Link href="/auth/recovery">
@@ -96,12 +92,12 @@ export function OnboardingPreview() {
         <Link className="onboarding-actions__primary" href="/app/inbox">
           Go to your inbox <ArrowUpRight aria-hidden="true" size={16} />
         </Link>
-        <Link href="/app/profile">View profile</Link>
+        <Link href="/app/settings/profile">View profile</Link>
       </div>
 
       <p className="onboarding-disclaimer">
-        Untold is in early access. Privacy features haven’t been independently checked yet.
-        Keep this in mind before sharing anything sensitive.
+        Untold is in early access. Privacy features haven’t been independently checked yet. Keep
+        this in mind before sharing anything sensitive.
       </p>
     </div>
   );

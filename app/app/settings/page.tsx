@@ -40,6 +40,16 @@ export default function SettingsPage() {
         title="Settings"
       />
       <section aria-label="Account settings" className="account-settings-preview">
+        <article>
+          <div>
+            <p className="messaging-kicker">Your details</p>
+            <h2>Profile</h2>
+            <p>Your photo and how you appear to people on Untold.</p>
+          </div>
+          <Link href="/app/settings/profile">
+            View profile <ArrowUpRight aria-hidden="true" size={14} />
+          </Link>
+        </article>
         <AdminAccessLink />
         <MfaSettings key={session?.id ?? "loading"} />
         <ReadabilitySettings />
@@ -70,7 +80,7 @@ export default function SettingsPage() {
             <h2>Untold account</h2>
             <p>Use your email address and password to sign in.</p>
           </div>
-          <Link href="/app/profile">
+          <Link href="/app/settings/profile">
             View account profile <ArrowUpRight aria-hidden="true" size={14} strokeWidth={1.8} />
           </Link>
         </article>

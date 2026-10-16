@@ -2,18 +2,20 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Inbox, MessageSquareText, Settings2, UserRound, UsersRound } from "lucide-react";
+import { Inbox, MessageSquareText, Settings2, Phone, UsersRound } from "lucide-react";
+import { useCallHistoryStatus } from "@/components/messaging/call-history-provider";
 
 const navigationItems = [
   { href: "/app/inbox", label: "Inbox", icon: Inbox },
   { href: "/app/conversations", label: "Conversations", icon: MessageSquareText },
+  { href: "/app/calls", label: "Calls", icon: Phone },
   { href: "/app/contacts", label: "Contacts", icon: UsersRound },
   { href: "/app/settings", label: "Settings", icon: Settings2 },
-  { href: "/app/profile", label: "Profile", icon: UserRound },
 ] as const;
 
 export function ApplicationNavigation({ placement }: { placement: "sidebar" | "mobile" }) {
   const pathname = usePathname();
+  const { missedCount } = useCallHistoryStatus();
 
   return (
     <nav
@@ -22,9 +24,7 @@ export function ApplicationNavigation({ placement }: { placement: "sidebar" | "m
     >
       {navigationItems.map((item) => {
         const Icon = item.icon;
-        const isCurrent =
-          pathname === item.href ||
-          (item.href === "/app/conversations" && pathname.startsWith(`${item.href}/`));
+        const isCurrent = pathname === item.href || pathname.startsWith(`${item.href}/`);
 
         return (
           <Link
@@ -37,6 +37,12 @@ export function ApplicationNavigation({ placement }: { placement: "sidebar" | "m
             <span>
               {placement === "mobile" && item.href === "/app/conversations" ? "Chats" : item.label}
             </span>
+            {item.href === "/app/calls" && missedCount > 0 ? (
+              <span className="calls-badge">
+                <span aria-hidden="true">{missedCount > 99 ? "99+" : missedCount}</span>
+                <span className="sr-only">{missedCount} missed calls</span>
+              </span>
+            ) : null}
           </Link>
         );
       })}

@@ -24,6 +24,10 @@ export type CallSnapshot = {
   createdAt: string;
   expiresAt: string;
   peerName: string;
+  callerCameraOff?: boolean;
+  calleeCameraOff?: boolean;
+  callerSharing?: boolean;
+  calleeSharing?: boolean;
 };
 export type CallConfiguration = {
   enabled: boolean;

@@ -1,5 +1,5 @@
 import "server-only";
-import { and, eq, gt, inArray, isNull, ne, or } from "drizzle-orm";
+import { and, eq, gt, inArray, isNull, ne, or, sql } from "drizzle-orm";
 import type { getDatabase } from "./database";
 import {
   authUser,
@@ -63,7 +63,7 @@ export async function removeRoomParticipant(
 ) {
   await db
     .update(callParticipants)
-    .set({ status, sharing: false, muted: false, cameraOff: false })
+    .set({ status, sharing: false, muted: false, cameraOff: false, connectedAt: null })
     .where(and(eq(callParticipants.roomId, roomId), eq(callParticipants.userId, userId)));
   await db
     .delete(callLinks)
@@ -74,11 +74,25 @@ export async function removeRoomParticipant(
       ),
     );
 }
-export async function revokeGroupCallAccess(
-  db: CallTransaction,
-  userId: string,
-  deviceId?: string,
-) {
+export async function revokeCallAccess(db: CallTransaction, userId: string, deviceId?: string) {
+  await db
+    .update(calls)
+    .set({ status: "ended", offer: null, answer: null, endReason: "revoked", endedAt: new Date() })
+    .where(
+      and(
+        ne(calls.status, "ended"),
+        or(
+          and(
+            eq(calls.callerId, userId),
+            deviceId ? eq(calls.callerDeviceId, deviceId) : undefined,
+          ),
+          and(
+            eq(calls.calleeId, userId),
+            deviceId ? eq(calls.calleeDeviceId, deviceId) : undefined,
+          ),
+        ),
+      ),
+    );
   const affected = await db
     .select({ roomId: callParticipants.roomId })
     .from(callParticipants)
@@ -94,7 +108,7 @@ export async function revokeGroupCallAccess(
 export async function closeRoom(db: CallTransaction, roomId: string) {
   await db
     .update(callRooms)
-    .set({ status: "ended", expiresAt: new Date() })
+    .set({ status: "ended", expiresAt: sql`least(${callRooms.expiresAt}, now())` })
     .where(eq(callRooms.id, roomId));
   await db
     .update(callParticipants)

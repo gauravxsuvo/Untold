@@ -38,6 +38,7 @@ import {
 import { maxCallDurationMs } from "@/lib/messaging/call-policy";
 import { maxGroupMembers } from "@/lib/messaging/groups";
 import { notifyGroupIncomingCall } from "@/lib/server/call-push";
+import { publishCallHistoryUpdated } from "@/lib/server/ably";
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 const headers = { "Cache-Control": "private, no-store" };
@@ -53,6 +54,7 @@ type Input = {
   sharing?: unknown;
   muted?: unknown;
   cameraOff?: unknown;
+  connected?: unknown;
 };
 
 async function handle(request: Request, input: Input, write: boolean) {
@@ -269,6 +271,7 @@ async function handle(request: Request, input: Input, write: boolean) {
             status: "joined",
             deviceId,
             instanceId: input.instanceId as string,
+            connectedAt: null,
             seenAt: new Date(),
           })
           .where(and(eq(callParticipants.roomId, room.id), eq(callParticipants.userId, userId)));
@@ -310,7 +313,7 @@ async function handle(request: Request, input: Input, write: boolean) {
         if (own.status !== "joined" || own.deviceId !== deviceId)
           return fail("This call is no longer open here.");
         if (
-          [input.sharing, input.muted, input.cameraOff].some(
+          [input.sharing, input.muted, input.cameraOff, input.connected].some(
             (v) => v !== undefined && typeof v !== "boolean",
           )
         )
@@ -319,6 +322,23 @@ async function handle(request: Request, input: Input, write: boolean) {
           .update(callParticipants)
           .set({
             seenAt: new Date(),
+            ...(input.connected === true &&
+            !own.connectedAt &&
+            (
+              await tx
+                .select({ id: callLinks.id })
+                .from(callLinks)
+                .where(
+                  and(
+                    eq(callLinks.roomId, room.id),
+                    or(eq(callLinks.lowerUserId, userId), eq(callLinks.upperUserId, userId)),
+                    sql`${callLinks.answer} IS NOT NULL`,
+                  ),
+                )
+                .limit(1)
+            ).length
+              ? { connectedAt: new Date() }
+              : {}),
             sharing: room.kind === "video" && input.sharing === true,
             muted: input.muted === true,
             cameraOff: input.cameraOff === true,
@@ -401,6 +421,10 @@ async function handle(request: Request, input: Input, write: boolean) {
       }
     });
   }
+  if (write && response.ok && action !== "signal")
+    after(async () => {
+      await publishCallHistoryUpdated(groupId).catch(() => false);
+    });
   return response;
 }
 export async function GET(request: Request) {

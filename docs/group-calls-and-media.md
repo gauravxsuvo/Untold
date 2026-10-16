@@ -1,5 +1,7 @@
 # Group calls, screen sharing and message limits
 
+See the subsequent [call reliability and history](call-reliability-and-history.md) update for revised call surfaces, media playback, persistent group/direct history, and **migration 018**. Its device-verification requirements supplement the original rollout checks below.
+
 ## Deploying
 
 Include `scripts/migrations/017-group-calls.sql` after migration 016. Use the existing production `npm run build` and `npm start` commands on Portways; start applies migrations before serving the app. Do not change applied migration files. No new provider, service, package or public environment variable is required. Keep the existing server-only `TURN_API_URL` and `TURN_TOKEN` configuration, with the intended `TURN_RELAY_ONLY` policy.

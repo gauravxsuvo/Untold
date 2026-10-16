@@ -1,13 +1,12 @@
 "use client";
 
 import { useLayoutEffect, useRef, type RefObject } from "react";
-import type { ThreadMessage } from "@/components/messaging/use-messaging";
 
 export function useMessageScroll(
   historyRef: RefObject<HTMLOListElement | null>,
   conversationId: string | null,
   viewerId: string,
-  messages: ThreadMessage[],
+  messages: readonly { id: string; senderId: string }[],
 ) {
   const position = useRef({ conversationId: "", lastId: "", following: true });
   useLayoutEffect(() => {

@@ -1,5 +1,12 @@
 # Untold release checklist
 
+## Call reliability and history follow-up (2026-10-16)
+
+Call playback/layout fixes, supported screen-sharing/floating fallbacks, direct/group chat call cards, Calls with missed indicators, and Profile under Settings are implemented locally. **Migration 018 is required**, superseding the earlier no-migration call-window note below. See [implementation, checks, and rollout](call-reliability-and-history.md).
+
+- [ ] Apply 018 through the normal migration-on-start deployment, after checking it on staging.
+- [ ] Complete authenticated two-account/group flows and physical-device/background/production-relay checks listed in the follow-up document. Local loopback/browser and isolated PostgreSQL checks do not replace them.
+
 ## Call window follow-up (2026-10-16)
 
 Fullscreen, movable/resizable windows, supported floating windows, microphone/camera/output selection and the 96 kbit/s audio target are implemented locally. This follow-up needs no new migration or environment variables. Existing group-call migration 017 remains required.

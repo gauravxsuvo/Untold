@@ -16,6 +16,8 @@
     "test": "tsc -p tsconfig.tests.json && node --test .test-build/tests/*.test.js",
     "test:encryption": "npm --prefix encryption test",
     "test:attachments:browser": "node scripts/test-attachment-browser.mjs",
+    "test:calls:browser": "node scripts/test-call-browser.mjs",
+    "test:calls:database": "node scripts/test-call-history-database.mjs",
     "test:all": "npm test && npm run test:encryption",
     "lint": "biome lint",
     "db:migrate": "node --env-file=.env.local scripts/migrate.mjs",

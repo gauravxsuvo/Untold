@@ -1,5 +1,7 @@
 # Call windows and devices
 
+The subsequent [call reliability and history](call-reliability-and-history.md) update replaces the call layout/playback behavior below, adds durable call history and navigation changes, and **requires migration 018**. Its verification record and physical-device checks are the current follow-up requirements.
+
 ## Controls
 
 Direct and group calls now share a movable, resizable, nonblocking call window. Drag its title bar, or focus the title and use the arrow keys. Shift moves farther; Home centers it. The toolbar also offers Center, Expand, Minimize and a floating-window button. The same controls follow the current theme and text preferences.
