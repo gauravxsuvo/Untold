@@ -2,7 +2,7 @@
 
 ## Setup before deploying
 
-1. Use Node.js 22.13 or newer. PDF.js is loaded only when opening a PDF.
+1. Use Node.js 24.0 or newer. PDF.js is loaded only when opening a PDF.
 2. Set `ADMIN_EMAIL` to the email of your existing Untold account. Set `ADMIN_USER_ID` too when possible to bind administration to one account ID.
 3. Deploy migration `015-membership-and-calls.sql` with the application. `npm start` applies ordered migrations as usual. Existing accounts retain access. All later signups require approval, even if they already have a valid sign-in session.
 4. Open Settings, then **Account requests**. The owner can approve requests, decline requests, remove existing members' access, or approve a declined account later. Lists have pagination. The owner cannot remove their own access.
