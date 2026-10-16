@@ -284,8 +284,20 @@ export async function fetchMessageSnapshot(
   knownIds: string[],
   etag: string | null,
   signal: AbortSignal,
-): Promise<{ messages: ConversationMessage[]; etag: string | null } | null> {
+  before?: string | null,
+  deviceId?: string,
+  liveIds?: string[],
+): Promise<{
+  messages: ConversationMessage[];
+  calls: import("./call-history").CallHistoryEntry[];
+  nextCursor: string | null;
+  etag: string | null;
+} | null> {
   const query = new URLSearchParams();
+  query.set("timeline", "true");
+  if (deviceId) query.set("deviceId", deviceId);
+  if (liveIds?.length) query.set("live", liveIds.slice(0, 100).join(","));
+  if (before) query.set("before", before);
   if (knownIds.length) query.set("known", knownIds.slice(0, 100).join(","));
   let response: Response;
   try {
@@ -307,7 +319,12 @@ export async function fetchMessageSnapshot(
     throw new ApiError(requestErrorMessage(response.status, body?.message), response.status);
   if (!Array.isArray(body?.messages))
     throw new ApiError("We couldn’t refresh this conversation. Please try again.", 0);
-  return { messages: body.messages, etag: response.headers.get("etag") };
+  return {
+    messages: body.messages,
+    calls: body.calls ?? [],
+    nextCursor: body.nextCursor ?? null,
+    etag: response.headers.get("etag"),
+  };
 }
 
 export async function acknowledgeMessages(

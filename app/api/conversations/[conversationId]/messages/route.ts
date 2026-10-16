@@ -2,7 +2,13 @@ import { createHash } from "node:crypto";
 import { after } from "next/server";
 import { pushOutbox } from "@/lib/server/schema";
 import { deliverPushOutbox } from "@/lib/server/push";
-import { and, desc, eq, inArray, isNull } from "drizzle-orm";
+import { and, desc, eq, inArray, isNull, sql } from "drizzle-orm";
+import {
+  conversationTimelineKeys,
+  historyEntries,
+  reconcileCallHistory,
+} from "@/lib/server/call-history";
+import { parseHistoryCursor, parseLiveHistoryIds } from "@/lib/messaging/call-history";
 import {
   getAuthenticatedUser,
   backendErrorResponse,
@@ -66,7 +72,48 @@ export async function GET(request: Request, context: RouteContext): Promise<Resp
     const { db } = getDatabase();
     if (!(await isConversationMember(db, conversationId, user.id))) return notFoundResponse();
 
-    const knownParam = new URL(request.url).searchParams.get("known");
+    const query = new URL(request.url).searchParams;
+    const timeline = query.get("timeline") === "true";
+    if (
+      timeline &&
+      !(await accountDeviceDirectory([user.id])).some(
+        (device) => device.deviceId === query.get("deviceId") && device.approved && !device.revoked,
+      )
+    )
+      return Response.json(
+        { message: "Approve this device in Settings to view conversation activity." },
+        { status: 403, headers: { "Cache-Control": "no-store" } },
+      );
+    let liveIds: string[];
+    try {
+      parseHistoryCursor(query.get("before"));
+      liveIds = parseLiveHistoryIds(query.get("live"));
+    } catch {
+      return Response.json({ message: "Refresh the conversation and try again." }, { status: 400 });
+    }
+    if (timeline) await reconcileCallHistory(db, user.id);
+    const page = timeline
+      ? await conversationTimelineKeys(db, user.id, conversationId, query.get("before"))
+      : null;
+    const messageIds = page?.keys.filter((key) => key.type === "message").map((key) => key.item_id);
+    const callIds = [
+      ...new Set([
+        ...(page?.keys.filter((key) => key.type === "call").map((key) => key.item_id) ?? []),
+        ...liveIds,
+      ]),
+    ];
+    const callEntries = callIds.length
+      ? await historyEntries(
+          db,
+          user.id,
+          sql`h.conversation_id = ${conversationId}::uuid AND h.id IN (${sql.join(
+            callIds.map((id) => sql`${id}`),
+            sql`, `,
+          )})`,
+          200,
+        )
+      : [];
+    const knownParam = query.get("known");
     const knownIds = knownParam ? knownParam.split(",") : [];
     if (
       (knownParam?.length ?? 0) > 4000 ||
@@ -89,7 +136,17 @@ export async function GET(request: Request, context: RouteContext): Promise<Resp
         createdAt: messageEnvelopes.createdAt,
       })
       .from(messageEnvelopes)
-      .where(and(eq(messageEnvelopes.conversationId, conversationId), messageAudience(db, user.id)))
+      .where(
+        and(
+          eq(messageEnvelopes.conversationId, conversationId),
+          messageAudience(db, user.id),
+          messageIds
+            ? messageIds.length
+              ? inArray(messageEnvelopes.id, messageIds)
+              : sql`false`
+            : undefined,
+        ),
+      )
       .orderBy(desc(messageEnvelopes.createdAt), desc(messageEnvelopes.id))
       .limit(100);
 
@@ -105,7 +162,7 @@ export async function GET(request: Request, context: RouteContext): Promise<Resp
       ...(receipts.get(message.id) ?? {}),
     }));
     const etag = `"${createHash("sha256")
-      .update(JSON.stringify([user.id, conversationId, metadata]))
+      .update(JSON.stringify([user.id, conversationId, metadata, callEntries, page?.nextCursor]))
       .digest("base64url")}"`;
     const headers = { "Cache-Control": "no-store", Vary: "Cookie", ETag: etag };
     if (
@@ -130,6 +187,8 @@ export async function GET(request: Request, context: RouteContext): Promise<Resp
 
     return Response.json(
       {
+        calls: callEntries,
+        nextCursor: page?.nextCursor ?? null,
         messages: metadata.flatMap((message) => {
           if (known.has(message.id)) return [message];
           const envelope = bodies.get(message.id);

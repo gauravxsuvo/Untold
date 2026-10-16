@@ -9,6 +9,7 @@ import {
 } from "@/crypto/src/account-trust";
 import { syncContactVerification } from "@/lib/messaging/api-client";
 import { useCallback, useEffect, useRef, useState } from "react";
+import type { CallHistoryEntry } from "@/lib/messaging/call-history";
 import {
   ApiError,
   userFacingError,
@@ -131,7 +132,9 @@ function useRealtimeNotifications(
       for (const id of ids) {
         realtime.channels
           .get(`untold:conversation:${id}`)
-          .subscribe(["message-available", "receipts-updated"], () => handlerRef.current(id))
+          .subscribe(["message-available", "receipts-updated", "call-history-updated"], () =>
+            handlerRef.current(id),
+          )
           .catch(() => undefined);
       }
     })();
@@ -189,12 +192,16 @@ export function useConversationList(onMessageAvailable?: (conversationId: string
     };
     window.addEventListener("online", resume);
     window.addEventListener("untold:conversations-changed", resume);
+    window.addEventListener("untold-call-active", resume);
+    window.addEventListener("untold-call-history-refresh", resume);
     navigator.serviceWorker?.addEventListener("message", pushed);
     return () => {
       activeRequest.current?.abort();
       activeRequest.current = null;
       window.removeEventListener("online", resume);
       window.removeEventListener("untold:conversations-changed", resume);
+      window.removeEventListener("untold-call-active", resume);
+      window.removeEventListener("untold-call-history-refresh", resume);
       navigator.serviceWorker?.removeEventListener("message", pushed);
     };
   }, [refresh]);
@@ -243,6 +250,7 @@ type ThreadReadCache = {
   key: string;
   etag: string | null;
   messages: Map<string, ThreadMessage>;
+  calls: Map<string, CallHistoryEntry>;
   controller: AbortController | null;
   inFlight: boolean;
   queued: boolean;
@@ -384,6 +392,10 @@ export function useConversationThread(
   refreshDeviceDirectory: () => void,
 ) {
   const [messages, setMessages] = useState<ThreadMessage[]>([]);
+  const [callHistory, setCallHistory] = useState<CallHistoryEntry[]>([]);
+  const [nextCursor, setNextCursor] = useState<string | null>(null);
+  const [loadingEarlier, setLoadingEarlier] = useState(false);
+  const olderLoaded = useRef(false);
   const [state, setState] = useState<LoadState>("loading");
   const [error, setError] = useState("");
   const [attachmentUpload, setAttachmentUpload] = useState<AttachmentUploadStatus | null>(null);
@@ -537,6 +549,7 @@ export function useConversationThread(
         key,
         etag: null,
         messages: new Map(),
+        calls: new Map(),
         controller: null,
         inFlight: false,
         queued: false,
@@ -565,6 +578,11 @@ export function useConversationThread(
         knownIds,
         snapshot.etag,
         AbortSignal.any([controller.signal, AbortSignal.timeout(15_000)]),
+        undefined,
+        localDeviceRef.current?.deviceId,
+        [...snapshot.calls.values()]
+          .filter((call) => call.status === "live")
+          .map((call) => call.id),
       );
       if (!isCurrent()) return;
       if (fetched === null) {
@@ -593,8 +611,16 @@ export function useConversationThread(
         }),
       );
       if (!isCurrent()) return;
-      snapshot.messages = new Map(decrypted.map((message) => [message.id, message]));
+      snapshot.messages = new Map([
+        ...snapshot.messages,
+        ...decrypted.map((message) => [message.id, message] as const),
+      ]);
       snapshot.etag = fetched.etag;
+      for (const call of fetched.calls) snapshot.calls.set(call.id, call);
+      setCallHistory((current) => [
+        ...new Map([...current, ...fetched.calls].map((call) => [call.id, call])).values(),
+      ]);
+      if (!olderLoaded.current) setNextCursor(fetched.nextCursor);
       setMessages((current) => {
         const confirmedIds = new Set(decrypted.map(({ clientMessageId }) => clientMessageId));
         const pending = current.filter(
@@ -608,7 +634,7 @@ export function useConversationThread(
             readAt: existing?.readAt ?? message.readAt,
           };
         });
-        return mergeMessages<ThreadMessage>(pending, withReceipts);
+        return mergeMessages<ThreadMessage>(mergeMessages(current, pending), withReceipts);
       });
       setState("ready");
       setError("");
@@ -619,6 +645,7 @@ export function useConversationThread(
         snapshot.messages.clear();
         snapshot.etag = null;
         setMessages([]);
+        setCallHistory([]);
         setState("error");
         return;
       }
@@ -636,6 +663,9 @@ export function useConversationThread(
   useEffect(() => {
     messagesConversationRef.current = conversationId;
     setMessages([]);
+    setCallHistory([]);
+    setNextCursor(null);
+    olderLoaded.current = false;
     setError("");
     setState("loading");
     void refresh();
@@ -647,6 +677,12 @@ export function useConversationThread(
       }
     };
   }, [conversationId, readCacheKey, refresh]);
+
+  useEffect(() => {
+    const changed = () => void refresh();
+    window.addEventListener("untold-call-history-refresh", changed);
+    return () => window.removeEventListener("untold-call-history-refresh", changed);
+  }, [refresh]);
 
   usePolling(
     () => void refresh(),
@@ -1114,8 +1150,47 @@ export function useConversationThread(
     [conversationId, deliver, memberUserIds, messages],
   );
 
+  const loadEarlier = async () => {
+    if (!conversationId || !nextCursor || loadingEarlier) return;
+    const key = readCacheKeyRef.current;
+    setLoadingEarlier(true);
+    try {
+      const page = await fetchMessageSnapshot(
+        conversationId,
+        [],
+        null,
+        AbortSignal.timeout(15_000),
+        nextCursor,
+        localDeviceRef.current?.deviceId,
+      );
+      if (activeIdRef.current !== conversationId || readCacheKeyRef.current !== key || !page)
+        return;
+      const earlier = await Promise.all(
+        page.messages.map((message) => decryptFetched(message, conversationId)),
+      );
+      if (activeIdRef.current !== conversationId || readCacheKeyRef.current !== key) return;
+      olderLoaded.current = true;
+      const cache = readCacheRef.current;
+      if (cache?.key === key) for (const call of page.calls) cache.calls.set(call.id, call);
+      setMessages((current) => mergeMessages(current, earlier));
+      setCallHistory((current) => [
+        ...new Map([...current, ...page.calls].map((call) => [call.id, call])).values(),
+      ]);
+      setNextCursor(page.nextCursor);
+    } catch (caught) {
+      if (activeIdRef.current === conversationId)
+        setError(userFacingError(caught, "Earlier activity could not load."));
+    } finally {
+      setLoadingEarlier(false);
+    }
+  };
+
   return {
     messages: messagesConversationRef.current === conversationId ? messages : [],
+    callHistory: messagesConversationRef.current === conversationId ? callHistory : [],
+    nextCursor,
+    loadEarlier,
+    loadingEarlier,
     state,
     error,
     refresh,

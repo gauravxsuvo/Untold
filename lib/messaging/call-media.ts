@@ -79,8 +79,10 @@ export function preferSpeechCodec(pc: RTCPeerConnection) {
 
 // Call getDisplayMedia directly from a click: browsers require a fresh user
 // gesture and show their own chooser every time. Do not request system audio.
-export function chooseCallScreen() {
-  return navigator.mediaDevices.getDisplayMedia({
+export function chooseCallScreen(context: Window = window) {
+  if (!context.navigator.mediaDevices?.getDisplayMedia)
+    throw new Error("This browser can view shared screens but cannot start a share.");
+  return context.navigator.mediaDevices.getDisplayMedia({
     audio: false,
     video: { width: { ideal: 1280 }, height: { ideal: 720 }, frameRate: { ideal: 60 } },
   });
@@ -90,10 +92,36 @@ export async function constrainCallScreen(stream: MediaStream) {
   const track = stream.getVideoTracks()[0];
   if (!track) throw new Error("Screen sharing isn’t available here.");
   track.contentHint = "motion";
-  await track.applyConstraints({
-    width: { ideal: 1280, max: 1280 },
-    height: { ideal: 720, max: 720 },
-    frameRate: { ideal: 60, max: 60 },
-  });
+  try {
+    await track.applyConstraints({
+      width: { ideal: 1280, max: 1280 },
+      height: { ideal: 720, max: 720 },
+      frameRate: { ideal: 60, max: 60 },
+    });
+  } catch (error) {
+    if (
+      !error ||
+      typeof error !== "object" ||
+      !("name" in error) ||
+      error.name !== "OverconstrainedError"
+    )
+      throw error;
+    // Capture surfaces can reject scaling; the sender still enforces its budget.
+    await track.applyConstraints({ frameRate: { ideal: 30 } });
+  }
   return track;
+}
+
+export function screenShareError(error: unknown) {
+  // Capture may originate in a PiP/popup realm, with a different DOMException constructor.
+  if (error && typeof error === "object" && "name" in error) {
+    if (error.name === "NotAllowedError")
+      return "Screen sharing was cancelled or permission was denied. Choose Share screen to try again; check browser and system screen-recording permission if needed.";
+    if (error.name === "InvalidStateError")
+      return "Return the call to the app and choose Share screen from the focused call window.";
+    if (error.name === "NotReadableError")
+      return "Your system could not capture that screen. Check screen-recording permission or choose another window.";
+    if (error.name === "NotFoundError") return "No screen or window is available to share.";
+  }
+  return "Screen sharing couldn’t start. Choose a screen or window and try again.";
 }

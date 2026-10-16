@@ -1,5 +1,5 @@
-import { ProfilePreview } from "@/components/auth/profile-preview";
+import { redirect } from "next/navigation";
 
 export default function ProfilePage() {
-  return <ProfilePreview />;
+  redirect("/app/settings/profile");
 }

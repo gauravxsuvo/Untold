@@ -1,4 +1,4 @@
-import { and, desc, eq, gt, inArray, lt, ne, or, isNull } from "drizzle-orm";
+import { and, desc, eq, gt, inArray, lt, lte, ne, or, isNull, sql } from "drizzle-orm";
 import {
   getAuthenticatedUser,
   getAuthenticatedSession,
@@ -29,6 +29,7 @@ import { maxCallDurationMs } from "@/lib/messaging/call-policy";
 import { after } from "next/server";
 import { notifyIncomingCall } from "@/lib/server/call-push";
 import { hasGroupCall } from "@/lib/server/group-calls";
+import { publishCallHistoryUpdated } from "@/lib/server/ably";
 export const dynamic = "force-dynamic";
 const noStore = { "Cache-Control": "no-store" };
 const fail = (message: string, status = 400) =>
@@ -53,7 +54,7 @@ export async function GET(request: Request) {
       (d) => d.deviceId === deviceId && d.approved && !d.revoked,
     );
     if (!device) return fail("Approve this device in Settings before calling.", 403);
-    const [call] = await db
+    let [call] = await db
       .select()
       .from(calls)
       .where(
@@ -76,15 +77,45 @@ export async function GET(request: Request) {
       .where(eq(authUser.id, call.callerId === user.id ? call.calleeId : call.callerId))
       .limit(1);
     const peerSeen = call.callerId === user.id ? call.calleeSeenAt : call.callerSeenAt;
-    const ended =
+    let ended =
       call.expiresAt <= new Date() ||
       call.status === "ended" ||
       (call.status === "active" && (!peerSeen || peerSeen.getTime() < Date.now() - 60_000));
-    if (ended && call.status !== "ended")
-      await db
+    if (ended && call.status !== "ended") {
+      const now = new Date();
+      const peerColumn = call.callerId === user.id ? calls.calleeSeenAt : calls.callerSeenAt;
+      const expired = await db
         .update(calls)
-        .set({ status: "ended", offer: null, answer: null })
-        .where(eq(calls.id, call.id));
+        .set({
+          status: "ended",
+          offer: null,
+          answer: null,
+          endedAt: sql`least(now(), ${calls.expiresAt})`,
+          endReason: call.status === "ringing" ? "missed" : "disconnected",
+        })
+        .where(
+          and(
+            eq(calls.id, call.id),
+            ne(calls.status, "ended"),
+            or(
+              lte(calls.expiresAt, now),
+              and(
+                eq(calls.status, "active"),
+                or(isNull(peerColumn), lt(peerColumn, new Date(Date.now() - 60_000))),
+              ),
+            ),
+          ),
+        )
+        .returning();
+      if (!expired.length) {
+        const [fresh] = await db.select().from(calls).where(eq(calls.id, call.id)).limit(1);
+        if (fresh) call = fresh;
+        ended = call.status === "ended";
+      }
+    }
+    const selectedDevice = call.callerId === user.id ? call.callerDeviceId : call.calleeDeviceId;
+    if (selectedDevice && selectedDevice !== deviceId)
+      return Response.json({ call: null, enabled: callingEnabled() }, { headers: noStore });
     return Response.json(
       {
         call: {
@@ -115,6 +146,10 @@ export async function POST(request: Request) {
       id?: unknown;
       deviceId?: unknown;
       description?: unknown;
+      connected?: unknown;
+      cameraOff?: unknown;
+      sharing?: unknown;
+      endReason?: unknown;
     } | null;
     if (
       !body ||
@@ -284,6 +319,7 @@ export async function POST(request: Request) {
             status: "active",
             calleeDeviceId: deviceId,
             answer: description,
+            answeredAt: now,
             calleeSeenAt: now,
             expiresAt: new Date(Date.now() + 60_000),
           })
@@ -291,11 +327,40 @@ export async function POST(request: Request) {
       } else if (action === "end") {
         await tx
           .update(calls)
-          .set({ status: "ended", offer: null, answer: null, expiresAt: now })
+          .set({
+            status: "ended",
+            offer: null,
+            answer: null,
+            expiresAt: now,
+            endedAt: now,
+            endReason:
+              call.status === "ringing"
+                ? call.callerId === user.id
+                  ? "cancelled"
+                  : "declined"
+                : body.endReason === "failed" || body.endReason === "disconnected"
+                  ? body.endReason
+                  : call.callerConnectedAt && call.calleeConnectedAt
+                    ? "completed"
+                    : "failed",
+          })
           .where(eq(calls.id, id));
       } else if (action === "heartbeat") {
         const caller = call.callerId === user.id;
-        const seen = caller ? { callerSeenAt: now } : { calleeSeenAt: now };
+        const connected = body.connected === true && call.status === "active" && call.answer;
+        const seen = caller
+          ? {
+              callerSeenAt: now,
+              callerCameraOff: body.cameraOff === true,
+              callerSharing: call.kind === "video" && body.sharing === true,
+              ...(connected && !call.callerConnectedAt ? { callerConnectedAt: now } : {}),
+            }
+          : {
+              calleeSeenAt: now,
+              calleeCameraOff: body.cameraOff === true,
+              calleeSharing: call.kind === "video" && body.sharing === true,
+              ...(connected && !call.calleeConnectedAt ? { calleeConnectedAt: now } : {}),
+            };
         if (call.status === "ringing") {
           if (caller) await tx.update(calls).set(seen).where(eq(calls.id, id));
           return Response.json({ ok: true }, { headers: noStore });
@@ -324,6 +389,15 @@ export async function POST(request: Request) {
           /* Foreground polling remains available. */
         }
       });
+    if (response.ok && (action !== "heartbeat" || body.connected === true)) {
+      const conversationId =
+        known?.conversationId ??
+        (validCallDescription(description) ? description.conversationId : null);
+      if (conversationId)
+        after(async () => {
+          await publishCallHistoryUpdated(conversationId).catch(() => false);
+        });
+    }
     return response;
   } catch (error) {
     return backendErrorResponse(error);

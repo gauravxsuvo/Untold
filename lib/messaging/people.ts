@@ -9,7 +9,13 @@ export type ConversationSummary = {
   groupImage?: string | null;
   formerMembers?: Person[];
   members: Person[];
-  lastMessage: { text: string | null; senderId: string; createdAt: string; hasAttachment?: boolean } | null;
+  lastMessage: {
+    text: string | null;
+    senderId: string;
+    createdAt: string;
+    hasAttachment?: boolean;
+  } | null;
+  lastCall?: { createdAt: string; kind: "voice" | "video"; status: string; outcome: string } | null;
 };
 
 export type ConversationMessage = {
@@ -56,9 +62,21 @@ export function conversationTitle(conversation: ConversationSummary, viewerId: s
 }
 
 export function conversationActivityAt(conversation: ConversationSummary): string {
-  const last = conversation.lastMessage?.createdAt;
+  const message = conversation.lastMessage?.createdAt;
+  const call = conversation.lastCall?.createdAt;
+  const last = call && (!message || Date.parse(call) > Date.parse(message)) ? call : message;
   const joined = conversation.joinedAt ?? conversation.createdAt;
   return last && Date.parse(last) > Date.parse(joined) ? last : joined;
+}
+
+export function conversationPreview(conversation: ConversationSummary, viewerId: string) {
+  const call = conversation.lastCall;
+  const message = conversation.lastMessage;
+  if (call && (!message || Date.parse(call.createdAt) > Date.parse(message.createdAt)))
+    return `${call.kind === "video" ? "Video" : "Voice"} call${call.status === "live" ? " · In progress" : call.outcome === "missed" ? " · Unanswered" : ""}`;
+  return message
+    ? `${message.senderId === viewerId ? "You: " : ""}${message.hasAttachment ? "Attachment" : (message.text ?? "Encrypted message")}`
+    : "No messages yet";
 }
 
 export function sortByActivity(conversations: ConversationSummary[]): ConversationSummary[] {
@@ -96,7 +114,8 @@ export function mergeMessages<Message extends ConversationMessage>(
   for (const message of incoming) byId.set(message.id, message);
   return [...byId.values()].sort(
     (first, second) =>
-      Date.parse(first.createdAt) - Date.parse(second.createdAt) || first.id.localeCompare(second.id),
+      Date.parse(first.createdAt) - Date.parse(second.createdAt) ||
+      first.id.localeCompare(second.id),
   );
 }
 

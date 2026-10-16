@@ -1,38 +1,102 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
-import { Maximize2, Minimize2, Phone, Play } from "lucide-react";
+import { Maximize2, Minimize2, Phone, Play, VideoOff } from "lucide-react";
 import { useCallDevices } from "./call-devices";
 
+// Muted inline video must not wait for audio-output selection or autoplay permission.
 export function CallMediaView({
   stream,
   muted = false,
   audioOnly = false,
+  videoOff = false,
   label,
 }: {
   stream: MediaStream | null;
   muted?: boolean;
   audioOnly?: boolean;
+  videoOff?: boolean;
   label: string;
 }) {
-  const element = useRef<HTMLMediaElement | null>(null);
+  const video = useRef<HTMLVideoElement | null>(null);
+  const audio = useRef<HTMLAudioElement | null>(null);
   const frame = useRef<HTMLFieldSetElement | null>(null);
   const [blocked, setBlocked] = useState(false);
+  const [hasVideo, setHasVideo] = useState(false);
   const [expanded, setExpanded] = useState(false);
   const [nativeFullscreen, setNativeFullscreen] = useState(false);
-  const { attachOutput } = useCallDevices();
+  const { attachOutput, blocked: outputBlocked } = useCallDevices();
   useEffect(() => {
-    const node = element.current;
-    if (!node || !stream) return;
-    node.srcObject = stream;
-    let detach: (() => void) | undefined;
-    if (muted) void node.play().catch(() => setBlocked(true));
-    else detach = attachOutput(node, () => setBlocked(true));
-    return () => {
-      detach?.();
-      node.pause();
-      node.srcObject = null;
+    const visual = audioOnly ? null : video.current;
+    const audible = audio.current;
+    if (!stream) {
+      setHasVideo(false);
+      return;
+    }
+    let disposed = false;
+    const playVideo = () => {
+      if (visual && !disposed) void visual.play().catch(() => {});
     };
-  }, [stream, muted, attachOutput]);
+    const updateVideo = () => {
+      setHasVideo(
+        stream.getVideoTracks().some((track) => track.readyState === "live" && !track.muted),
+      );
+      playVideo();
+    };
+    const tracks = new Set<MediaStreamTrack>();
+    const observe = () => {
+      for (const track of stream.getTracks()) {
+        if (tracks.has(track)) continue;
+        tracks.add(track);
+        track.addEventListener("mute", updateVideo);
+        track.addEventListener("unmute", updateVideo);
+        track.addEventListener("ended", updateVideo);
+      }
+      updateVideo();
+      if (audible?.srcObject && !audible.dataset.callOutputBlocked)
+        void audible.play().catch(() => setBlocked(true));
+    };
+    if (visual) visual.srcObject = stream;
+    let detach: (() => void) | undefined;
+    if (audible && !muted) {
+      audible.srcObject = stream;
+      detach = attachOutput(audible, () => setBlocked(true));
+    }
+    observe();
+    stream.addEventListener("addtrack", observe);
+    stream.addEventListener("removetrack", observe);
+    visual?.addEventListener("loadedmetadata", playVideo);
+    visual?.addEventListener("canplay", playVideo);
+    const resume = () => {
+      playVideo();
+      if (audible?.srcObject && !audible.dataset.callOutputBlocked)
+        void audible.play().catch(() => setBlocked(true));
+    };
+    window.addEventListener("untold-call-windowchange", resume);
+    document.addEventListener("visibilitychange", resume);
+    return () => {
+      disposed = true;
+      detach?.();
+      stream.removeEventListener("addtrack", observe);
+      stream.removeEventListener("removetrack", observe);
+      for (const track of tracks) {
+        track.removeEventListener("mute", updateVideo);
+        track.removeEventListener("unmute", updateVideo);
+        track.removeEventListener("ended", updateVideo);
+      }
+      visual?.removeEventListener("loadedmetadata", playVideo);
+      visual?.removeEventListener("canplay", playVideo);
+      window.removeEventListener("untold-call-windowchange", resume);
+      document.removeEventListener("visibilitychange", resume);
+      if (visual) {
+        visual.pause();
+        visual.srcObject = null;
+      }
+      if (audible) {
+        audible.pause();
+        audible.srcObject = null;
+      }
+    };
+  }, [stream, muted, audioOnly, attachOutput]);
   useEffect(() => {
     const node = frame.current;
     if (!node) return;
@@ -43,9 +107,6 @@ export function CallMediaView({
       doc = node.ownerDocument;
       doc.addEventListener("fullscreenchange", changed);
       changed();
-      const media = element.current;
-      if (media?.srcObject && !media.dataset.callOutputBlocked)
-        void media.play().catch(() => setBlocked(true));
     };
     doc.addEventListener("fullscreenchange", changed);
     window.addEventListener("untold-call-windowchange", moved);
@@ -57,13 +118,12 @@ export function CallMediaView({
   async function fullscreen() {
     const node = frame.current;
     if (!node) return;
-    const doc = node.ownerDocument;
     if (expanded) {
       setExpanded(false);
       return;
     }
-    if (doc.fullscreenElement === node) {
-      await doc.exitFullscreen().catch(() => {});
+    if (node.ownerDocument.fullscreenElement === node) {
+      await node.ownerDocument.exitFullscreen().catch(() => {});
       return;
     }
     try {
@@ -72,17 +132,17 @@ export function CallMediaView({
         return;
       }
     } catch {
-      /* PiP documents can reject fullscreen. */
+      /* In-app fallback. */
     }
-    const video = element.current as
+    const media = video.current as
       | (HTMLVideoElement & { webkitEnterFullscreen?: () => void })
       | null;
-    if (video?.webkitEnterFullscreen && video.readyState >= 1) {
+    if (media?.webkitEnterFullscreen && media.readyState >= 1) {
       try {
-        video.webkitEnterFullscreen();
+        media.webkitEnterFullscreen();
         return;
       } catch {
-        /* Use the in-window view. */
+        /* In-app fallback. */
       }
     }
     setExpanded(true);
@@ -99,61 +159,64 @@ export function CallMediaView({
         }
       }}
     >
-      {audioOnly ? (
-        <>
-          <audio
-            ref={(node) => {
-              element.current = node;
-            }}
-            autoPlay={muted}
-            muted={muted}
-            aria-label={label}
-            onPlaying={() => setBlocked(false)}
-          />
-          <div className="call-avatar">
-            <Phone size={42} aria-hidden="true" />
-          </div>
-        </>
-      ) : (
-        <video
-          ref={(node) => {
-            element.current = node;
-          }}
-          autoPlay={muted}
-          playsInline
+      {!muted ? (
+        <audio
+          ref={audio}
           muted={muted}
-          aria-label={label}
+          aria-label={`${label} audio`}
           onPlaying={() => setBlocked(false)}
         />
-      )}
+      ) : null}
+      {!audioOnly ? (
+        <video
+          ref={video}
+          autoPlay
+          playsInline
+          muted
+          aria-label={label}
+          data-call-remote={!muted || undefined}
+        />
+      ) : null}
+      {audioOnly || videoOff || !hasVideo ? (
+        <div className="call-media__placeholder" aria-hidden="true">
+          {audioOnly ? <Phone size={42} /> : <VideoOff size={32} />}
+          <span>
+            {audioOnly
+              ? label
+              : videoOff
+                ? "Camera off"
+                : stream
+                  ? "Waiting for video"
+                  : "Connecting…"}
+          </span>
+        </div>
+      ) : null}
       {!audioOnly ? (
         <button
           type="button"
           className="call-media__fullscreen"
           onClick={() => void fullscreen()}
           title={expanded || nativeFullscreen ? "Exit fullscreen" : "View fullscreen"}
-          aria-label={
-            expanded || nativeFullscreen ? `Exit fullscreen: ${label}` : `View fullscreen: ${label}`
-          }
+          aria-label={`${expanded || nativeFullscreen ? "Exit fullscreen" : "View fullscreen"}: ${label}`}
         >
           {expanded || nativeFullscreen ? <Minimize2 size={19} /> : <Maximize2 size={19} />}
         </button>
       ) : null}
-      {blocked ? (
+      {blocked && !outputBlocked ? (
         <button
           type="button"
           className="feature-button call-media__play"
           onClick={() => {
-            const node = element.current;
-            if (!node || node.dataset.callOutputBlocked) return;
-            void node
-              .play()
-              .then(() => setBlocked(false))
-              .catch(() => {});
+            const node = audio.current;
+            if (node && !node.dataset.callOutputBlocked)
+              void node
+                .play()
+                .then(() => setBlocked(false))
+                .catch(() => {});
           }}
         >
           <Play size={16} />
-          Play call audio
+          Enable call audio
         </button>
       ) : null}
     </fieldset>

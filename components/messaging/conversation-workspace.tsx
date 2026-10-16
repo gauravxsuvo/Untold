@@ -6,6 +6,7 @@ import { SafetyQr } from "@/components/messaging/safety-qr";
 import { LoadingSkeleton } from "@/components/ui/loading-skeleton";
 
 import {
+  Fragment,
   useEffect,
   useId,
   useMemo,
@@ -34,6 +35,7 @@ import { useAccountSession } from "@/components/auth/account-session-provider";
 import { ContactAvatar } from "@/components/messaging/contact-avatar";
 import { StartConversationForm } from "@/components/messaging/start-conversation-form";
 import { MessageReceipt } from "@/components/messaging/message-receipt";
+import { CallHistoryCard } from "@/components/messaging/call-history-entry";
 import { useMessageReceipts } from "@/components/messaging/use-message-receipts";
 import { useMessageScroll } from "@/components/messaging/use-message-scroll";
 import type { DeviceTrust, PublicDevice } from "@/crypto/src/protocol";
@@ -52,6 +54,7 @@ import { readBoundedStream } from "@/lib/messaging/bounded-stream";
 import { validateAttachmentPreview } from "@/lib/messaging/prepare-attachment";
 import {
   conversationActivityAt,
+  conversationPreview,
   conversationTitle,
   formatMessageTime,
   otherMembers,
@@ -82,10 +85,7 @@ function ConversationRow({
         image: conversation.groupImage,
       }
     : directPerson;
-  const last = conversation.lastMessage;
-  const preview = last
-    ? `${last.senderId === viewerId ? "You: " : ""}${last.hasAttachment ? "Attachment" : (last.text ?? "Encrypted message")}`
-    : "No messages yet";
+  const preview = conversationPreview(conversation, viewerId);
   const activityAt = conversationActivityAt(conversation);
 
   return (
@@ -579,8 +579,30 @@ export function ConversationWorkspace({ initialSelectedId }: { initialSelectedId
     () => void directory.refresh(),
   );
   refreshThreadRef.current = () => void thread.refresh();
+  const timeline = useMemo(
+    () =>
+      [
+        ...thread.messages.map((message) => ({
+          type: "message" as const,
+          id: `message:${message.id}`,
+          createdAt: message.createdAt,
+          senderId: message.senderId,
+          message,
+        })),
+        ...thread.callHistory.map((call) => ({
+          type: "call" as const,
+          id: call.id,
+          createdAt: call.createdAt,
+          senderId: call.initiatorId,
+          call,
+        })),
+      ].sort(
+        (a, b) => Date.parse(a.createdAt) - Date.parse(b.createdAt) || a.id.localeCompare(b.id),
+      ),
+    [thread.messages, thread.callHistory],
+  );
   useMessageReceipts(selectedId, viewerId, thread.messages, historyRef);
-  useMessageScroll(historyRef, selectedId, viewerId, thread.messages);
+  useMessageScroll(historyRef, selectedId, viewerId, timeline);
 
   // Keep links and browser history in sync without discarding a draft on refresh.
   useEffect(() => {
@@ -933,29 +955,68 @@ export function ConversationWorkspace({ initialSelectedId }: { initialSelectedId
             <div className="message-history__empty" role="alert">
               <p>{thread.error}</p>
             </div>
-          ) : thread.messages.length > 0 ? (
+          ) : timeline.length > 0 ? (
             <ol
               aria-label={`Messages with ${selectedTitle}`}
               className="message-history"
               ref={historyRef}
             >
-              {thread.messages.map((message) => (
-                <MessageBubble
-                  conversationId={selectedConversation.id}
-                  isOutgoing={message.senderId === viewerId}
-                  key={message.clientMessageId}
-                  message={message}
-                  senderName={
-                    selectedConversation.groupName
-                      ? ([
-                          ...selectedConversation.members,
-                          ...(selectedConversation.formerMembers ?? []),
-                        ].find((member) => member.id === message.senderId)?.name ??
-                        "Earlier member")
-                      : undefined
-                  }
-                  onRetry={() => thread.retry(message.clientMessageId)}
-                />
+              {thread.nextCursor ? (
+                <li className="timeline-load">
+                  <button
+                    type="button"
+                    className="feature-button"
+                    disabled={thread.loadingEarlier}
+                    onClick={async () => {
+                      const node = historyRef.current;
+                      const height = node?.scrollHeight ?? 0;
+                      const top = node?.scrollTop ?? 0;
+                      await thread.loadEarlier();
+                      requestAnimationFrame(() => {
+                        if (node) node.scrollTop = top + node.scrollHeight - height;
+                      });
+                    }}
+                  >
+                    {thread.loadingEarlier ? "Loading…" : "Earlier activity"}
+                  </button>
+                </li>
+              ) : null}
+              {timeline.map((item, index) => (
+                <Fragment key={item.id}>
+                  {!index ||
+                  new Date(timeline[index - 1].createdAt).toDateString() !==
+                    new Date(item.createdAt).toDateString() ? (
+                    <li className="timeline-date">
+                      {new Intl.DateTimeFormat(undefined, { dateStyle: "long" }).format(
+                        new Date(item.createdAt),
+                      )}
+                    </li>
+                  ) : null}
+                  {item.type === "call" ? (
+                    <li className="message-call-event">
+                      <CallHistoryCard entry={item.call} viewerId={viewerId} compact />
+                    </li>
+                  ) : (
+                    ((message) => (
+                      <MessageBubble
+                        conversationId={selectedConversation.id}
+                        isOutgoing={message.senderId === viewerId}
+                        key={message.clientMessageId}
+                        message={message}
+                        senderName={
+                          selectedConversation.groupName
+                            ? ([
+                                ...selectedConversation.members,
+                                ...(selectedConversation.formerMembers ?? []),
+                              ].find((member) => member.id === message.senderId)?.name ??
+                              "Earlier member")
+                            : undefined
+                        }
+                        onRetry={() => thread.retry(message.clientMessageId)}
+                      />
+                    ))(item.message)
+                  )}
+                </Fragment>
               ))}
             </ol>
           ) : (

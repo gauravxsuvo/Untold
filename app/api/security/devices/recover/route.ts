@@ -27,7 +27,7 @@ import {
   contactVerifications,
   devices,
 } from "@/lib/server/schema";
-import { revokeGroupCallAccess } from "@/lib/server/group-calls";
+import { revokeCallAccess } from "@/lib/server/group-calls";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
@@ -141,7 +141,7 @@ export async function POST(request: Request) {
         .update(devices)
         .set({ revokedAt: new Date() })
         .where(and(eq(devices.userId, user.id), ne(devices.id, device.id)));
-      await revokeGroupCallAccess(tx, user.id);
+      await revokeCallAccess(tx, user.id);
       await tx
         .update(devices)
         .set({ approval: null, approvalResponse: null, linkHash: null, linkExpiresAt: null })

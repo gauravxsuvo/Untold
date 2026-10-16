@@ -1,5 +1,220 @@
 # Untold — Project Plan and Working Prompt
 
+## Proposed follow-up: reliable calls, call history, and navigation
+
+**Date:** 2026-10-16. **Status:** approved by the user and implemented locally. The implementation and verification record below supersedes the original approval boundary. Physical-device, authenticated multi-account, production migration, and deployment checks remain separate.
+
+### Implementation record
+
+- [x] Separate muted inline video from routed remote audio; handle late tracks, camera-off state, audible autoplay recovery, output failure, and presentation changes.
+- [x] Consolidate call styles; add phone full-height/desktop window layouts, group pinning, persistent controls, More options, and minimized mute/end controls.
+- [x] Repair supported capture feedback, optional constraints, sender replacement, camera restoration, and capability-aware controls.
+- [x] Add explicit PiP/popup fallbacks, Media Session registration, same-element movement/return, external feedback, zoom/viewport handling, and cleanup.
+- [x] Add migration 018 with transactional history/audience/attendance triggers, direct connection/outcome metadata, stale reconciliation, and revocation hooks.
+- [x] Add authorized mixed message/call timelines with microsecond-preserving cursors, live-card updates beyond the latest page, call-only chat visibility/previews, and date separators.
+- [x] Add Calls, filters/details/actions/missed badges and per-account acknowledgment; move Profile under Settings with a legacy redirect.
+- [x] Add focused unit/database/browser checks and review rendered previews. Standard suite: 50 passing tests; isolated PostgreSQL: 12 checks; Chromium loopback: seven viewports, audio failure, late tracks, popup return, sender replacement, zoom/200% text, and cleanup.
+- [x] TypeScript, lint, production webpack build, and whitespace verification. Default Turbopack stalled on Windows; the existing webpack fallback succeeded.
+- [ ] Authenticated two-account/3–8-person staging calls, physical iPhone/Android/Safari/Firefox checks, native chooser/automatic PiP/OS background behavior, and production relay verification.
+- [ ] Production migration/deployment; neither is performed by this local implementation.
+
+History persistence uses database triggers so all existing signaling/pruning/revocation paths participate in the same transaction. Tests use isolated tools under `.test-build`, with no added production dependencies or live-data access. See [call reliability and history](docs/call-reliability-and-history.md) for exact checks, limitations, migration guidance, and reproducible test commands. The remaining sections preserve the approved design.
+
+### 1. Scope and intended result
+
+Repair direct and group voice/video calling on phones and computers, redesign the affected call UI, show persistent call entries in the relevant conversations, add a Calls tab, and move Profile under Settings. Preserve Untold's existing visual identity, themes, account/device approval, verified-contact checks, encrypted messages, and TURN policy.
+
+| Reported problem / requested change | Intended result |
+| --- | --- |
+| Other person's video appears only in fullscreen | Remote video renders and plays in the normal call view immediately when frames arrive; fullscreen is optional. |
+| Screen-share button does not work | Supported browsers start sharing from a deliberate click, explain failures, and reliably restore the camera. Unsupported browsers clearly explain the limitation and can still receive shares. |
+| Background popup does not work | Separate in-app minimization, Picture-in-Picture, and popup behavior; implement the available mode correctly and show its actual status. |
+| Mobile and desktop call UI is broken/cluttered | A phone-specific full-screen call surface and a clean desktop call window, with visible media and reachable controls in every state. |
+| Call entries in chats and groups | One persistent, updating entry per direct call or group room, visible to authorized recipients, including when nobody sends a text message. |
+| Calls tab | A real account call-history screen with direct/group calls, missed calls, details, and call-back/rejoin actions. |
+| Profile belongs in Settings | Remove Profile from primary navigation, add Calls, and make Profile a Settings destination while preserving old links. |
+
+UI scope includes calling, incoming/ongoing-call surfaces, conversation call entries, Calls, navigation, and the Settings/Profile transition. Review their surrounding chat/header/spacing behavior together so the result feels consistent. Unrelated product areas do not need a wholesale rebuild.
+
+### 2. Findings from this repository
+
+These are code findings and investigation targets. The reported bugs have not yet been reproduced in a live two-device call.
+
+- `components/messaging/call-provider.tsx` and `group-call-provider.tsx` already implement separate direct/group WebRTC flows. Both use `call-media-view.tsx`, `call-window.tsx`, and `call-devices.tsx`. The providers live above app pages in `app/app/layout.tsx`; preserve that lifetime when navigating to Calls or Settings.
+- Remote audio and video currently share the same unmuted video element. Playback is queued through output-device setup; only local muted media has `autoPlay`. Investigate autoplay rejection, output routing, track arrival, and resume after minimizing or moving documents. An audio-output failure can currently hold up the visual media too.
+- Direct `ontrack` replaces the rendered stream wrapper as tracks arrive; group `ontrack` mutates a persistent stream and refreshes peer state. Check both for late tracks, stale effects, paused media, and track mute/unmute/end changes.
+- Call sizing is spread across `app/membership-media.css` and `app/call-controls.css`, alongside application viewport/zoom rules. Fixed-height windows, percentage media heights, fixed nonshrinking chrome, and short-screen controls need measured review. A collapsed/clipped normal tile is a plausible cause of the fullscreen symptom, not a confirmed diagnosis.
+- Both screen-sharing handlers already invoke the chooser before their first awaited capture result. Do not assume lost user activation is the existing root cause. Check capability, permission, capture constraints, sender replacement, and rendering separately. `NotAllowedError` is currently suppressed, so some failures look like a dead button.
+- Floating currently prefers Document Picture-in-Picture and otherwise opens a popup. A rejected Document PiP request does not offer a distinct popup action. Automatic errors are silent, and the automatic-floating checkbox appears even where the capability is unavailable. There is no separate native video-PiP path.
+- Direct calls store `ringing`, `active`, or `ended`, creation/expiry/heartbeat times, and transient descriptions. They do not retain a trustworthy end reason or connected duration. Group rooms have a start timestamp, but participant status is overwritten and has no persistent join/leave intervals.
+- The conversation timeline, previews, activity sorting, and receipts currently understand messages, not call events. Adding a card alone would miss empty chats, list ordering, historical loading, other devices, and group visibility.
+- Navigation currently has Inbox, Conversations, Contacts, Settings, and Profile. Settings already links to the separate `/app/profile` route.
+- Prior call work passed compilation/lint but explicitly left live browser and device checks outstanding. This follow-up must distinguish code checks from verified call behavior.
+- Installed Next.js is 16.4.0. Reviewed the bundled layouts/pages, route-handler caching, and redirect guides under `node_modules/next/dist/docs/`; consult the relevant installed guides again as implementation needs expand.
+
+### 3. Browser boundaries that the UI must handle
+
+- Detect capabilities at runtime rather than relying on browser names. Screen capture needs a secure, focused context and a fresh user action. Mobile web browsers without `getDisplayMedia` cannot originate a screen share; receiving a share remains supported. Installing a PWA does not add a native screen-capture bridge. See [MDN screen capture](https://developer.mozilla.org/en-US/docs/Web/API/MediaDevices/getDisplayMedia).
+- Document PiP can contain call controls and multiple videos. Native video PiP contains one video with browser-owned controls. A regular popup is a separate window and has no always-on-top guarantee. Treat them as different features. See [Document PiP](https://developer.chrome.com/docs/web-platform/document-picture-in-picture).
+- Automatic PiP depends on browser eligibility, permissions, and its Media Session action. Registering an action is not a guarantee that it will run. Do not attempt `window.open()` from a background visibility event or claim success before an external window exists. See [Chrome conferencing automatic PiP](https://developer.chrome.com/blog/automatic-picture-in-picture).
+- Keep inline playback and user-gesture audio recovery explicit, especially on Safari/iOS. Use current runtime behavior and device tests alongside [WebKit's inline playback guidance](https://webkit.org/blog/6784/new-video-policies-for-ios/).
+- A mobile OS can suspend a browser or installed PWA when backgrounded or locked. Provide supported PiP and clear return/reconnect behavior, without promising native background calling, CallKit, or Android foreground-service behavior.
+
+### 4. Workstream A — reproduce and repair media behavior first
+
+1. Establish a scenario sheet for direct/group voice/video calls, normal view versus fullscreen, receiving/sharing, minimized/restored, external window, and background/foreground. Record browser/version, viewport, installed/browser mode, expected behavior, actual behavior, and evidence.
+2. Add bounded development diagnostics for track counts/readiness, video dimensions, playback state/rejections, connection state, layout bounds, and active presentation mode. Exclude SDP, addresses, credentials, media contents, and identity-bearing logs.
+3. Give each peer a stable media owner independent of call-window presentation. Prefer a muted inline remote video for visible playback and one dedicated routed remote-audio element per peer; prevent duplicate audio. Local previews always remain muted. Reconcile track changes without repeatedly tearing down a working output.
+4. Attach streams deterministically, handle tracks arriving in either order, and recover playback on metadata/readiness and track unmute when appropriate. Guard all asynchronous work with the current call/session identity so an old promise cannot revive ended media.
+5. Play audible media directly from Answer/Join/Resume user actions where possible. If the browser blocks audio, show a clearly labeled, reachable enable-audio control. A blocked or disconnected speaker must not make the remote video disappear. Preserve the existing deliberate output-disconnect privacy behavior.
+6. Treat camera-off, no frames yet, temporary track interruption, connecting, and failed video as distinct tile states. Display the participant avatar/status rather than an unexplained black rectangle. Avoid treating a transient track mute as call termination.
+7. Repair the complete height chain and viewport measurements: nonzero media area, shrinkable content, safe areas, app zoom, dynamic browser bars, keyboard, rotation, and window resizing. Verify normal view before accepting fullscreen behavior.
+8. Preserve one-call-per-account ownership and first-answer-wins behavior across direct/group calls and multiple devices. Switching pages or presentation modes must not create new peer connections or end a live call.
+9. Centralize idempotent cleanup for hangup, leave, rejected/late capture, account/device removal, connection timeout, external-window return, and main-page teardown. Release every microphone/camera/display track and listener at the correct owner boundary.
+
+**Acceptance:** both people see moving video in normal view without toggling fullscreen; audio and mute remain correct; normal/fullscreen/minimized/external transitions do not duplicate sound or leave capture running after hangup.
+
+### 5. Workstream B — screen sharing and floating/background behavior
+
+**Screen sharing**
+
+- Model idle, selecting, starting, sharing, stopping, and failed states. Keep the chooser in the initiating click path, including calls presented in another document; explicitly handle owner-window activation restrictions instead of silently failing.
+- Show an actionable Share screen control only where capture is available. Else offer an accessible explanation such as “You can view shared screens on this device; starting a share isn't available in this browser.” Keep the reason discoverable for touch and assistive technology.
+- Separate chooser dismissal from permission/policy denial, OS capture failure, unsupported constraints, and sender replacement failure. A dismissed chooser returns to idle; denied or failed capture gets useful inline feedback and a retry action.
+- Apply browser-compatible capture constraints after selection. Relax optional resolution/frame-rate constraints when appropriate without dropping required bandwidth limits or silently restarting capture.
+- Keep sharing as a replacement for the camera video track in existing video calls. Retain microphone audio, existing mute/camera preferences, and sender budgets. Voice-to-video upgrades, simultaneous camera-plus-screen transmission, and system/tab audio are outside this fix.
+- Validate track replacement on every active group peer and on late joins. Handle missing senders and partial failures explicitly; roll back or isolate the failed peer, never show “Sharing” when nothing is being transmitted.
+- Handle native Stop, repeated start/stop, camera/device changes, choosing then hanging up, loss of capture, and membership removal. Restore the previous camera on/off state and stop all abandoned captures.
+- Prioritize a shared screen in the remote stage and group layout; contain its aspect ratio, preserve readable content, and never mirror it. Keep camera/self-preview visually secondary.
+
+**Minimization, floating, and background**
+
+- Use one presentation controller with explicit states: full in-app view, minimized in-app view, expanded view, Document PiP, native video PiP, or regular popup. Fullscreen is a coordinated media presentation state; prevent competing transitions and duplicate hosts.
+- In-app minimization keeps media alive and exposes return, mute, and hangup on a compact ongoing-call surface. Keep it above navigation and clear of the chat composer and mobile keyboard.
+- Prefer Document PiP when available; offer native video PiP for a suitable remote video when available, and a clearly labeled regular popup where appropriate. Voice calls and group calls need sensible fallbacks when single-video PiP cannot represent their controls.
+- Offer explicit fallback buttons after a PiP failure so a fresh user click can authorize another mode. Distinguish unsupported API, denied permission, popup blocked, and window already open. Do not chain activation-sensitive fallbacks after an arbitrary async rejection.
+- Show automatic PiP preferences only when relevant, describe conditional behavior, and report a useful status. Set and clear Media Session actions/metadata consistently for the owning direct or group call.
+- Move/present existing media with one audio owner; synchronize theme/readability and labels in external documents. Rebind document-specific listeners and measurements, including fullscreen/PiP exit. Verify popout controls use the correct document/window.
+- Closing a child window returns the call to the app. Remote hangup closes external presentation. Closing the main app tears down the call; a child window is not an independent call host. Handle rapid open/close, end while opening, popup navigation, and repeated restore safely.
+- On foreground return, reconcile with authoritative call state before displaying “Connected”; restore playback or show a resume/reconnect action. Keep stale notifications from reopening finished calls. Review actual heartbeat throttling with PiP open; preserve finite expiry and busy-account cleanup.
+
+**Acceptance:** every offered action either reaches the advertised mode or explains why it cannot; closing/returning never loses controls, duplicates playback, or silently restarts capture.
+
+### 6. Workstream C — redesign the calling surfaces
+
+Use existing theme tokens, system typography, restrained surfaces, consistent icons, and clearer spacing. Consolidate call-specific CSS ownership rather than layering more overrides over conflicting legacy rules.
+
+| Surface | Proposed layout and interaction |
+| --- | --- |
+| Phone, active call | Full visible-height surface: compact identity/status header, flexible media stage, persistent bottom controls with safe-area padding. No desktop drag handle or resize affordance. |
+| Phone, incoming call | Clear caller/group identity and call type, large Answer/Decline actions, minimal competing chrome. Permission failures keep a visible recovery/decline path. |
+| Desktop/tablet | Bounded nonblocking call window, expandable when wanted; movement/resizing only where useful and always clamped to the visible viewport. |
+| Direct video | Remote video as the main stage; compact self-preview that never covers essential controls or shared content. Clear camera-off/connecting states. |
+| Group video | Responsive participant grid up to the current eight-member limit; pin a participant or shared screen, keep labels and mute/camera states visible, scroll only the participant area when needed. |
+| Voice call | Caller/group identity, avatars, duration/status, and essential audio controls without empty video space. |
+| Ongoing/minimized call | Compact identity/duration and return/mute/end actions. Explicit “Leave” for a group call rather than suggesting it ends everyone else's room. |
+
+- Keep Mute, Camera where relevant, and Hang up/Leave directly reachable. Put device selection, screen sharing where needed for space, and secondary presentation actions behind a labeled More menu or sheet. Keep Stop sharing conspicuous while active.
+- Remove duplicate oversized headings and dense permanent implementation/quality text. Keep meaningful network/privacy notices accessible through a concise status/details surface; do not bury errors or approval warnings.
+- Use at least 44px touch targets, visible focus, correct pressed/disabled states, readable contrast in Light/Dark/AMOLED, and reduced-motion support. Never rely on color or hover alone.
+- Manage focus for Answer/Join, menus/sheets, incoming dialogs, fullscreen exit, minimizing/restoring, and return from external documents. Match modal semantics to whether underlying app interaction is actually blocked.
+- Respect the existing font-size/interface-zoom settings, long names, 200% text, keyboard navigation, and screen-reader status announcements without announcing every timer tick.
+- Create reviewable screenshots for phone portrait/landscape, tablet, desktop, group grid, sharing, and minimized/expanded views using isolated sample data. Samples must stay out of production chat/history.
+
+### 7. Workstream D — durable, authoritative call history
+
+**One history source, with explicit metadata**
+
+Add ordered migration `018-call-history.sql` (or the next available number at implementation time), update `lib/server/schema.ts`, and add a server history/lifecycle module. Keep signaling records transient and history free of connection descriptions.
+
+- Store a normalized record keyed uniquely by source type plus direct-call ID/group-room ID: conversation, kind, initiator, created/ringing/answered/connected/ended timestamps as applicable, lifecycle status, terminal reason, and revision/update time.
+- Store an authorized audience snapshot and per-account invitation/join/outcome data. Group participation needs separate join/leave intervals so rejoining does not erase earlier attendance or create another room entry.
+- Use server timestamps. Answer acceptance is not proof of media connection: record connected acknowledgments only from the selected approved device/instance after validated setup. Treat them as application-reported connection evidence, not proof that someone watched or heard media.
+- Direct connected duration begins when both selected peers report connection and ends once. Group connected duration begins when at least two participants have overlapping confirmed attendance; also retain each viewer's own intervals. A lone creator waiting for others is not a connected group conversation.
+- Distinguish cancelled before answer, declined, unanswered/missed, answered-but-connection-failed, completed, disconnected, and access-revoked/expired. Record busy attempts only when the server has actually accepted a history event; do not fabricate a received invitation for someone never invited.
+- Do not store recordings, frames, SDP, ICE candidates, relay credentials, or device secrets in history. Call metadata is server-visible system activity, separate from browser-encrypted message content; do not imply call cards are encrypted messages.
+
+**Consistent lifecycle updates**
+
+- Create the history entry in the same transaction as accepting a direct call or creating a group room, before push/realtime publication. Update that entry through ringing, connection, and completion.
+- Centralize terminal transitions and invoke them from direct/group end, decline, timeout/pruning, revocation, account removal, group removal, and recovery paths. Preserve existing lock ordering and first-answer/device-instance checks.
+- Make repeated requests, two-device answers, concurrent hangups, retries, and polling races idempotent through unique constraints and conditional transitions. An ended entry cannot revert to live.
+- Derive expiry ends from known deadlines/last valid heartbeats, not the later time someone opens history. Finalize stale records in bounded server reconciliation on history/live-call reads and actions; correctness must not depend on the disappearing client's final request. No new scheduler service is required for the initial implementation.
+- Publish metadata-only history invalidations after commit and retain bounded polling/focus/online refresh. A missed realtime notification must be repaired by the next snapshot; durable history must not depend on best-effort `after()` work.
+
+**Visibility and migration rules**
+
+- Direct history belongs to the two call participants. A server-accepted call makes the existing direct conversation visible to the recipient even if it has no text; merely opening a draft, denying local capture, or failing before server acceptance does not reveal it.
+- Group history belongs to the eligible audience at that call's invitation/join time. Joining the group later must not expose old call history. Check current group membership as well as historical audience authorization on reads; removed members cannot keep querying the group's history.
+- A group room has one shared entry; invitation, individual decline, joining, leaving, and rejoining update participant details. One person's departure must not mark the whole room ended.
+- Legacy call records lack complete outcomes/timing. Backfill only provable metadata for authorized viewers, label unknown outcome/duration honestly, and do not infer “missed” or “completed” solely from `ended`. Never expose old group history using only today's membership list; omit a legacy entry when its audience cannot be established safely.
+- Add cursor/query indexes and foreign-key cleanup consistent with existing account/conversation deletion. Keep normal history until its owning data is deleted; clearing history and recording calls are outside this change.
+
+### 8. Workstream E — call entries inside conversations
+
+- Add a discriminated timeline item for system call activity alongside encrypted messages. Never insert fake plaintext into the encrypted-message table or send system entries through message encryption/decryption and message receipts.
+- Expose an authenticated conversation timeline read that merges authorized message metadata and call events with one stable cursor/order across both types; preserve the existing message send/receipt APIs. Avoid concatenating independently limited “latest” lists that lose older calls or messages.
+- Render one compact card at the call's creation position, updating it in place as the same call progresses. Show voice/video/group type, initiator or direction, local date/time, outcome, and duration only when known. Use stable IDs/order so updates do not jump the reader's scroll position.
+- Example labels: “Outgoing video call · Cancelled”, “Missed voice call”, “Video call · 04:32”, and “Group video call · Ended”. A group card exposes participant/attendance details without creating a separate message for every join.
+- Offer Join/Rejoin only while an authorized group room is still live; Call back starts a new direct call. Selecting a history card opens details without unexpectedly enabling camera/microphone.
+- Include call activity in inbox/conversation previews and sorting, including call-only conversations. Refresh the recipient's list after a first call; preserve draft privacy for conversations with no committed message or call activity.
+- Extend scroll anchoring, date separators, empty/loading/error states, historical paging, and realtime refresh to mixed items. Message Received/Read indicators remain message-specific. An all-calls conversation must not show “No messages yet” as if nothing happened.
+
+### 9. Workstream F — Calls tab and Profile inside Settings
+
+**Primary navigation:** Inbox, Chats/Conversations, Calls, Contacts, Settings, in the same order on mobile and desktop. Replacing Profile keeps the existing five-item mobile navigation. Keep the mobile “Chats” label.
+
+- Add `/app/calls` backed by paginated account-authorized history, not provider memory. Include All/Missed filters and direct/group identification, grouped dates, contact/group avatar, type/direction/outcome, timestamp, and known duration. Missed applies per viewer to an eligible unanswered incoming invitation, not to everyone in a group room.
+- Use distinct detail and call-back/join controls. Revalidate access, room liveness, device approval, verified-contact prerequisites, and account busy state before acquiring media. Group history offers Open chat and Join for an active room; starting a finished group's next call is an explicit new-group-call action.
+- Persist a per-account last-seen history cursor for the missed-call badge, synchronized across devices. Opening the Calls list acknowledges visible missed entries only; do not conflate chat message unread/read state with missed-call acknowledgment.
+- Provide loading skeletons, an honest empty state with a start-call path through existing contacts/chats, non-destructive refresh, offline/error retry, and load-more behavior. A history outage must not tear down a live call. History remains viewable when new calling is temporarily unavailable.
+- Add a prominent Profile row near the top of Settings, linking to `/app/settings/profile`, with a Back to Settings path. Reuse the existing profile/photo editor rather than mounting duplicate profile pages or nesting `.app-page` containers.
+- Redirect `/app/profile` to the new Settings location. Update Settings links, account/session links, loading states, and active-navigation matching so nested Settings routes highlight Settings. Preserve photo editing, account refresh, MFA, devices, notifications, accessibility, and sign-out flows.
+
+### 10. Implementation sequence after approval
+
+1. **Reproduction and shared contracts:** capture baseline behavior, finalize media ownership/presentation states and history types, identify existing regressions. Read relevant installed Next guides before code changes.
+2. **Media and lifecycle repair:** stable playback, audio recovery, track updates, screen-share transitions, and cleanup; verify direct and group cases before styling masks the symptoms.
+3. **Responsive call redesign and external presentation:** implement shared components, phone/desktop layouts, minimized controls, PiP/popup behavior, and accessibility; record visual evidence.
+4. **Database and authoritative history:** implement migration, transactional lifecycle hooks, authorization, stale finalization, query APIs, and focused concurrency/access checks.
+5. **Mixed chat timelines and previews:** add cards, call-only visibility, consistent cursors, scrolling, invalidations, and list ordering.
+6. **Calls and Settings navigation:** history screen/filters/details/badge/actions, primary nav replacement, Profile subpage, redirects, and stale-link checks.
+7. **Integrated verification and handoff:** complete the matrix below, fix regressions, update call/group/release docs and this plan, and report actual results and remaining device limitations.
+
+Dependencies: call entries and Calls share workstream D; personal durations and outcomes must not be inferred by UI components. Keep direct/group signaling separate where required, sharing media/presentation/history utilities without a risky wholesale WebRTC rewrite. Prefer current dependencies and existing browser tooling; justify any new dependency before adding it.
+
+### 11. Verification and acceptance gates
+
+This planning pass runs no tests, app server, live calls, migration, or deployment. After implementation approval, perform the following checks and record pass/fail/not-run separately. Physical-device and live-network checks remain explicit if the workspace cannot execute them.
+
+| Area | Required scenarios |
+| --- | --- |
+| Browsers/devices | Windows Chrome/Edge browser and installed app; Firefox desktop; macOS Safari; iPhone Safari and Home Screen app; Android Chrome and installed app. Record exact tested versions and capabilities. |
+| Viewports | 320x568, 390x844, phone landscape 844x390, tablet 768x1024, desktop 1366x768 and 1440x900; small popup/PiP sizes; keyboard open, rotation, browser bars, extra-large text, interface zoom, 200% text. |
+| Media regression | Direct voice/video and 3–8-person groups; remote audio/video arriving in either order; delayed first frame; camera off/on; mute; no camera; denied permissions; input/output switching and unplugging; no duplicate audio; repeat calls. |
+| Presentation | Normal view before fullscreen; native/fallback fullscreen exit; minimize/restore while chatting/navigating; PiP/popup open/close/deny/block; automatic eligibility; theme/zoom propagation; ending while a window opens; main-window close. |
+| Sharing | Supported desktop to desktop and phone; unavailable mobile capability; chooser dismiss/deny; OS denial; constraints/sender errors; camera-off restore; native Stop; repeated sharing; group late join/leave; simultaneous device changes; hangup during chooser. |
+| Lifecycle/network | Separate Wi-Fi/mobile networks, relay-only and configured normal mode, broker unavailable, brief offline/online, background/foreground, lock/unlock, stale heartbeat, unanswered expiry, 55-minute policy boundary, selected-device loss, two-device answer races, repeated end/retry. Use controlled time for long-boundary checks. |
+| History correctness | Completed, cancelled, declined, missed, connection-failed, disconnect/revocation; empty direct chat; one group row across joins/rejoins; correct durations/unknown legacy fields; stable mixed pagination/order; two-device sync; stale finalization without final client request. |
+| History access | Cross-account/guessed IDs; pending/revoked device/account; new/removed/rejoined group member; legacy audience; group membership race; no SDP/ICE leakage; no message-receipt side effects; no duplicate records after concurrent requests. |
+| Navigation/accessibility | Five usable mobile items; Calls/Settings selected states; old profile redirect; photo editing; keyboard/focus/screen reader; theme contrast; long names; empty/error/loading/offline states; call-back busy and stale-join checks. |
+
+- Add focused tests for important state transitions, exactly-once terminal history updates, duration/outcome derivation, audience authorization, timeline cursor merging, and real playback/presentation regressions. Use the existing Node test suite and browser-harness approach where practical; do not add tests that merely mirror CSS declarations.
+- Verify database behavior with an isolated local/test database: migration from the existing schema, unique/index constraints, transaction races, audience queries, stale reconciliation, and legacy handling. Do not run these checks against production data.
+- Browser media tests should exercise actual media elements and synthetic streams/peer connections with fake devices where possible. Desktop emulation and mocked APIs cannot prove iPhone capture, PiP permissions, OS background behavior, or production TURN connectivity.
+- Run `npx tsc --noEmit`, `npm run lint`, relevant/new tests plus `npm test`, `npm run build` (use the documented webpack fallback if the existing Windows build issue recurs), and `git diff --check`. Compare failures to baseline and fix introduced failures.
+- Review rendered screenshots at the target sizes and run authorized two-account/group flows where accounts/devices are available. Produce a concise verification record with screenshots, confirmed fixes, browser-specific fallbacks, and checks still requiring physical devices.
+
+### 12. Completion and rollout
+
+Implementation is complete when every requested feature is present, normal-view remote video works in exercised scenarios, screen-sharing and presentation actions have correct supported/unsupported paths, call history is durable and authorized, navigation is consistent, and required local checks pass. Do not describe physical-device or production behavior as verified solely because the build passed.
+
+Prepare and document the ordered migration and release steps. Retain the existing migration-on-start deployment model, check migration compatibility before publishing the new code, and document that reverting the app should leave additive history data intact. No production migration, commit, or deployment is part of this planning request.
+
+**Approval received:** the user requested continuation. Implementation is recorded above; production rollout and remaining real-device checks are explicitly pending.
+
+---
+
 ## Current status
 
 ### Call window and device controls (2026-10-16, implemented locally)

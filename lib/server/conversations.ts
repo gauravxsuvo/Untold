@@ -14,7 +14,11 @@ import {
 } from "@/lib/server/schema";
 import { profilePhotoUrl } from "@/lib/profile/photos";
 import { groupPhotoUrl } from "@/lib/messaging/groups";
-import { conversationActivityAt, type ConversationSummary, type Person } from "@/lib/messaging/people";
+import {
+  conversationActivityAt,
+  type ConversationSummary,
+  type Person,
+} from "@/lib/messaging/people";
 
 type Database = ReturnType<typeof getDatabase>["db"];
 
@@ -158,6 +162,7 @@ export async function listConversationsForUser(
           isNotNull(conversations.groupName),
           eq(conversations.createdBy, userId),
           isNotNull(conversationMembers.initiatedAt),
+          sql`EXISTS (SELECT 1 FROM untold_app.call_history h JOIN untold_app.call_history_audience a ON a.history_id = h.id WHERE h.conversation_id = ${conversations.id} AND a.user_id = ${userId})`,
           exists(
             db
               .select({ id: messageEnvelopes.id })
@@ -216,15 +221,39 @@ export async function listConversationsForUser(
   const lastByConversation = new Map(
     lastMessages.rows.map((row) => [row.conversation_id, row] as const),
   );
+  const recentCalls = await db.execute<{
+    conversation_id: string;
+    kind: "voice" | "video";
+    status: string;
+    outcome: string;
+    created_at: Date | string;
+  }>(sql`
+    SELECT DISTINCT ON (h.conversation_id) h.conversation_id, h.kind, h.status, h.outcome, h.created_at
+    FROM untold_app.call_history h JOIN untold_app.call_history_audience a ON a.history_id = h.id AND a.user_id = ${userId}
+    WHERE h.conversation_id IN (${sql.join(
+      ids.map((id) => sql`${id}::uuid`),
+      sql`, `,
+    )})
+    ORDER BY h.conversation_id, h.created_at DESC, h.id DESC`);
+  const callByConversation = new Map(recentCalls.rows.map((row) => [row.conversation_id, row]));
 
   return memberships
     .map(({ id, createdAt, groupName, groupOwnerId, groupPhotoVersion, viewerJoinedAt }) => {
       const last = lastByConversation.get(id);
+      const lastCall = callByConversation.get(id);
       return {
         id,
         createdAt: createdAt.toISOString(),
         joinedAt: viewerJoinedAt.toISOString(),
         groupName,
+        lastCall: lastCall
+          ? {
+              createdAt: toIsoString(lastCall.created_at),
+              kind: lastCall.kind,
+              status: lastCall.status,
+              outcome: lastCall.outcome,
+            }
+          : null,
         groupOwnerId,
         groupImage: groupPhotoVersion ? groupPhotoUrl(id, groupPhotoVersion) : null,
         formerMembers: members

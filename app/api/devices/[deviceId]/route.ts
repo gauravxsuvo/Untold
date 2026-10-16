@@ -11,7 +11,7 @@ import { getDatabase } from "@/lib/server/database";
 import { authSession, authUser, devices } from "@/lib/server/schema";
 import { accountDeviceDirectory } from "@/lib/server/device-trust";
 import { checkDeviceRemoval } from "@/crypto/src/account-trust";
-import { revokeGroupCallAccess } from "@/lib/server/group-calls";
+import { revokeCallAccess } from "@/lib/server/group-calls";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -76,7 +76,7 @@ export async function DELETE(request: Request, context: RouteContext): Promise<R
         )
         .returning({ id: devices.id });
       if (revoked.length === 0) return false;
-      await revokeGroupCallAccess(tx, session.user.id, deviceId);
+      await revokeCallAccess(tx, session.user.id, deviceId);
 
       await tx
         .delete(authSession)
