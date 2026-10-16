@@ -36,13 +36,13 @@ Untold is a calm messaging app for the conversations that matter. You sign up wi
 - The browser's built-in Web Crypto API for the first-party encryption protocol in [`crypto/`](crypto/README.md)
 - [Ably](https://ably.com) for optional realtime notifications
 - Biome for linting, and the Node.js test runner for tests
-- npm, with Node.js 22.13 or newer
+- npm, with Node.js 24.0 or newer
 
 > This project uses a newer Next.js than most documentation and training data cover. Check `node_modules/next/dist/docs/` before changing framework-level code (see [`AGENTS.md`](AGENTS.md)).
 
 ## Running locally
 
-You need Node.js 22.13 or newer and a PostgreSQL database. With Portways, run the Portways database bridge so the database is reachable on `127.0.0.1` (see [`BACKEND.md`](BACKEND.md)).
+You need Node.js 24.0 or newer and a PostgreSQL database. With Portways, run the Portways database bridge so the database is reachable on `127.0.0.1` (see [`BACKEND.md`](BACKEND.md)).
 
 1. Install dependencies and create your local environment file:
 
@@ -103,7 +103,7 @@ All of these are server-only. Never give any of them a `NEXT_PUBLIC_` prefix.
 
 ## Deploying on Portways
 
-Untold deploys as **one** Portways project built from the repository root. Portways detects `package.json`, installs dependencies, runs `npm run build`, prunes dev dependencies, and runs `npm start`. Next.js listens on the `PORT` that Portways provides. No Dockerfile is needed.
+Untold deploys as **one** Portways project built from the repository root. Portways uses the root `Dockerfile`, which selects Node.js 24, installs dependencies with `npm ci`, runs `npm run build`, prunes dev dependencies, and runs `npm start`. Next.js listens on the `PORT` that Portways provides. See [startup diagnostics](docs/startup-migrations.md) for migration progress and timeout handling.
 
 Do not split it into separate frontend and backend projects: the session cookies and origin checks assume the pages and `/api/*` share one origin.
 

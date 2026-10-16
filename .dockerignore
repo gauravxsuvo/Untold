@@ -1,0 +1,13 @@
+.git
+.next
+.test-build
+node_modules
+**/node_modules
+*.tsbuildinfo
+.env
+.env.*
+!.env.example
+.codex
+.agents
+portways-hosting-guide*.md
+npm-debug.log*

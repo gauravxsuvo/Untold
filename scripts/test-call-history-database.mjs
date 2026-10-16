@@ -1,10 +1,13 @@
 // Install the isolated tools described in docs/call-reliability-and-history.md.
 // Runs the real migrations and server queries in ephemeral PostgreSQL/WASM.
 import assert from "node:assert/strict";
-import { createRequire } from "node:module";
-import { readFile, readdir, mkdir } from "node:fs/promises";
-import { resolve, join } from "node:path";
 import { randomUUID } from "node:crypto";
+import { EventEmitter } from "node:events";
+import { mkdir, readdir, readFile } from "node:fs/promises";
+import { createRequire } from "node:module";
+import { join, resolve } from "node:path";
+import { runMigrations } from "./migrate-core.mjs";
+
 const root = resolve(import.meta.dirname, "..");
 const require = createRequire(join(root, ".test-build/call-tools/package.json"));
 const { PGlite } = require("@electric-sql/pglite");
@@ -228,6 +231,34 @@ try {
     0,
   );
   checks++;
+  // Exercise the hosted runner itself, including ledger creation and fast restart.
+  const startupDatabase = new PGlite();
+  try {
+    const statements = [];
+    const createClient = () =>
+      Object.assign(new EventEmitter(), {
+        async connect() {},
+        async end() {},
+        async query(text, params) {
+          statements.push(text);
+          return params
+            ? startupDatabase.query(text, params)
+            : ((await startupDatabase.exec(text)).at(-1) ?? { rows: [] });
+        },
+      });
+    await runMigrations("postgres://isolated-test", () => {}, { createClient });
+    assert.equal(
+      (await startupDatabase.query("SELECT count(*)::int AS n FROM untold_migrations.applied"))
+        .rows[0].n,
+      18,
+    );
+    statements.length = 0;
+    await runMigrations("postgres://isolated-test", () => {}, { createClient });
+    assert.deepEqual(statements, ["SELECT name, sha256 FROM untold_migrations.applied"]);
+    checks += 2;
+  } finally {
+    await startupDatabase.close();
+  }
   console.log(
     `${checks} database checks passed; migrations 001–018 and history queries ran in an isolated PostgreSQL engine.`,
   );

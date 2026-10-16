@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "engines": {
-    "node": ">=22.13.0"
+    "node": ">=24.0.0"
   },
   "scripts": {
     "dev": "next dev",
@@ -13,7 +13,7 @@
     "build:crypto": "npm --prefix crypto run build",
     "build:all": "npm run build && npm run build:crypto",
     "start": "node scripts/migrate-on-start.mjs && next start --hostname 0.0.0.0",
-    "test": "tsc -p tsconfig.tests.json && node --test .test-build/tests/*.test.js",
+    "test": "tsc -p tsconfig.tests.json && node --test .test-build/tests/*.test.js tests/*.test.mjs",
     "test:encryption": "npm --prefix encryption test",
     "test:attachments:browser": "node scripts/test-attachment-browser.mjs",
     "test:calls:browser": "node scripts/test-call-browser.mjs",
