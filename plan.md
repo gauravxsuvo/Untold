@@ -2,6 +2,8 @@
 
 ## Deployment startup follow-up — 2026-10-16
 
+Portways subsequently reports v1.3.1 restores the missing TRIGGER privilege on `untold_app.call`, with only migrations 001–017 recorded and no partial 018 objects. Retry deployment `400f5fa` unchanged. The speculative local supervisor/statement-splitting changes were removed. The focused logging follow-up preserves and prints PostgreSQL's original error with SQLSTATE and selected diagnostic fields, redacts connection credentials, and lets stderr drain before a nonzero exit. No migration SQL or deployment entrypoint changes are needed for this follow-up. Production redeployment has not been performed from this workspace.
+
 The supplied Portways log builds successfully but restarts during the migration-before-Next startup command without a diagnostic. The exact production cause remains unproven. Reduce already-applied migration checks to one ledger query, keep pending SQL transactional and replica-safe, bound database waits, and log the current stage without exposing credentials or SQL. Select Node.js 24 through the root Dockerfile to satisfy the installed barcode library's engine requirement. See [startup diagnostics](docs/startup-migrations.md) for behavior, reproducible checks, and the remaining live deployment verification.
 
 Implemented locally: 59 tests and 14 isolated database checks pass, including all 18 migrations and a real PostgreSQL-client handshake timeout. Lint and the local production webpack build pass. The Docker image and a live Portways redeployment remain unverified; deployment continues to use the default Turbopack build.

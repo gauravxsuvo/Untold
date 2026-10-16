@@ -1,4 +1,5 @@
 import { runMigrations } from "./migrate-core.mjs";
+import { migrationFailureMessage } from "./migration-errors.mjs";
 
 // Runs before `next start` in the hosted container. Without a database URL the app still starts
 // (pages render and the API answers 503); a failed migration exits non-zero so the deploy fails
@@ -15,7 +16,8 @@ if (!databaseUrl) {
     await runMigrations(databaseUrl, (line) => process.stdout.write(`[migrate] ${line}\n`));
     process.stdout.write("[startup] Database ready; starting Next.js.\n");
   } catch (error) {
-    process.stderr.write(`[migrate] Failed: ${error instanceof Error ? error.message : error}\n`);
-    process.exit(1);
+    process.stderr.write(`${migrationFailureMessage(error, databaseUrl)}\n`);
+    // Let stderr drain before Node exits; process.exit(1) can truncate piped logs.
+    process.exitCode = 1;
   }
 }

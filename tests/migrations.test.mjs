@@ -7,8 +7,62 @@ import { tmpdir } from "node:os";
 import { basename, join, resolve, sep } from "node:path";
 import { test } from "node:test";
 import { migrationLimits, runMigrations } from "../scripts/migrate-core.mjs";
+import { migrationFailureMessage } from "../scripts/migration-errors.mjs";
 
 const hash = (source) => createHash("sha256").update(source).digest("hex");
+
+test("startup reports PostgreSQL trigger permission errors with stage and SQLSTATE", async () =>
+  fixture(async (directory) => {
+    const databaseError = Object.assign(new Error("permission denied for table call"), {
+      code: "42501",
+      schema: "untold_app",
+      table: "call",
+      detail: "private row contents",
+      internalQuery: "private SQL",
+    });
+    const client = new FakeClient(new Map(), {
+      query: (text) => {
+        if (text === "SELECT 1;") throw databaseError;
+      },
+    });
+    await assert.rejects(
+      runMigrations("postgres://test", () => {}, {
+        directory,
+        createClient: () => client,
+      }),
+      (error) => {
+        assert.equal(error.cause, databaseError);
+        const output = migrationFailureMessage(error);
+        assert.match(output, /Applying 001-first.sql failed \(42501\)/);
+        assert.match(output, /PostgreSQL 42501: permission denied for table call/);
+        assert.match(output, /table: call/);
+        assert.ok(!output.includes("private"));
+        return true;
+      },
+    );
+    assert.equal(client.queries.at(-1).text, "ROLLBACK");
+  }));
+
+test("startup error diagnostics redact database URLs and encoded/decoded credentials", () => {
+  const url = "postgres://deploy-login:s%40cret@hidden.invalid/db";
+  const cause = Object.assign(new Error(`denied deploy-login s@cret s%40cret ${url}`), {
+    code: "42501",
+    hint: "check postgres://another:password@other.invalid/db",
+  });
+  const error = new Error("Applying migration failed (42501)", { cause });
+  const output = migrationFailureMessage(error, url);
+  for (const secret of [
+    "deploy-login",
+    "s@cret",
+    "s%40cret",
+    "hidden.invalid",
+    "password",
+    "other.invalid",
+  ])
+    assert.ok(!output.includes(secret));
+  assert.match(output, /PostgreSQL 42501: denied/);
+  assert.match(migrationFailureMessage(new Error("bad URL"), "malformed"), /bad URL/);
+});
 async function fixture(work) {
   const directory = await mkdtemp(join(tmpdir(), "untold-migration-test-"));
   const files = new Map([
