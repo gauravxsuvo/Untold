@@ -15,7 +15,7 @@ export const migrationLimits = Object.freeze({
 });
 
 export class MigrationError extends Error {
-  constructor(stage, code) {
+  constructor(stage, code, cause) {
     const hints = {
       MIGRATION_CONNECT_TIMEOUT:
         "Check the linked Postgres service and container database connectivity.",
@@ -34,6 +34,7 @@ export class MigrationError extends Error {
     };
     super(
       `${stage} failed (${code}). ${hints[code] ?? "Check the database service and migration identified above."}`,
+      cause ? { cause } : undefined,
     );
     this.name = "MigrationError";
     this.code = code;
@@ -195,8 +196,9 @@ export async function runMigrations(
       typeof error?.code === "string" && /^[A-Z0-9_]{5,40}$/.test(error.code)
         ? error.code
         : "MIGRATION_FAILED";
-    // Upstream messages can contain credentials, addresses, or SQL; never log them.
-    throw new MigrationError(stage, code);
+    // Preserve the database error for the startup reporter. The default message
+    // stays safe; the reporter selects and redacts the original diagnostics.
+    throw new MigrationError(stage, code, error);
   } finally {
     clearInterval(progress);
     await close();
